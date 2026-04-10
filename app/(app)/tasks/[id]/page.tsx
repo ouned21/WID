@@ -17,18 +17,15 @@ export default function TaskDetailPage() {
 
   const task = tasks.find((t) => t.id === id);
 
-  // Historique des completions
   const [completions, setCompletions] = useState<TaskCompletion[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // Mode edition
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editFrequency, setEditFrequency] = useState<Frequency>('weekly');
   const [editScore, setEditScore] = useState(3);
   const [editAssignedTo, setEditAssignedTo] = useState('');
 
-  // Charger l'historique
   useEffect(() => {
     if (id) {
       setLoadingHistory(true);
@@ -39,7 +36,6 @@ export default function TaskDetailPage() {
     }
   }, [id, fetchTaskDetail]);
 
-  // Pre-remplir le formulaire d'edition
   useEffect(() => {
     if (task) {
       setEditName(task.name);
@@ -52,10 +48,12 @@ export default function TaskDetailPage() {
   if (!task) {
     return (
       <div className="space-y-4">
-        <button onClick={() => router.back()} className="text-sm text-slate-500 hover:text-slate-700">
+        <button onClick={() => router.back()} className="text-sm text-indigo-600 font-medium hover:underline">
           ← Retour
         </button>
-        <p className="text-sm text-slate-500">Tâche introuvable.</p>
+        <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-12 text-center">
+          <p className="text-lg font-semibold text-slate-400">Tâche introuvable</p>
+        </div>
       </div>
     );
   }
@@ -63,7 +61,6 @@ export default function TaskDetailPage() {
   const handleComplete = async () => {
     if (completing) return;
     await completeTask(task.id);
-    // Recharger l'historique
     const data = await fetchTaskDetail(task.id);
     setCompletions(data);
   };
@@ -84,50 +81,52 @@ export default function TaskDetailPage() {
     if (result.ok) router.push('/tasks');
   };
 
+  const categoryColor = task.category?.color_hex ?? '#94a3b8';
+
   return (
     <div className="space-y-6">
-      <button onClick={() => router.back()} className="text-sm text-slate-500 hover:text-slate-700">
+      <button onClick={() => router.back()} className="text-sm text-indigo-600 font-medium hover:underline">
         ← Retour aux tâches
       </button>
 
-      {/* En-tete */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+      {/* En-tête */}
+      <div className="rounded-2xl border-l-4 bg-white p-6 shadow-sm" style={{ borderLeftColor: categoryColor }}>
         {!editing ? (
-          <>
+          <div className="space-y-4">
             <div className="flex items-start justify-between">
               <div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className="inline-block h-3 w-3 rounded-full"
-                    style={{ backgroundColor: task.category?.color_hex ?? '#94a3b8' }}
-                  />
-                  <h2 className="text-xl font-bold text-slate-900">{task.name}</h2>
-                </div>
-                <p className="mt-1 text-sm text-slate-500">{task.category?.name}</p>
+                <h2 className="text-xl font-bold text-slate-900">{task.name}</h2>
+                <span
+                  className="mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium text-white"
+                  style={{ backgroundColor: categoryColor }}
+                >
+                  {task.category?.name}
+                </span>
               </div>
-              <span className={`text-2xl font-bold ${
-                task.mental_load_score >= 7 ? 'text-red-600' :
-                task.mental_load_score >= 4 ? 'text-amber-600' :
-                'text-green-600'
+              <div className={`flex h-14 w-14 flex-col items-center justify-center rounded-full ${
+                task.mental_load_score >= 7 ? 'bg-red-100 text-red-700' :
+                task.mental_load_score >= 4 ? 'bg-amber-100 text-amber-700' :
+                'bg-emerald-100 text-emerald-700'
               }`}>
-                {task.mental_load_score}/10
-              </span>
+                <span className="text-lg font-bold leading-none">{task.mental_load_score}</span>
+                <span className="text-[9px]">/10</span>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-slate-400">Fréquence</p>
-                <p className="font-medium text-slate-900">{frequencyLabel(task.frequency)}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-slate-50 p-3">
+                <p className="text-xs text-slate-400">Fréquence</p>
+                <p className="font-semibold text-slate-900">{frequencyLabel(task.frequency)}</p>
               </div>
-              <div>
-                <p className="text-slate-400">Assignée à</p>
-                <p className="font-medium text-slate-900">{task.assignee?.display_name ?? 'Non assigné'}</p>
+              <div className="rounded-xl bg-slate-50 p-3">
+                <p className="text-xs text-slate-400">Assignée à</p>
+                <p className="font-semibold text-slate-900">{task.assignee?.display_name ?? 'Non assigné'}</p>
               </div>
               {task.next_due_at && (
-                <div>
-                  <p className="text-slate-400">Prochaine échéance</p>
-                  <p className="font-medium text-slate-900">
-                    {new Date(task.next_due_at).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
+                <div className="rounded-xl bg-slate-50 p-3 col-span-2">
+                  <p className="text-xs text-slate-400">Prochaine échéance</p>
+                  <p className="font-semibold text-slate-900">
+                    {new Date(task.next_due_at).toLocaleDateString('fr-FR', { dateStyle: 'full' })}
                   </p>
                 </div>
               )}
@@ -137,22 +136,22 @@ export default function TaskDetailPage() {
               <button
                 onClick={handleComplete}
                 disabled={completing}
-                className="flex-1 rounded-lg bg-slate-900 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                className="flex-1 rounded-xl bg-emerald-500 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-50 transition-colors"
               >
-                {completing ? 'En cours...' : 'Marquer comme fait'}
+                {completing ? 'En cours...' : '✓ Marquer comme fait'}
               </button>
               <button
                 onClick={() => setEditing(true)}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                className="rounded-xl bg-slate-100 px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
               >
                 Modifier
               </button>
             </div>
-          </>
+          </div>
         ) : (
-          /* Formulaire d'edition */
+          /* Formulaire d'édition */
           <div className="space-y-4">
-            <h3 className="font-semibold text-slate-900">Modifier la tâche</h3>
+            <h3 className="text-lg font-bold text-slate-900">Modifier la tâche</h3>
 
             <div>
               <label className="block text-sm font-medium text-slate-700">Nom</label>
@@ -160,7 +159,7 @@ export default function TaskDetailPage() {
                 type="text"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
               />
             </div>
 
@@ -169,7 +168,7 @@ export default function TaskDetailPage() {
               <select
                 value={editFrequency}
                 onChange={(e) => setEditFrequency(e.target.value as Frequency)}
-                className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
               >
                 {FREQUENCY_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -179,7 +178,7 @@ export default function TaskDetailPage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700">
-                Charge mentale : {editScore}/10
+                Charge mentale : <span className="font-bold text-indigo-600">{editScore}/10</span>
               </label>
               <input
                 type="range"
@@ -187,16 +186,16 @@ export default function TaskDetailPage() {
                 max={10}
                 value={editScore}
                 onChange={(e) => setEditScore(Number(e.target.value))}
-                className="mt-1 w-full"
+                className="mt-2 w-full accent-indigo-600"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700">Assigner a</label>
+              <label className="block text-sm font-medium text-slate-700">Assigner à</label>
               <select
                 value={editAssignedTo}
                 onChange={(e) => setEditAssignedTo(e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="">Non assigné</option>
                 {members.map((m) => (
@@ -209,13 +208,13 @@ export default function TaskDetailPage() {
               <button
                 onClick={handleSaveEdit}
                 disabled={updating}
-                className="flex-1 rounded-lg bg-slate-900 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                className="flex-1 rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
               >
                 {updating ? 'Enregistrement...' : 'Enregistrer'}
               </button>
               <button
                 onClick={() => setEditing(false)}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600"
+                className="rounded-xl bg-slate-100 px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-200"
               >
                 Annuler
               </button>
@@ -224,24 +223,29 @@ export default function TaskDetailPage() {
         )}
       </div>
 
-      {/* Historique des completions */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
+      {/* Historique des complétions */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">
           Historique
         </h3>
         {loadingHistory ? (
-          <p className="text-sm text-slate-400">Chargement...</p>
+          <div className="flex justify-center py-4">
+            <div className="h-6 w-6 animate-spin rounded-full border-3 border-indigo-200 border-t-indigo-600" />
+          </div>
         ) : completions.length === 0 ? (
-          <p className="text-sm text-slate-400">Aucune complétion enregistrée.</p>
+          <p className="text-sm text-slate-400 text-center py-4">Aucune complétion enregistrée.</p>
         ) : (
           <div className="space-y-2">
             {completions.map((c) => (
-              <div key={c.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                <span className="text-slate-700">
-                  {new Date(c.completed_at).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
-                </span>
+              <div key={c.id} className="flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-500">✓</span>
+                  <span className="font-medium text-slate-700">
+                    {new Date(c.completed_at).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
+                  </span>
+                </div>
                 {c.duration_minutes != null && (
-                  <span className="text-slate-400">{c.duration_minutes} min</span>
+                  <span className="text-xs text-slate-400">{c.duration_minutes} min</span>
                 )}
               </div>
             ))}
@@ -253,9 +257,9 @@ export default function TaskDetailPage() {
       <button
         onClick={handleArchive}
         disabled={archiving}
-        className="w-full rounded-lg border border-red-200 bg-red-50 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+        className="w-full rounded-xl border border-red-200 bg-red-50 py-3 text-sm font-semibold text-red-600 hover:bg-red-100 disabled:opacity-50 transition-colors"
       >
-        {archiving ? 'Archivage...' : 'Archiver cette tache'}
+        {archiving ? 'Archivage...' : 'Archiver cette tâche'}
       </button>
     </div>
   );

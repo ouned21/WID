@@ -15,11 +15,9 @@ export default function NewTaskPage() {
   const { createTask, creating } = useTaskStore();
   const { members } = useHouseholdStore();
 
-  // Donnees du catalogue
-  const [categories, setCatégories] = useState<TaskCategory[]>([]);
+  const [categories, setCategories] = useState<TaskCategory[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
 
-  // Formulaire
   const [mode, setMode] = useState<'catalogue' | 'libre'>('catalogue');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
@@ -31,7 +29,6 @@ export default function NewTaskPage() {
   const [dueTime, setDueTime] = useState<string>('09:00');
   const [error, setError] = useState<string | null>(null);
 
-  // Charger le catalogue
   useEffect(() => {
     async function load() {
       const supabase = createClient();
@@ -39,19 +36,17 @@ export default function NewTaskPage() {
         supabase.from('task_categories').select('*').order('sort_order'),
         supabase.from('task_templates').select('*'),
       ]);
-      if (catRes.data) setCatégories(catRes.data as TaskCategory[]);
+      if (catRes.data) setCategories(catRes.data as TaskCategory[]);
       if (tplRes.data) setTemplates(tplRes.data as TaskTemplate[]);
     }
     load();
   }, []);
 
-  // Templates filtrees par categorie selectionnee
   const filteredTemplates = useMemo(() => {
     if (!selectedCategoryId) return [];
     return templates.filter((t) => t.category_id === selectedCategoryId);
   }, [templates, selectedCategoryId]);
 
-  // Quand on selectionne un template, pre-remplir le formulaire
   const handleSelectTemplate = (tpl: TaskTemplate) => {
     setSelectedTemplateId(tpl.id);
     setName(tpl.name);
@@ -65,12 +60,11 @@ export default function NewTaskPage() {
 
     if (!profile?.household_id) return;
     if (!name.trim()) { setError('Le nom est obligatoire.'); return; }
-    if (!selectedCategoryId && mode === 'catalogue') { setError('Choisissez une categorie.'); return; }
+    if (!selectedCategoryId && mode === 'catalogue') { setError('Choisissez une catégorie.'); return; }
 
     const categoryId = selectedCategoryId || (categories[0]?.id ?? '');
-    if (!categoryId) { setError('Aucune categorie disponible.'); return; }
+    if (!categoryId) { setError('Aucune catégorie disponible.'); return; }
 
-    // Construire la date d'echeance si renseignee
     let nextDueAt: string | null = null;
     if (dueDate) {
       const dateTime = dueTime ? `${dueDate}T${dueTime}:00` : `${dueDate}T09:00:00`;
@@ -100,50 +94,50 @@ export default function NewTaskPage() {
         <h2 className="text-2xl font-bold text-slate-900">Nouvelle tâche</h2>
         <button
           onClick={() => router.back()}
-          className="text-sm text-slate-500 hover:text-slate-700"
+          className="text-sm text-indigo-600 font-medium hover:underline"
         >
           Annuler
         </button>
       </div>
 
       {/* Toggle catalogue / libre */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 rounded-xl bg-slate-100 p-1">
         <button
           onClick={() => setMode('catalogue')}
-          className={`flex-1 rounded-lg py-2 text-sm font-medium ${
-            mode === 'catalogue' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+          className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${
+            mode === 'catalogue' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'
           }`}
         >
           Depuis le catalogue
         </button>
         <button
           onClick={() => setMode('libre')}
-          className={`flex-1 rounded-lg py-2 text-sm font-medium ${
-            mode === 'libre' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+          className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${
+            mode === 'libre' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'
           }`}
         >
-          Tache libre
+          Tâche libre
         </button>
       </div>
 
       {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Selection categorie */}
+        {/* Sélection catégorie */}
         <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700">Catégorie</label>
+          <label className="mb-2 block text-sm font-semibold text-slate-700">Catégorie</label>
           <div className="flex flex-wrap gap-2">
             {categories.map((cat) => (
               <button
                 key={cat.id}
                 type="button"
                 onClick={() => { setSelectedCategoryId(cat.id); setSelectedTemplateId(''); }}
-                className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
                   selectedCategoryId === cat.id
-                    ? 'text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'text-white shadow-sm'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
                 }`}
                 style={selectedCategoryId === cat.id ? { backgroundColor: cat.color_hex } : {}}
               >
@@ -156,7 +150,7 @@ export default function NewTaskPage() {
         {/* Catalogue de templates */}
         {mode === 'catalogue' && selectedCategoryId && filteredTemplates.length > 0 && (
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
+            <label className="mb-2 block text-sm font-semibold text-slate-700">
               Choisir une tâche
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -165,13 +159,13 @@ export default function NewTaskPage() {
                   key={tpl.id}
                   type="button"
                   onClick={() => handleSelectTemplate(tpl)}
-                  className={`rounded-lg border p-3 text-left text-sm transition-colors ${
+                  className={`rounded-xl border-2 p-3 text-left text-sm transition-all ${
                     selectedTemplateId === tpl.id
-                      ? 'border-slate-900 bg-slate-50 font-medium'
-                      : 'border-slate-200 hover:border-slate-300'
+                      ? 'border-indigo-500 bg-indigo-50'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
                   }`}
                 >
-                  <p className="font-medium text-slate-900">{tpl.name}</p>
+                  <p className="font-semibold text-slate-900">{tpl.name}</p>
                   <p className="mt-0.5 text-xs text-slate-400">
                     Charge : {tpl.default_mental_load_score}/10
                   </p>
@@ -183,7 +177,7 @@ export default function NewTaskPage() {
 
         {/* Nom de la tâche */}
         <div>
-          <label htmlFor="taskName" className="block text-sm font-medium text-slate-700">
+          <label htmlFor="taskName" className="block text-sm font-semibold text-slate-700">
             Nom de la tâche
           </label>
           <input
@@ -193,21 +187,21 @@ export default function NewTaskPage() {
             maxLength={100}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
-            placeholder={mode === 'catalogue' ? 'Sélectionnez un modèle ci-dessus' : 'Ex: Nettoyer le frigo'}
+            className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            placeholder={mode === 'catalogue' ? 'Sélectionnez un modèle ci-dessus' : 'Ex : Nettoyer le frigo'}
           />
         </div>
 
         {/* Fréquence */}
         <div>
-          <label htmlFor="frequency" className="block text-sm font-medium text-slate-700">
+          <label htmlFor="frequency" className="block text-sm font-semibold text-slate-700">
             Fréquence
           </label>
           <select
             id="frequency"
             value={frequency}
             onChange={(e) => setFrequency(e.target.value as Frequency)}
-            className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+            className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
           >
             {FREQUENCY_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -217,8 +211,12 @@ export default function NewTaskPage() {
 
         {/* Charge mentale (0-10) */}
         <div>
-          <label className="block text-sm font-medium text-slate-700">
-            Charge mentale : {mentalLoadScore}/10
+          <label className="block text-sm font-semibold text-slate-700">
+            Charge mentale : <span className={`font-bold ${
+              mentalLoadScore >= 7 ? 'text-red-600' :
+              mentalLoadScore >= 4 ? 'text-amber-600' :
+              'text-emerald-600'
+            }`}>{mentalLoadScore}/10</span>
           </label>
           <input
             type="range"
@@ -227,18 +225,18 @@ export default function NewTaskPage() {
             step={1}
             value={mentalLoadScore}
             onChange={(e) => setMentalLoadScore(Number(e.target.value))}
-            className="mt-2 w-full"
+            className="mt-2 w-full accent-indigo-600"
           />
-          <div className="flex justify-between text-xs text-slate-400">
+          <div className="flex justify-between text-xs text-slate-400 mt-1">
             <span>0 — Négligeable</span>
             <span>10 — Très lourde</span>
           </div>
         </div>
 
-        {/* Date et heure de planification */}
+        {/* Date et heure */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="dueDate" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="dueDate" className="block text-sm font-semibold text-slate-700">
               Date prévue
             </label>
             <input
@@ -246,11 +244,11 @@ export default function NewTaskPage() {
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             />
           </div>
           <div>
-            <label htmlFor="dueTime" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="dueTime" className="block text-sm font-semibold text-slate-700">
               Heure
             </label>
             <input
@@ -258,21 +256,21 @@ export default function NewTaskPage() {
               type="time"
               value={dueTime}
               onChange={(e) => setDueTime(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             />
           </div>
         </div>
 
         {/* Assignation */}
         <div>
-          <label htmlFor="assignedTo" className="block text-sm font-medium text-slate-700">
-            Assigner a
+          <label htmlFor="assignedTo" className="block text-sm font-semibold text-slate-700">
+            Assigner à
           </label>
           <select
             id="assignedTo"
             value={assignedTo}
             onChange={(e) => setAssignedTo(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+            className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
           >
             <option value="">Non assigné</option>
             {members.map((m) => (
@@ -281,11 +279,11 @@ export default function NewTaskPage() {
           </select>
         </div>
 
-        {/* Bouton creer */}
+        {/* Bouton créer */}
         <button
           type="submit"
           disabled={creating}
-          className="w-full rounded-lg bg-slate-900 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+          className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
         >
           {creating ? 'Création...' : 'Créer la tâche'}
         </button>
