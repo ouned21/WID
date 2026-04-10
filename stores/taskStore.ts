@@ -180,44 +180,68 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     set({ completing: true, error: null });
     const supabase = createClient();
     const userId = useAuthStore.getState().user?.id;
-    if (!userId) { set({ completing: false }); return { ok: false, error: 'Non authentifie.' }; }
+
+    console.log('[completeTask] userId:', userId);
+    if (!userId) {
+      console.error('[completeTask] ERREUR: pas de userId');
+      set({ completing: false });
+      return { ok: false, error: 'Non authentifié.' };
+    }
 
     const task = get().tasks.find((t) => t.id === taskId);
-    if (!task) { set({ completing: false }); return { ok: false, error: 'Tache introuvable.' }; }
+    console.log('[completeTask] task trouvée:', !!task, 'taskId:', taskId);
+    if (!task) { set({ completing: false }); return { ok: false, error: 'Tâche introuvable.' }; }
+
+    // Vérifier la session Supabase
+    const { data: sessionData } = await supabase.auth.getSession();
+    console.log('[completeTask] session active:', !!sessionData.session);
 
     const now = new Date();
 
-    // 1. Inserer la completion
-    const { error: completionError } = await supabase.from('task_completions').insert({
+    // 1. Insérer la complétion
+    const insertPayload = {
       task_id: taskId,
       completed_by: userId,
       completed_at: now.toISOString(),
       mental_load_score: payload.mental_load_score ?? task.mental_load_score,
       duration_minutes: payload.duration_minutes ?? null,
       note: payload.note ?? null,
-    });
+    };
+    console.log('[completeTask] insert payload:', insertPayload);
+
+    const { data: insertData, error: completionError } = await supabase
+      .from('task_completions')
+      .insert(insertPayload)
+      .select();
+
+    console.log('[completeTask] insert result:', { data: insertData, error: completionError });
 
     if (completionError) {
+      console.error('[completeTask] ERREUR insert:', completionError);
       set({ completing: false, error: completionError.message });
       return { ok: false, error: completionError.message };
     }
 
-    // 2. Calculer et mettre a jour la prochaine echeance
+    // 2. Calculer et mettre à jour la prochaine échéance
     const nextDueAt = computeNextDueAt(task.frequency, now);
+    console.log('[completeTask] nextDueAt:', nextDueAt?.toISOString());
+
     const { error: updateError } = await supabase
       .from('household_tasks')
       .update({ next_due_at: nextDueAt?.toISOString() ?? null })
       .eq('id', taskId);
 
     if (updateError) {
-      console.error('[taskStore] Erreur update next_due_at:', updateError.message, updateError);
-      // Fallback : meme si l'update echoue, la completion est enregistree
+      console.error('[completeTask] ERREUR update next_due_at:', updateError);
+    } else {
+      console.log('[completeTask] next_due_at mis à jour avec succès');
     }
 
     set({ completing: false });
 
     // 3. Recharger
     await get().fetchTasks(task.household_id);
+    console.log('[completeTask] terminé avec succès');
     return { ok: true };
   },
 
