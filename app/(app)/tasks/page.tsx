@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
@@ -43,8 +43,25 @@ function TaskCard({
   task: TaskListItem;
   onComplete: (id: string) => void;
 }) {
+  const [justCompleted, setJustCompleted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleClick = useCallback(async () => {
+    if (isLoading || justCompleted) return;
+    setIsLoading(true);
+    await onComplete(task.id);
+    setIsLoading(false);
+    setJustCompleted(true);
+    // Le feedback reste visible 2 secondes avant que la liste se recharge
+    setTimeout(() => setJustCompleted(false), 2000);
+  }, [task.id, onComplete, isLoading, justCompleted]);
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className={`rounded-xl border p-4 shadow-sm transition-all duration-300 ${
+      justCompleted
+        ? 'border-green-300 bg-green-50'
+        : 'border-slate-200 bg-white'
+    }`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
           <div className="flex items-center gap-2">
@@ -69,6 +86,12 @@ function TaskCard({
                 <span>{task.assignee.display_name}</span>
               </>
             )}
+            {task.next_due_at && (
+              <>
+                <span>·</span>
+                <span>{new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
+              </>
+            )}
           </div>
         </div>
 
@@ -87,12 +110,19 @@ function TaskCard({
 
       {/* Action rapide : completer */}
       <div className="mt-3 flex gap-2">
-        <button
-          onClick={() => onComplete(task.id)}
-          className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
-        >
-          Fait
-        </button>
+        {justCompleted ? (
+          <span className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white">
+            Fait ! Prochaine echeance reprogrammee
+          </span>
+        ) : (
+          <button
+            onClick={handleClick}
+            disabled={isLoading}
+            className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+          >
+            {isLoading ? 'En cours...' : 'Fait'}
+          </button>
+        )}
         <Link
           href={`/tasks/${task.id}`}
           className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"

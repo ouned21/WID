@@ -27,6 +27,8 @@ export default function NewTaskPage() {
   const [frequency, setFrequency] = useState<Frequency>('weekly');
   const [mentalLoadScore, setMentalLoadScore] = useState(3);
   const [assignedTo, setAssignedTo] = useState<string>('');
+  const [dueDate, setDueDate] = useState<string>('');
+  const [dueTime, setDueTime] = useState<string>('09:00');
   const [error, setError] = useState<string | null>(null);
 
   // Charger le catalogue
@@ -68,6 +70,13 @@ export default function NewTaskPage() {
     const categoryId = selectedCategoryId || (categories[0]?.id ?? '');
     if (!categoryId) { setError('Aucune categorie disponible.'); return; }
 
+    // Construire la date d'echeance si renseignee
+    let nextDueAt: string | null = null;
+    if (dueDate) {
+      const dateTime = dueTime ? `${dueDate}T${dueTime}:00` : `${dueDate}T09:00:00`;
+      nextDueAt = new Date(dateTime).toISOString();
+    }
+
     const result = await createTask(profile.household_id, {
       name: name.trim(),
       category_id: categoryId,
@@ -75,6 +84,7 @@ export default function NewTaskPage() {
       mental_load_score: mentalLoadScore,
       assigned_to: assignedTo || null,
       template_id: selectedTemplateId || null,
+      next_due_at: nextDueAt,
     });
 
     if (result.ok) {
@@ -222,6 +232,34 @@ export default function NewTaskPage() {
           <div className="flex justify-between text-xs text-slate-400">
             <span>0 — Negligeable</span>
             <span>10 — Tres lourde</span>
+          </div>
+        </div>
+
+        {/* Date et heure de planification */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="dueDate" className="block text-sm font-medium text-slate-700">
+              Date prevue
+            </label>
+            <input
+              id="dueDate"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+            />
+          </div>
+          <div>
+            <label htmlFor="dueTime" className="block text-sm font-medium text-slate-700">
+              Heure
+            </label>
+            <input
+              id="dueTime"
+              type="time"
+              value={dueTime}
+              onChange={(e) => setDueTime(e.target.value)}
+              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+            />
           </div>
         </div>
 
