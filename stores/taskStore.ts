@@ -201,6 +201,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     // 1. Insérer la complétion
     const insertPayload = {
       task_id: taskId,
+      household_id: task.household_id,
       completed_by: userId,
       completed_at: now.toISOString(),
       mental_load_score: payload.mental_load_score ?? task.mental_load_score,
