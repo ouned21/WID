@@ -42,32 +42,27 @@ function FilterChip({
 function TaskCard({
   task,
   onComplete,
+  isCompleted,
 }: {
   task: TaskListItem;
   onComplete: (id: string) => Promise<void>;
+  isCompleted: boolean;
 }) {
-  const [justCompleted, setJustCompleted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [hidden, setHidden] = useState(false);
 
   const handleClick = useCallback(async () => {
-    if (isLoading || justCompleted) return;
+    if (isLoading || isCompleted) return;
     setIsLoading(true);
     await onComplete(task.id);
     setIsLoading(false);
-    setJustCompleted(true);
-    // Afficher le feedback 1.2s puis faire disparaitre la carte
-    setTimeout(() => setHidden(true), 1200);
-  }, [task.id, onComplete, isLoading, justCompleted]);
+  }, [task.id, onComplete, isLoading, isCompleted]);
 
   const categoryColor = task.category?.color_hex ?? '#94a3b8';
 
-  if (hidden) return null;
+  if (isCompleted) return null;
 
   return (
-    <div className={`rounded-2xl border-l-4 bg-white p-4 shadow-sm transition-all duration-500 ${
-      justCompleted ? 'opacity-0 scale-95 -translate-x-4' : 'hover:shadow-md'
-    }`}
+    <div className="rounded-2xl border-l-4 bg-white p-4 shadow-sm hover:shadow-md transition-all duration-300"
     style={{ borderLeftColor: categoryColor }}
     >
       <div className="flex items-start justify-between gap-3">
@@ -111,19 +106,13 @@ function TaskCard({
 
       {/* Actions */}
       <div className="mt-3 flex gap-2">
-        {justCompleted ? (
-          <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white">
-            ✓ Fait ! Prochaine échéance reprogrammée
-          </span>
-        ) : (
-          <button
-            onClick={handleClick}
-            disabled={isLoading}
-            className="rounded-lg bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50 transition-colors"
-          >
-            {isLoading ? '...' : '✓ Fait'}
-          </button>
-        )}
+        <button
+          onClick={handleClick}
+          disabled={isLoading}
+          className="rounded-lg bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+        >
+          {isLoading ? 'Validation...' : '✓ Fait'}
+        </button>
         <Link
           href={`/tasks/${task.id}`}
           className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200 transition-colors"
@@ -148,20 +137,20 @@ const SECTION_STYLES: Record<string, { accent: string; bg: string; dot: string }
 function TaskSection({
   title,
   tasks,
-  emptyText,
   onComplete,
+  completedIds,
 }: {
   title: string;
   tasks: TaskListItem[];
-  emptyText: string;
   onComplete: (id: string) => Promise<void>;
+  completedIds: Set<string>;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const style = SECTION_STYLES[title] ?? SECTION_STYLES['Plus tard'];
 
-  if (tasks.length === 0) {
-    return null; // Masquer les sections vides
-  }
+  // Ne pas compter les tâches déjà complétées dans le total affiché
+  const visibleCount = tasks.filter((t) => !completedIds.has(t.id)).length;
+  if (visibleCount === 0) return null;
 
   return (
     <section>
@@ -174,7 +163,7 @@ function TaskSection({
           {title}
         </span>
         <span className={`rounded-full ${style.bg} px-2 py-0.5 text-xs font-bold ${style.accent}`}>
-          {tasks.length}
+          {visibleCount}
         </span>
         <span className={`ml-auto text-xs ${style.accent} transition-transform ${collapsed ? '' : 'rotate-90'}`}>
           ›
@@ -183,7 +172,7 @@ function TaskSection({
       {!collapsed && (
         <div className="space-y-3 pl-1">
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} onComplete={onComplete} />
+            <TaskCard key={task.id} task={task} onComplete={onComplete} isCompleted={completedIds.has(task.id)} />
           ))}
         </div>
       )}
@@ -218,9 +207,12 @@ export default function TasksPage() {
     return splitTasksIntoSections(filtered);
   }, [tasks, filters, profile?.id]);
 
-  const totalTasks = tasks.length;
+  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+  const totalTasks = tasks.filter((t) => !completedIds.has(t.id)).length;
 
   const handleComplete = useCallback(async (taskId: string) => {
+    // Marquer comme complété immédiatement (disparition instantanée)
+    setCompletedIds((prev) => new Set(prev).add(taskId));
     await completeTask(taskId);
   }, [completeTask]);
 
@@ -295,11 +287,11 @@ export default function TasksPage() {
         </div>
       ) : (
         <div className="space-y-5">
-          <TaskSection title="En retard" tasks={sections.overdue} emptyText="" onComplete={handleComplete} />
-          <TaskSection title="Aujourd'hui" tasks={sections.today} emptyText="" onComplete={handleComplete} />
-          <TaskSection title="Demain" tasks={sections.tomorrow} emptyText="" onComplete={handleComplete} />
-          <TaskSection title="Cette semaine" tasks={sections.week} emptyText="" onComplete={handleComplete} />
-          <TaskSection title="Plus tard" tasks={sections.later} emptyText="" onComplete={handleComplete} />
+          <TaskSection title="En retard" tasks={sections.overdue} onComplete={handleComplete} completedIds={completedIds} />
+          <TaskSection title="Aujourd'hui" tasks={sections.today} onComplete={handleComplete} completedIds={completedIds} />
+          <TaskSection title="Demain" tasks={sections.tomorrow} onComplete={handleComplete} completedIds={completedIds} />
+          <TaskSection title="Cette semaine" tasks={sections.week} onComplete={handleComplete} completedIds={completedIds} />
+          <TaskSection title="Plus tard" tasks={sections.later} onComplete={handleComplete} completedIds={completedIds} />
         </div>
       )}
     </div>
