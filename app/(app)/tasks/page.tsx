@@ -48,6 +48,7 @@ function TaskCard({
 }) {
   const [justCompleted, setJustCompleted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [hidden, setHidden] = useState(false);
 
   const handleClick = useCallback(async () => {
     if (isLoading || justCompleted) return;
@@ -55,14 +56,17 @@ function TaskCard({
     await onComplete(task.id);
     setIsLoading(false);
     setJustCompleted(true);
-    setTimeout(() => setJustCompleted(false), 2500);
+    // Afficher le feedback 1.2s puis faire disparaitre la carte
+    setTimeout(() => setHidden(true), 1200);
   }, [task.id, onComplete, isLoading, justCompleted]);
 
   const categoryColor = task.category?.color_hex ?? '#94a3b8';
 
+  if (hidden) return null;
+
   return (
-    <div className={`rounded-2xl border-l-4 bg-white p-4 shadow-sm transition-all duration-300 ${
-      justCompleted ? 'opacity-50 scale-[0.98]' : 'hover:shadow-md'
+    <div className={`rounded-2xl border-l-4 bg-white p-4 shadow-sm transition-all duration-500 ${
+      justCompleted ? 'opacity-0 scale-95 -translate-x-4' : 'hover:shadow-md'
     }`}
     style={{ borderLeftColor: categoryColor }}
     >
