@@ -48,22 +48,23 @@ function TaskCard({
   onComplete: (id: string) => Promise<void>;
   isCompleted: boolean;
 }) {
-  const [isLoading, setIsLoading] = useState(false);
+  const [clicked, setClicked] = useState(false);
 
   const handleClick = useCallback(async () => {
-    if (isLoading || isCompleted) return;
-    setIsLoading(true);
-    await onComplete(task.id);
-    setIsLoading(false);
-  }, [task.id, onComplete, isLoading, isCompleted]);
+    if (clicked || isCompleted) return;
+    setClicked(true);
+    onComplete(task.id);
+  }, [task.id, onComplete, clicked, isCompleted]);
 
   const categoryColor = task.category?.color_hex ?? '#94a3b8';
 
   if (isCompleted) return null;
 
   return (
-    <div className="rounded-2xl border-l-4 bg-white p-4 shadow-sm hover:shadow-md transition-all duration-300"
-    style={{ borderLeftColor: categoryColor }}
+    <div className={`rounded-2xl border-l-4 p-4 shadow-sm transition-all duration-500 ${
+      clicked ? 'bg-emerald-50 border-emerald-400 scale-[0.98]' : 'bg-white hover:shadow-md'
+    }`}
+    style={!clicked ? { borderLeftColor: categoryColor } : undefined}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -106,13 +107,18 @@ function TaskCard({
 
       {/* Actions */}
       <div className="mt-3 flex gap-2">
-        <button
-          onClick={handleClick}
-          disabled={isLoading}
-          className="rounded-lg bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50 transition-colors"
-        >
-          {isLoading ? 'Validation...' : '✓ Fait'}
-        </button>
+        {clicked ? (
+          <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white">
+            ✓ Validé !
+          </span>
+        ) : (
+          <button
+            onClick={handleClick}
+            className="rounded-lg bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 transition-colors"
+          >
+            ✓ Fait
+          </button>
+        )}
         <Link
           href={`/tasks/${task.id}`}
           className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200 transition-colors"
@@ -211,9 +217,12 @@ export default function TasksPage() {
   const totalTasks = tasks.filter((t) => !completedIds.has(t.id)).length;
 
   const handleComplete = useCallback(async (taskId: string) => {
-    // Marquer comme complété immédiatement (disparition instantanée)
-    setCompletedIds((prev) => new Set(prev).add(taskId));
-    await completeTask(taskId);
+    // Lancer la complétion en arrière-plan
+    completeTask(taskId);
+    // Attendre 1.5s pour que l'utilisateur voie le feedback, puis masquer
+    setTimeout(() => {
+      setCompletedIds((prev) => new Set(prev).add(taskId));
+    }, 1500);
   }, [completeTask]);
 
   return (
