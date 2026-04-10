@@ -287,14 +287,33 @@ export default function TasksPage() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
         </div>
       ) : totalTasks === 0 ? (
-        <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-12 text-center">
-          <p className="text-lg font-semibold text-slate-400">Aucune tâche</p>
-          <p className="mt-1 text-sm text-slate-400">Créez votre première tâche pour commencer</p>
+        <div className="rounded-2xl bg-white p-8 shadow-sm border border-slate-100 text-center space-y-5">
+          <div className="text-5xl">🏠</div>
+          <div>
+            <h3 className="text-xl font-bold text-slate-900">Bienvenue dans votre foyer !</h3>
+            <p className="mt-2 text-sm text-slate-500 max-w-sm mx-auto">
+              Commencez par ajouter vos premières tâches. Vous pouvez choisir depuis notre catalogue ou en créer des personnalisées.
+            </p>
+          </div>
+          <div className="space-y-3 max-w-xs mx-auto text-left">
+            <div className="flex items-start gap-3 rounded-xl bg-indigo-50 p-3">
+              <span className="text-indigo-500 font-bold">1</span>
+              <p className="text-sm text-slate-700">Créez vos tâches récurrentes (ménage, courses, linge...)</p>
+            </div>
+            <div className="flex items-start gap-3 rounded-xl bg-violet-50 p-3">
+              <span className="text-violet-500 font-bold">2</span>
+              <p className="text-sm text-slate-700">Assignez-les aux membres du foyer</p>
+            </div>
+            <div className="flex items-start gap-3 rounded-xl bg-emerald-50 p-3">
+              <span className="text-emerald-500 font-bold">3</span>
+              <p className="text-sm text-slate-700">Marquez-les comme faites et suivez la répartition</p>
+            </div>
+          </div>
           <Link
             href="/tasks/new"
-            className="mt-4 inline-block rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+            className="inline-block rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-8 py-3 text-sm font-semibold text-white hover:from-indigo-700 hover:to-violet-700 shadow-sm transition-all"
           >
-            + Créer une tâche
+            + Créer ma première tâche
           </Link>
         </div>
       ) : (
