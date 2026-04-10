@@ -16,7 +16,7 @@ export default function NewTaskPage() {
   const { members } = useHouseholdStore();
 
   // Donnees du catalogue
-  const [categories, setCategories] = useState<TaskCategory[]>([]);
+  const [categories, setCatégories] = useState<TaskCategory[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
 
   // Formulaire
@@ -39,7 +39,7 @@ export default function NewTaskPage() {
         supabase.from('task_categories').select('*').order('sort_order'),
         supabase.from('task_templates').select('*'),
       ]);
-      if (catRes.data) setCategories(catRes.data as TaskCategory[]);
+      if (catRes.data) setCatégories(catRes.data as TaskCategory[]);
       if (tplRes.data) setTemplates(tplRes.data as TaskTemplate[]);
     }
     load();
@@ -97,7 +97,7 @@ export default function NewTaskPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-900">Nouvelle tache</h2>
+        <h2 className="text-2xl font-bold text-slate-900">Nouvelle tâche</h2>
         <button
           onClick={() => router.back()}
           className="text-sm text-slate-500 hover:text-slate-700"
@@ -133,7 +133,7 @@ export default function NewTaskPage() {
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Selection categorie */}
         <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700">Categorie</label>
+          <label className="mb-2 block text-sm font-medium text-slate-700">Catégorie</label>
           <div className="flex flex-wrap gap-2">
             {categories.map((cat) => (
               <button
@@ -157,7 +157,7 @@ export default function NewTaskPage() {
         {mode === 'catalogue' && selectedCategoryId && filteredTemplates.length > 0 && (
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">
-              Choisir une tache
+              Choisir une tâche
             </label>
             <div className="grid grid-cols-2 gap-2">
               {filteredTemplates.map((tpl) => (
@@ -181,10 +181,10 @@ export default function NewTaskPage() {
           </div>
         )}
 
-        {/* Nom de la tache */}
+        {/* Nom de la tâche */}
         <div>
           <label htmlFor="taskName" className="block text-sm font-medium text-slate-700">
-            Nom de la tache
+            Nom de la tâche
           </label>
           <input
             id="taskName"
@@ -194,14 +194,14 @@ export default function NewTaskPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
-            placeholder={mode === 'catalogue' ? 'Selectionne un template ci-dessus' : 'Ex: Nettoyer le frigo'}
+            placeholder={mode === 'catalogue' ? 'Sélectionnez un modèle ci-dessus' : 'Ex: Nettoyer le frigo'}
           />
         </div>
 
-        {/* Frequence */}
+        {/* Fréquence */}
         <div>
           <label htmlFor="frequency" className="block text-sm font-medium text-slate-700">
-            Frequence
+            Fréquence
           </label>
           <select
             id="frequency"
@@ -230,8 +230,8 @@ export default function NewTaskPage() {
             className="mt-2 w-full"
           />
           <div className="flex justify-between text-xs text-slate-400">
-            <span>0 — Negligeable</span>
-            <span>10 — Tres lourde</span>
+            <span>0 — Négligeable</span>
+            <span>10 — Très lourde</span>
           </div>
         </div>
 
@@ -239,7 +239,7 @@ export default function NewTaskPage() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label htmlFor="dueDate" className="block text-sm font-medium text-slate-700">
-              Date prevue
+              Date prévue
             </label>
             <input
               id="dueDate"
@@ -274,7 +274,7 @@ export default function NewTaskPage() {
             onChange={(e) => setAssignedTo(e.target.value)}
             className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
           >
-            <option value="">Non assigne</option>
+            <option value="">Non assigné</option>
             {members.map((m) => (
               <option key={m.id} value={m.id}>{m.display_name}</option>
             ))}
@@ -287,7 +287,7 @@ export default function NewTaskPage() {
           disabled={creating}
           className="w-full rounded-lg bg-slate-900 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
         >
-          {creating ? 'Creation...' : 'Creer la tache'}
+          {creating ? 'Création...' : 'Créer la tâche'}
         </button>
       </form>
     </div>

@@ -77,7 +77,7 @@ export default function ProfilePage() {
         onClick={handleSignOut}
         className="w-full rounded-lg border border-red-200 bg-red-50 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100"
       >
-        Se deconnecter
+        Se déconnecter
       </button>
     </div>
   );

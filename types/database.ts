@@ -96,11 +96,12 @@ export type TaskListItem = HouseholdTask & {
   }) | null;
 };
 
-/** Sections de taches pour l'ecran principal */
+/** Sections de tâches pour l'écran principal */
 export type TaskSections = {
   overdue: TaskListItem[];
   today: TaskListItem[];
-  upcoming: TaskListItem[];
+  tomorrow: TaskListItem[];
+  week: TaskListItem[];
   later: TaskListItem[];
 };
 

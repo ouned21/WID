@@ -80,7 +80,7 @@ export default function LoginPage() {
       <p className="text-center text-sm text-slate-500">
         Pas encore de compte ?{' '}
         <a href="/register" className="font-medium text-slate-900 hover:underline">
-          Creer un compte
+          Créer un compte
         </a>
       </p>
     </>

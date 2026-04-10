@@ -34,14 +34,14 @@ function FilterChip({
   );
 }
 
-// -- Composant carte de tache --------------------------------------------------
+// -- Composant carte de tâche --------------------------------------------------
 
 function TaskCard({
   task,
   onComplete,
 }: {
   task: TaskListItem;
-  onComplete: (id: string) => void;
+  onComplete: (id: string) => Promise<void>;
 }) {
   const [justCompleted, setJustCompleted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,14 +52,13 @@ function TaskCard({
     await onComplete(task.id);
     setIsLoading(false);
     setJustCompleted(true);
-    // Le feedback reste visible 2 secondes avant que la liste se recharge
-    setTimeout(() => setJustCompleted(false), 2000);
+    setTimeout(() => setJustCompleted(false), 2500);
   }, [task.id, onComplete, isLoading, justCompleted]);
 
   return (
     <div className={`rounded-xl border p-4 shadow-sm transition-all duration-300 ${
       justCompleted
-        ? 'border-green-300 bg-green-50'
+        ? 'border-green-300 bg-green-50 opacity-60'
         : 'border-slate-200 bg-white'
     }`}>
       <div className="flex items-start justify-between gap-3">
@@ -108,11 +107,11 @@ function TaskCard({
         </div>
       </div>
 
-      {/* Action rapide : completer */}
+      {/* Actions */}
       <div className="mt-3 flex gap-2">
         {justCompleted ? (
           <span className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white">
-            Fait ! Prochaine echeance reprogrammee
+            Fait ! Prochaine échéance reprogrammée
           </span>
         ) : (
           <button
@@ -127,26 +126,32 @@ function TaskCard({
           href={`/tasks/${task.id}`}
           className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
         >
-          Detail
+          Modifier
         </Link>
       </div>
     </div>
   );
 }
 
-// -- Composant section de taches -----------------------------------------------
+// -- Composant section de tâches -----------------------------------------------
 
 function TaskSection({
   title,
   tasks,
   emptyText,
   onComplete,
+  defaultCollapsed = false,
 }: {
   title: string;
   tasks: TaskListItem[];
   emptyText: string;
-  onComplete: (id: string) => void;
+  onComplete: (id: string) => Promise<void>;
+  defaultCollapsed?: boolean;
 }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+  if (tasks.length === 0 && defaultCollapsed) return null;
+
   if (tasks.length === 0) {
     return (
       <section>
@@ -162,14 +167,20 @@ function TaskSection({
 
   return (
     <section>
-      <h3 className="mb-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="mb-2 flex w-full items-center gap-2 text-sm font-semibold text-slate-500 uppercase tracking-wide hover:text-slate-700"
+      >
+        <span className={`transition-transform ${collapsed ? '' : 'rotate-90'}`}>›</span>
         {title} ({tasks.length})
-      </h3>
-      <div className="space-y-3">
-        {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} onComplete={onComplete} />
-        ))}
-      </div>
+      </button>
+      {!collapsed && (
+        <div className="space-y-3">
+          {tasks.map((task) => (
+            <TaskCard key={task.id} task={task} onComplete={onComplete} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -178,17 +189,16 @@ function TaskSection({
 
 export default function TasksPage() {
   const { profile } = useAuthStore();
-  const { tasks, filters, loading, completing, fetchTasks, completeTask, setFilters } = useTaskStore();
-  const { members } = useHouseholdStore();
+  const { tasks, filters, loading, fetchTasks, completeTask, setFilters } = useTaskStore();
 
-  // Charger les taches au montage
+  // Charger les tâches au montage
   useEffect(() => {
     if (profile?.household_id) {
       fetchTasks(profile.household_id);
     }
   }, [profile?.household_id, fetchTasks]);
 
-  // Extraire les categories uniques des taches chargees
+  // Extraire les catégories uniques des tâches chargées
   const categories = useMemo(() => {
     const map = new Map<string, TaskCategory>();
     for (const task of tasks) {
@@ -199,21 +209,25 @@ export default function TasksPage() {
     return Array.from(map.values()).sort((a, b) => a.sort_order - b.sort_order);
   }, [tasks]);
 
-  // Filtrer et decouper en sections
+  // Filtrer et découper en sections
   const sections = useMemo(() => {
     const filtered = filterTasks(tasks, filters, profile?.id ?? '');
     return splitTasksIntoSections(filtered);
   }, [tasks, filters, profile?.id]);
 
-  const handleComplete = async (taskId: string) => {
-    if (completing) return;
+  // Nombre de tâches effectuées récemment (dernière completion existe)
+  const recentlyCompleted = useMemo(() => {
+    return tasks.filter((t) => t.last_completion != null);
+  }, [tasks]);
+
+  const handleComplete = useCallback(async (taskId: string) => {
     await completeTask(taskId);
-  };
+  }, [completeTask]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-900">Taches</h2>
+        <h2 className="text-2xl font-bold text-slate-900">Tâches</h2>
         <Link
           href="/tasks/new"
           className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
@@ -222,7 +236,7 @@ export default function TasksPage() {
         </Link>
       </div>
 
-      {/* Filtres categories */}
+      {/* Filtres catégories */}
       <div className="flex flex-wrap gap-2">
         <FilterChip
           label="Toutes"
@@ -247,7 +261,7 @@ export default function TasksPage() {
           onClick={() => setFilters({ assignment: 'all' })}
         />
         <FilterChip
-          label="Mes taches"
+          label="Mes tâches"
           active={filters.assignment === 'mine'}
           onClick={() => setFilters({ assignment: 'mine' })}
         />
@@ -258,10 +272,11 @@ export default function TasksPage() {
         <p className="text-sm text-slate-500">Chargement...</p>
       ) : (
         <div className="space-y-6">
-          <TaskSection title="En retard" tasks={sections.overdue} emptyText="Aucune tache en retard." onComplete={handleComplete} />
-          <TaskSection title="Aujourd'hui" tasks={sections.today} emptyText="Aucune tache prevue aujourd'hui." onComplete={handleComplete} />
-          <TaskSection title="Cette semaine" tasks={sections.upcoming} emptyText="Rien de prevu cette semaine." onComplete={handleComplete} />
-          <TaskSection title="Plus tard" tasks={sections.later} emptyText="Aucune tache planifiee." onComplete={handleComplete} />
+          <TaskSection title="En retard" tasks={sections.overdue} emptyText="Aucune tâche en retard." onComplete={handleComplete} />
+          <TaskSection title="Aujourd'hui" tasks={sections.today} emptyText="Aucune tâche prévue aujourd'hui." onComplete={handleComplete} />
+          <TaskSection title="Demain" tasks={sections.tomorrow} emptyText="Rien de prévu demain." onComplete={handleComplete} />
+          <TaskSection title="Cette semaine" tasks={sections.week} emptyText="Rien de prévu cette semaine." onComplete={handleComplete} />
+          <TaskSection title="Plus tard" tasks={sections.later} emptyText="Aucune tâche planifiée." onComplete={handleComplete} />
         </div>
       )}
     </div>

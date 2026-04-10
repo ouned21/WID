@@ -7,8 +7,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 
 const NAV_ITEMS = [
-  { href: '/tasks', label: 'Taches', icon: '✓' },
-  { href: '/distribution', label: 'Repartition', icon: '⚖' },
+  { href: '/tasks', label: 'Tâches', icon: '✓' },
+  { href: '/distribution', label: 'Répartition', icon: '⚖' },
   { href: '/profile', label: 'Profil', icon: '●' },
 ] as const;
 

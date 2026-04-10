@@ -1,8 +1,8 @@
-import { startOfDay, endOfDay, isBefore, isAfter, isWithinInterval } from 'date-fns';
+import { startOfDay, endOfDay, addDays, isBefore, isAfter, isWithinInterval } from 'date-fns';
 import type { TaskListItem, TaskSections, TaskFilters } from '@/types/database';
 
 /**
- * Filtre les taches selon les filtres actifs.
+ * Filtre les tâches selon les filtres actifs.
  * Fonction pure — pas de hook React, pas de state.
  */
 export function filterTasks(
@@ -11,11 +11,9 @@ export function filterTasks(
   currentUserId: string,
 ): TaskListItem[] {
   return tasks.filter((task) => {
-    // Filtre par categorie
     if (filters.categoryId !== 'all' && task.category_id !== filters.categoryId) {
       return false;
     }
-    // Filtre par assignation
     if (filters.assignment === 'mine' && task.assigned_to !== currentUserId) {
       return false;
     }
@@ -24,7 +22,8 @@ export function filterTasks(
 }
 
 /**
- * Decoupe les taches en sections temporelles (en retard, aujourd'hui, a venir, plus tard).
+ * Découpe les tâches en sections temporelles.
+ * Ordre : En retard → Aujourd'hui → Demain → Cette semaine → Plus tard.
  * Fonction pure.
  */
 export function splitTasksIntoSections(
@@ -33,12 +32,14 @@ export function splitTasksIntoSections(
 ): TaskSections {
   const todayStart = startOfDay(now);
   const todayEnd = endOfDay(now);
-  // "A venir" = les 7 prochains jours apres aujourd'hui
-  const weekEnd = endOfDay(new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000));
+  const tomorrowStart = startOfDay(addDays(now, 1));
+  const tomorrowEnd = endOfDay(addDays(now, 1));
+  const weekEnd = endOfDay(addDays(now, 7));
 
   const overdue: TaskListItem[] = [];
   const today: TaskListItem[] = [];
-  const upcoming: TaskListItem[] = [];
+  const tomorrow: TaskListItem[] = [];
+  const week: TaskListItem[] = [];
   const later: TaskListItem[] = [];
 
   for (const task of tasks) {
@@ -53,12 +54,14 @@ export function splitTasksIntoSections(
       overdue.push(task);
     } else if (isWithinInterval(dueDate, { start: todayStart, end: todayEnd })) {
       today.push(task);
-    } else if (isWithinInterval(dueDate, { start: todayEnd, end: weekEnd })) {
-      upcoming.push(task);
+    } else if (isWithinInterval(dueDate, { start: tomorrowStart, end: tomorrowEnd })) {
+      tomorrow.push(task);
+    } else if (isWithinInterval(dueDate, { start: tomorrowEnd, end: weekEnd })) {
+      week.push(task);
     } else if (isAfter(dueDate, weekEnd)) {
       later.push(task);
     }
   }
 
-  return { overdue, today, upcoming, later };
+  return { overdue, today, tomorrow, week, later };
 }

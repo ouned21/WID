@@ -34,10 +34,10 @@ export default function RegisterPage() {
     return (
       <>
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-slate-900">Compte cree</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Compte créé</h1>
           <p className="mt-4 text-sm text-slate-600">
-            Un email de confirmation a ete envoye a <strong>{email}</strong>.
-            Verifiez votre boite mail puis connectez-vous.
+            Un email de confirmation a été envoyé à <strong>{email}</strong>.
+            Vérifiez votre boîte mail puis connectez-vous.
           </p>
         </div>
         <a
@@ -54,7 +54,7 @@ export default function RegisterPage() {
     <>
       <div className="text-center">
         <h1 className="text-3xl font-bold text-slate-900">WID</h1>
-        <p className="mt-2 text-sm text-slate-500">Creer votre compte</p>
+        <p className="mt-2 text-sm text-slate-500">Créer votre compte</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -66,7 +66,7 @@ export default function RegisterPage() {
 
         <div>
           <label htmlFor="displayName" className="block text-sm font-medium text-slate-700">
-            Prenom
+            Prénom
           </label>
           <input
             id="displayName"
@@ -116,12 +116,12 @@ export default function RegisterPage() {
           disabled={loading}
           className="w-full rounded-lg bg-slate-900 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
         >
-          {loading ? 'Creation...' : 'Creer mon compte'}
+          {loading ? 'Création...' : 'Créer mon compte'}
         </button>
       </form>
 
       <p className="text-center text-sm text-slate-500">
-        Deja un compte ?{' '}
+        Déjà un compte ?{' '}
         <a href="/login" className="font-medium text-slate-900 hover:underline">
           Se connecter
         </a>

@@ -52,7 +52,7 @@ export default function HouseholdPage() {
       <div className="text-center">
         <h1 className="text-3xl font-bold text-slate-900">Bienvenue, {profile?.display_name}</h1>
         <p className="mt-2 text-sm text-slate-500">
-          Creez un foyer ou rejoignez-en un existant
+          Créez un foyer ou rejoignez-en un existant
         </p>
       </div>
 
@@ -66,7 +66,7 @@ export default function HouseholdPage() {
             onClick={() => setMode('create')}
             className="w-full rounded-lg bg-slate-900 py-3 text-sm font-medium text-white hover:bg-slate-800"
           >
-            Creer un foyer
+            Créer un foyer
           </button>
           <button
             onClick={() => setMode('join')}
@@ -98,7 +98,7 @@ export default function HouseholdPage() {
             disabled={loading}
             className="w-full rounded-lg bg-slate-900 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
           >
-            {loading ? 'Creation...' : 'Creer le foyer'}
+            {loading ? 'Création...' : 'Créer le foyer'}
           </button>
           <button
             type="button"

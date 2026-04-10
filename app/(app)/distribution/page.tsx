@@ -40,16 +40,16 @@ export default function DistributionPage() {
     'bg-red-100 text-red-700';
 
   const badgeLabel =
-    imbalance <= 10 ? 'Equilibre' :
-    imbalance <= 25 ? 'Leger desequilibre' :
-    'Desequilibre important';
+    imbalance <= 10 ? 'Équilibré' :
+    imbalance <= 25 ? 'Léger déséquilibre' :
+    'Déséquilibre important';
 
   const totalCompletions = memberAnalytics.reduce((s, m) => s + m.taskCount, 0);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-900">Repartition</h2>
+        <h2 className="text-2xl font-bold text-slate-900">Répartition</h2>
         {totalCompletions > 0 && (
           <span className={`rounded-full px-3 py-1 text-xs font-medium ${badgeColor}`}>
             {badgeLabel}
@@ -78,9 +78,9 @@ export default function DistributionPage() {
         <p className="text-sm text-slate-500">Chargement...</p>
       ) : totalCompletions === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
-          Aucune tache completee sur cette periode.
+          Aucune tâche complétée sur cette période.
           <br />
-          Completez des taches pour voir la repartition.
+          Complétez des tâches pour voir la répartition.
         </div>
       ) : (
         <>
