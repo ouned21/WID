@@ -217,12 +217,15 @@ export default function TasksPage() {
   const totalTasks = tasks.filter((t) => !completedIds.has(t.id)).length;
 
   const handleComplete = useCallback(async (taskId: string) => {
-    // Lancer la complétion en arrière-plan
-    completeTask(taskId);
-    // Attendre 1.5s pour que l'utilisateur voie le feedback, puis masquer
-    setTimeout(() => {
-      setCompletedIds((prev) => new Set(prev).add(taskId));
-    }, 1500);
+    // Lancer la complétion et le timer en parallèle
+    const completionPromise = completeTask(taskId);
+    const timerPromise = new Promise<void>((resolve) => setTimeout(resolve, 1500));
+
+    // Attendre que les deux soient finis (min 1.5s de feedback)
+    await Promise.all([completionPromise, timerPromise]);
+
+    // Masquer la carte
+    setCompletedIds((prev) => new Set(prev).add(taskId));
   }, [completeTask]);
 
   return (

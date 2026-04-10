@@ -204,10 +204,15 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
     // 2. Calculer et mettre a jour la prochaine echeance
     const nextDueAt = computeNextDueAt(task.frequency, now);
-    await supabase
+    const { error: updateError } = await supabase
       .from('household_tasks')
       .update({ next_due_at: nextDueAt?.toISOString() ?? null })
       .eq('id', taskId);
+
+    if (updateError) {
+      console.error('[taskStore] Erreur update next_due_at:', updateError.message, updateError);
+      // Fallback : meme si l'update echoue, la completion est enregistree
+    }
 
     set({ completing: false });
 
