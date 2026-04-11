@@ -13,7 +13,7 @@ export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { profile } = useAuthStore();
-  const { tasks, completeTask, updateTask, archiveTask, fetchTaskDetail, completing, updating, archiving } = useTaskStore();
+  const { tasks, completeTask, updateTask, archiveTask, deleteTask, fetchTaskDetail, completing, updating, archiving } = useTaskStore();
   const { members } = useHouseholdStore();
   const task = tasks.find((t) => t.id === id);
 
@@ -313,12 +313,21 @@ export default function TaskDetailPage() {
         </div>
       </div>
 
-      {/* Archiver */}
-      <div className="mx-4 pb-8">
+      {/* Archiver + Supprimer */}
+      <div className="mx-4 pb-8 space-y-2">
         <button onClick={handleArchive} disabled={archiving}
-          className="w-full rounded-xl bg-white py-3 text-[17px] font-medium disabled:opacity-50"
+          className="w-full rounded-xl bg-white py-3 text-[15px] font-medium disabled:opacity-50"
+          style={{ color: '#ff9500', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          {archiving ? 'Archivage...' : '📁 Archiver (garder en historique)'}
+        </button>
+        <button onClick={async () => {
+          if (!confirm('Supprimer définitivement cette tâche et tout son historique ? Cette action est irréversible.')) return;
+          const result = await deleteTask(task.id);
+          if (result.ok) router.push('/tasks');
+        }}
+          className="w-full rounded-xl bg-white py-3 text-[15px] font-medium"
           style={{ color: '#ff3b30', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-          {archiving ? 'Archivage...' : 'Archiver cette tâche'}
+          🗑️ Supprimer définitivement
         </button>
       </div>
     </div>

@@ -62,6 +62,7 @@ type TaskState = {
   completeTask: (taskId: string, payload?: CompleteTaskPayload) => Promise<{ ok: boolean; error?: string }>;
   updateTask: (taskId: string, payload: UpdateTaskPayload) => Promise<{ ok: boolean; error?: string }>;
   archiveTask: (taskId: string) => Promise<{ ok: boolean; error?: string }>;
+  deleteTask: (taskId: string) => Promise<{ ok: boolean; error?: string }>;
   setFilters: (filters: Partial<TaskFilters>) => void;
   setSelectedTask: (task: TaskListItem | null) => void;
   clearError: () => void;
@@ -271,6 +272,24 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       set({ error: error.message });
       return { ok: false, error: error.message };
     }
+
+    await get().fetchTasks(task.household_id);
+    return { ok: true };
+  },
+
+  deleteTask: async (taskId) => {
+    const supabase = createClient();
+
+    const task = get().tasks.find((t) => t.id === taskId);
+    if (!task) return { ok: false, error: 'Tâche introuvable.' };
+
+    // Supprimer les complétions associées d'abord (FK)
+    await supabase.from('task_completions').delete().eq('task_id', taskId);
+
+    // Supprimer la tâche
+    const { error } = await supabase.from('household_tasks').delete().eq('id', taskId);
+
+    if (error) return { ok: false, error: error.message };
 
     await get().fetchTasks(task.household_id);
     return { ok: true };
