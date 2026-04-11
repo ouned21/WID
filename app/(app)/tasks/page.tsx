@@ -149,7 +149,7 @@ function TaskSection({ title, tasks, onComplete, completedIds }: {
         <h3 className="text-[13px] font-semibold uppercase tracking-wide" style={{ color }}>
           {title}
         </h3>
-        <span className="text-[13px] font-semibold" style={{ color }}>{visibleCount}</span>
+        <span className="rounded-full min-w-[20px] text-center px-1.5 py-0.5 text-[11px] font-bold text-white" style={{ background: color }}>{visibleCount}</span>
       </div>
       <div className="space-y-3 px-4">
         {tasks.map((task) => (
