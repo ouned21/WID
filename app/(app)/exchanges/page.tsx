@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
@@ -9,14 +9,18 @@ import { useExchangeStore } from '@/stores/exchangeStore';
 
 export default function ExchangesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { profile } = useAuthStore();
   const { tasks } = useTaskStore();
   const { members } = useHouseholdStore();
   const { exchanges, loading, fetchExchanges, proposeExchange, respondToExchange } = useExchangeStore();
 
-  const [showForm, setShowForm] = useState(false);
+  // Pré-remplir si on vient de la page détail d'une tâche (?offer=taskId)
+  const prefilledOfferId = searchParams.get('offer');
+
+  const [showForm, setShowForm] = useState(!!prefilledOfferId);
   const [toUserId, setToUserId] = useState('');
-  const [offeredTaskId, setOfferedTaskId] = useState('');
+  const [offeredTaskId, setOfferedTaskId] = useState(prefilledOfferId ?? '');
   const [requestedTaskId, setRequestedTaskId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -28,6 +32,7 @@ export default function ExchangesPage() {
   const otherMembers = members.filter((m) => m.id !== profile?.id);
   const myTasks = tasks.filter((t) => t.assigned_to === profile?.id);
   const otherTasks = tasks.filter((t) => t.assigned_to === toUserId);
+  const prefilledTask = offeredTaskId ? tasks.find((t) => t.id === offeredTaskId) : null;
 
   const pendingForMe = exchanges.filter((e) => e.to_user_id === profile?.id);
   const pendingByMe = exchanges.filter((e) => e.from_user_id === profile?.id);
@@ -78,11 +83,18 @@ export default function ExchangesPage() {
 
           <div>
             <label className="text-[13px] text-[#8e8e93] block mb-1">Je donne</label>
-            <select value={offeredTaskId} onChange={(e) => setOfferedTaskId(e.target.value)}
-              className="w-full rounded-lg bg-[#f2f2f7] px-3 py-2.5 text-[15px] text-[#1c1c1e] outline-none">
-              <option value="">Choisir une de mes tâches</option>
-              {myTasks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
+            {prefilledTask ? (
+              <div className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: '#f0f4ff' }}>
+                <span className="text-[15px] font-medium" style={{ color: '#007aff' }}>{prefilledTask.name}</span>
+                <button onClick={() => setOfferedTaskId('')} className="text-[13px] text-[#8e8e93]">Changer</button>
+              </div>
+            ) : (
+              <select value={offeredTaskId} onChange={(e) => setOfferedTaskId(e.target.value)}
+                className="w-full rounded-lg bg-[#f2f2f7] px-3 py-2.5 text-[15px] text-[#1c1c1e] outline-none">
+                <option value="">Choisir une de mes tâches</option>
+                {myTasks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            )}
           </div>
 
           <div>
