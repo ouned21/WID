@@ -88,24 +88,25 @@ export const useTaskStore = create<TaskState>((set, get) => ({
    */
   fetchTasks: async (householdId) => {
     set({ loading: true, error: null });
-    const supabase = createClient();
+    try {
+      const supabase = createClient();
 
-    const { data, error } = await supabase
-      .from('household_tasks')
-      .select(`
-        *,
-        category:task_categories(id, name, icon, color_hex, sort_order),
-        assignee:profiles!household_tasks_assigned_to_fkey(id, display_name, avatar_url),
-        task_completions(id, completed_at, completed_by, mental_load_score, duration_minutes, note)
-      `)
-      .eq('household_id', householdId)
-      .eq('is_active', true)
-      .order('next_due_at', { ascending: true, nullsFirst: false });
+      const { data, error } = await supabase
+        .from('household_tasks')
+        .select(`
+          *,
+          category:task_categories(id, name, icon, color_hex, sort_order),
+          assignee:profiles!household_tasks_assigned_to_fkey(id, display_name, avatar_url),
+          task_completions(id, completed_at, completed_by, mental_load_score, duration_minutes, note)
+        `)
+        .eq('household_id', householdId)
+        .eq('is_active', true)
+        .order('next_due_at', { ascending: true, nullsFirst: false });
 
-    if (error) {
-      set({ loading: false, error: error.message });
-      return;
-    }
+      if (error) {
+        set({ loading: false, error: error.message });
+        return;
+      }
 
     // Transformer : extraire la derniere completion de chaque tache
     const tasks: TaskListItem[] = (data ?? []).map((row: Record<string, unknown>) => {
@@ -124,6 +125,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     });
 
     set({ tasks, loading: false });
+    } catch (err) {
+      console.error('[taskStore] fetchTasks failed:', err);
+      set({ loading: false, error: 'Erreur de chargement des tâches.' });
+    }
   },
 
   /**

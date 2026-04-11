@@ -79,7 +79,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Contenu */}
-      <main className="flex-1 px-4 pt-2 pb-24">
+      <main className="flex-1 px-4 pt-2 pb-28">
         <div className="mx-auto max-w-lg">{children}</div>
       </main>
 
@@ -92,7 +92,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors"
+                className="flex flex-1 flex-col items-center gap-1 py-3 pb-5 text-[11px] font-medium transition-colors"
                 style={{ color: isActive ? '#007aff' : '#8e8e93' }}
               >
                 {item.icon}
