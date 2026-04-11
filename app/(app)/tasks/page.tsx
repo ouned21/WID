@@ -46,7 +46,7 @@ function TaskCard({ task, onComplete, isCompleted }: {
   }, [task.id, onComplete, phase, isCompleted]);
 
   const catColor = task.category?.color_hex ?? '#8e8e93';
-  const scoreColor = task.mental_load_score >= 7 ? '#ff3b30' : task.mental_load_score >= 4 ? '#ff9500' : '#34c759';
+  const scoreColor = task.mental_load_score >= 4 ? '#ff3b30' : task.mental_load_score >= 3 ? '#ff9500' : '#34c759';
 
   const textOnCat = useMemo(() => {
     const hex = catColor.replace('#', '');
@@ -81,7 +81,7 @@ function TaskCard({ task, onComplete, isCompleted }: {
           {/* Bandeau catégorie en haut */}
           <div className="px-3 py-2 flex items-center justify-between" style={{ background: catColor }}>
             <span className="text-[11px] font-semibold truncate" style={{ color: textOnCat }}>{task.category?.name}</span>
-            <span className="text-right leading-tight" style={{ color: textOnCat }}><span className="block text-[9px] opacity-70">Charge mentale</span><span className="text-[13px] font-bold">{task.mental_load_score}/10</span></span>
+            <span className="text-right leading-tight" style={{ color: textOnCat }}><span className="block text-[9px] opacity-70">Charge mentale</span><span className="text-[13px] font-bold">{task.mental_load_score}/5</span></span>
           </div>
 
           {/* Corps de la carte */}
@@ -192,6 +192,7 @@ export default function TasksPage() {
 
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [showInfo, setShowInfo] = useState(false);
 
   const sections = useMemo(() => {
     let filtered = filterTasks(tasks, filters, profile?.id ?? '', vacationUserIds);
@@ -215,7 +216,15 @@ export default function TasksPage() {
       {/* Header de page */}
       <div className="flex items-end justify-between px-4 pt-4 pb-3">
         <div>
-          <h2 className="text-[28px] font-bold text-[#1c1c1e]">Tâches</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[28px] font-bold text-[#1c1c1e]">Tâches</h2>
+            <button onClick={() => setShowInfo(!showInfo)}
+              className="flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold text-white"
+              style={{ background: '#8e8e93' }}
+              aria-label="Informations sur la charge mentale">
+              i
+            </button>
+          </div>
           {totalTasks > 0 && (
             <p className="text-[13px] text-[#8e8e93]">{totalTasks} tâche{totalTasks > 1 ? 's' : ''} active{totalTasks > 1 ? 's' : ''}</p>
           )}
@@ -231,6 +240,33 @@ export default function TasksPage() {
           Nouvelle
         </Link>
       </div>
+
+      {/* Info charge mentale */}
+      {showInfo && (
+        <div className="mx-4 mb-2 rounded-xl bg-white p-4" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          <div className="flex items-start justify-between">
+            <p className="text-[15px] font-semibold text-[#1c1c1e]">Charge mentale</p>
+            <button onClick={() => setShowInfo(false)} className="text-[15px] text-[#8e8e93]">✕</button>
+          </div>
+          <p className="text-[14px] text-[#8e8e93] mt-2">
+            La charge mentale mesure l&apos;effort cognitif et émotionnel d&apos;une tâche, pas seulement le temps qu&apos;elle prend.
+          </p>
+          <div className="mt-3 space-y-1.5 text-[13px]">
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full" style={{ background: '#34c759' }} />
+              <span className="text-[#1c1c1e]"><strong>0-2</strong> — Légère (ranger, essuyer)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full" style={{ background: '#ff9500' }} />
+              <span className="text-[#1c1c1e]"><strong>3</strong> — Modérée (courses, ménage complet)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full" style={{ background: '#ff3b30' }} />
+              <span className="text-[#1c1c1e]"><strong>4-5</strong> — Élevée (admin, organisation, impôts)</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recherche */}
       <div className="px-4 pb-2">

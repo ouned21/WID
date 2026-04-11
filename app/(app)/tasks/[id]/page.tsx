@@ -67,7 +67,7 @@ export default function TaskDetailPage() {
   };
 
   const catColor = task.category?.color_hex ?? '#8e8e93';
-  const scoreColor = task.mental_load_score >= 7 ? '#ff3b30' : task.mental_load_score >= 4 ? '#ff9500' : '#34c759';
+  const scoreColor = task.mental_load_score >= 4 ? '#ff3b30' : task.mental_load_score >= 3 ? '#ff9500' : '#34c759';
 
   const startEditName = () => { setEditingField('name'); setEditValue(task.name); };
   const startEditFrequency = () => { setEditingField('frequency'); setEditValue(task.frequency); };
@@ -109,11 +109,11 @@ export default function TaskDetailPage() {
           </span>
           {editingField === 'mental_load_score' ? (
             <div className="flex items-center gap-2">
-              <span className="text-[15px] font-bold" style={{ color: editScore >= 7 ? '#ff3b30' : editScore >= 4 ? '#ff9500' : '#34c759' }}>
-                {editScore}/10
+              <span className="text-[15px] font-bold" style={{ color: editScore >= 4 ? '#ff3b30' : editScore >= 3 ? '#ff9500' : '#34c759' }}>
+                {editScore}/5
               </span>
-              <input type="range" min={0} max={10} value={editScore} onChange={(e) => setEditScore(Number(e.target.value))}
-                className="w-24" style={{ accentColor: editScore >= 7 ? '#ff3b30' : editScore >= 4 ? '#ff9500' : '#34c759' }} />
+              <input type="range" min={0} max={5} value={editScore} onChange={(e) => setEditScore(Number(e.target.value))}
+                className="w-24" style={{ accentColor: editScore >= 4 ? '#ff3b30' : editScore >= 3 ? '#ff9500' : '#34c759' }} />
               <button onClick={() => handleSaveField('mental_load_score', editScore)}
                 className="text-[13px] font-semibold" style={{ color: '#007aff' }}>{saving ? '...' : 'OK'}</button>
             </div>
@@ -121,7 +121,7 @@ export default function TaskDetailPage() {
             <button onClick={startEditScore} className="flex items-center gap-1.5">
               <span className="text-[11px] text-[#8e8e93]">Charge mentale</span>
               <span className="text-[20px] font-bold" style={{ color: scoreColor }}>{task.mental_load_score}</span>
-              <span className="text-[11px] text-[#8e8e93]">/10</span>
+              <span className="text-[11px] text-[#8e8e93]">/5</span>
             </button>
           )}
         </div>

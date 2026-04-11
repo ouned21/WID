@@ -84,7 +84,7 @@ export default function NewTaskPage() {
     else setError(result.error ?? 'Erreur inconnue.');
   };
 
-  const scoreColor = mentalLoadScore >= 7 ? '#ff3b30' : mentalLoadScore >= 4 ? '#ff9500' : '#34c759';
+  const scoreColor = mentalLoadScore >= 4 ? '#ff3b30' : mentalLoadScore >= 3 ? '#ff9500' : '#34c759';
 
   return (
     <div className="pt-4">
@@ -150,7 +150,7 @@ export default function NewTaskPage() {
                     )}
                     <p className={`text-[15px] ${selectedTemplateId === tpl.id ? 'font-semibold text-[#007aff]' : 'text-[#1c1c1e]'}`}>{tpl.name}</p>
                   </div>
-                  <span className="text-[13px] text-[#8e8e93]">{tpl.default_mental_load_score}/10</span>
+                  <span className="text-[13px] text-[#8e8e93]">{tpl.default_mental_load_score}/5</span>
                 </button>
               ))}
             </div>
@@ -219,17 +219,17 @@ export default function NewTaskPage() {
 
           <div className="px-4 py-4">
             <div className="flex items-center justify-between mb-2">
-              <label className="text-[13px] text-[#8e8e93]">Charge mentale</label>
-              <span className="text-[17px] font-bold" style={{ color: scoreColor }}>{mentalLoadScore}/10</span>
+              <label className="text-[13px] text-[#8e8e93]">Charge mentale <span className="text-[11px]">(effort cognitif et émotionnel)</span></label>
+              <span className="text-[17px] font-bold" style={{ color: scoreColor }}>{mentalLoadScore}/5</span>
             </div>
-            <input type="range" min={0} max={10} step={1} value={mentalLoadScore}
+            <input type="range" min={0} max={5} step={1} value={mentalLoadScore}
               onChange={(e) => setMentalLoadScore(Number(e.target.value))}
               className="w-full"
               style={{ accentColor: scoreColor }}
             />
             <div className="flex justify-between text-[11px] text-[#c7c7cc] mt-1">
               <span>Négligeable</span>
-              <span>Très lourde</span>
+              <span>Très élevée</span>
             </div>
           </div>
         </div>

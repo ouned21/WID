@@ -71,7 +71,7 @@ export type HouseholdTask = {
   frequency: Frequency;
   custom_interval_days: number | null; // Pour frequency='custom'
   assigned_to: string | null;
-  mental_load_score: number; // 0-10
+  mental_load_score: number; // 0-5
   next_due_at: string | null;
   starts_at: string | null; // Date de début future
   is_active: boolean;

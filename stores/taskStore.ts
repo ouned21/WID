@@ -147,8 +147,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     if (!payload.name.trim()) return { ok: false, error: 'Le nom est obligatoire.' };
     if (payload.name.trim().length > 100) return { ok: false, error: 'Le nom ne doit pas dépasser 100 caractères.' };
     if (!payload.category_id) return { ok: false, error: 'La catégorie est obligatoire.' };
-    if (payload.mental_load_score < 0 || payload.mental_load_score > 10) {
-      return { ok: false, error: 'La charge mentale doit etre entre 0 et 10.' };
+    if (payload.mental_load_score < 0 || payload.mental_load_score > 5) {
+      return { ok: false, error: 'La charge mentale doit être entre 0 et 5.' };
     }
 
     set({ creating: true, error: null });
