@@ -174,17 +174,60 @@ export default function TaskDetailPage() {
           )}
         </div>
 
-        {/* Prochaine échéance (lecture seule) */}
-        {task.next_due_at && (
-          <div className="px-4 py-3">
-            <p className="text-[11px] text-[#8e8e93] uppercase">Prochaine échéance</p>
-            <p className="text-[17px] font-medium text-[#1c1c1e]">
-              {new Date(task.next_due_at).toLocaleDateString('fr-FR', { dateStyle: 'full' })}
-              {' · '}
-              {new Date(task.next_due_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-            </p>
-          </div>
-        )}
+        {/* Prochaine échéance — cliquable */}
+        <div className="px-4 py-3">
+          {editingField === 'next_due_at' ? (
+            <div>
+              <label className="text-[11px] text-[#8e8e93] uppercase">Prochaine échéance</label>
+              <div className="flex items-center gap-2 mt-1">
+                <input type="date" value={editValue.split('T')[0] || ''}
+                  onChange={(e) => {
+                    const time = editValue.split('T')[1] || '09:00';
+                    setEditValue(`${e.target.value}T${time}`);
+                  }}
+                  className="flex-1 text-[17px] text-[#1c1c1e] bg-transparent outline-none" />
+                <input type="time" value={editValue.split('T')[1]?.substring(0, 5) || '09:00'}
+                  onChange={(e) => {
+                    const date = editValue.split('T')[0] || new Date().toISOString().split('T')[0];
+                    setEditValue(`${date}T${e.target.value}`);
+                  }}
+                  className="w-20 text-[17px] text-[#1c1c1e] bg-transparent outline-none" />
+                <button onClick={() => {
+                  const iso = new Date(`${editValue}:00`).toISOString();
+                  handleSaveField('next_due_at', iso);
+                }} className="text-[15px] font-semibold" style={{ color: '#007aff' }}>OK</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => {
+              if (task.next_due_at) {
+                const d = new Date(task.next_due_at);
+                const date = d.toISOString().split('T')[0];
+                const time = d.toTimeString().substring(0, 5);
+                setEditValue(`${date}T${time}`);
+              } else {
+                const now = new Date();
+                const date = now.toISOString().split('T')[0];
+                setEditValue(`${date}T09:00`);
+              }
+              setEditingField('next_due_at');
+            }} className="w-full text-left flex items-center justify-between">
+              <div>
+                <p className="text-[11px] text-[#8e8e93] uppercase">Prochaine échéance</p>
+                {task.next_due_at ? (
+                  <p className="text-[17px] font-medium text-[#1c1c1e]">
+                    {new Date(task.next_due_at).toLocaleDateString('fr-FR', { dateStyle: 'full' })}
+                    {' · '}
+                    {new Date(task.next_due_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                ) : (
+                  <p className="text-[17px] text-[#c7c7cc]">Aucune — cliquez pour définir</p>
+                )}
+              </div>
+              <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Bouton complétion */}

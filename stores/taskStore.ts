@@ -38,6 +38,7 @@ type UpdateTaskPayload = {
   mental_load_score?: number;
   assigned_to?: string | null;
   category_id?: string;
+  next_due_at?: string | null;
 };
 
 // -----------------------------------------------------------------------------
