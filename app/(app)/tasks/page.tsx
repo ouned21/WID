@@ -33,10 +33,10 @@ function MiniGauge({ label, value, max }: { label: string; value: number; max: n
   const pct = Math.min(100, (value / max) * 100);
   const c = pct <= 33 ? '#34c759' : pct <= 66 ? '#ff9500' : '#ff3b30';
   return (
-    <div className="flex items-center gap-1">
-      <span className="text-[9px] w-[52px] flex-shrink-0 text-[#8e8e93] truncate">{label}</span>
-      <div className="flex-1 h-1.5 rounded-full" style={{ background: '#f2f2f7' }}>
-        <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: c }} />
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] w-[56px] flex-shrink-0 text-[#8e8e93]">{label}</span>
+      <div className="flex-1 h-2 rounded-full" style={{ background: '#f2f2f7' }}>
+        <div className="h-2 rounded-full" style={{ width: `${pct}%`, background: c }} />
       </div>
     </div>
   );
@@ -66,7 +66,7 @@ function TaskCard({ task, onComplete, isCompleted }: {
 
   return (
     <div
-      className={`rounded-2xl overflow-hidden flex flex-col transition-all h-[260px] ${
+      className={`rounded-2xl overflow-hidden flex flex-col transition-all h-[280px] ${
         phase === 'idle' ? 'bg-white' :
         phase === 'success' ? 'bg-[#34c759] scale-[0.94] duration-300' :
         'bg-[#34c759] opacity-0 scale-[0.8] duration-500'
@@ -86,7 +86,7 @@ function TaskCard({ task, onComplete, isCompleted }: {
             {/* 1. Nom + Score The Load en haut */}
             <div className="flex items-start justify-between gap-1 mb-2">
               <div className="h-[36px] flex-1">
-                <h3 className="text-[14px] font-bold text-[#1c1c1e] leading-tight line-clamp-2">{task.name}</h3>
+                <h3 className="text-[15px] font-bold text-[#1c1c1e] leading-tight line-clamp-2">{task.name}</h3>
               </div>
               {(() => {
                 const gs = Math.min(36, task.global_score ?? (task.mental_load_score * 7));
@@ -127,16 +127,18 @@ function TaskCard({ task, onComplete, isCompleted }: {
             </div>
           </Link>
 
-          {/* 5. Catégorie + fréquence + FAIT en bas */}
-          <div className="px-3 pb-2 flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              <span className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold text-white" style={{ background: catColor }}>
-                {task.category?.name}
-              </span>
-              <span className="text-[8px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
-            </div>
+          {/* 5. Catégorie + fréquence */}
+          <div className="px-3 flex items-center gap-1.5">
+            <span className="rounded-full px-2 py-0.5 text-[9px] font-semibold text-white" style={{ background: catColor }}>
+              {task.category?.name}
+            </span>
+            <span className="text-[9px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
+          </div>
+
+          {/* 6. Bouton FAIT seul */}
+          <div className="px-3 pb-2 pt-1.5 flex justify-center">
             <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
-              className="rounded-md px-2.5 py-[3px] text-[9px] font-bold tracking-widest border-[1.5px] transition-all"
+              className="rounded-md px-3 py-[4px] text-[10px] font-bold tracking-widest border-[1.5px] transition-all"
               style={{ borderColor: '#34c759', color: '#34c759', background: 'transparent' }}>
               FAIT
             </button>
