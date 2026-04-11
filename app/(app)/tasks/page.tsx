@@ -84,26 +84,26 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
       ) : (
         <>
           <Link href={`/tasks/${task.id}`} className="flex-1 p-3 flex flex-col">
-            {/* 1. Nom + Score The Load en haut */}
-            <div className="flex items-start justify-between gap-1 mb-2">
-              <div className="h-[36px] flex-1">
-                <h3 className="text-[15px] font-bold text-[#1c1c1e] leading-tight line-clamp-2">{task.name}</h3>
-              </div>
+            {/* 1. Nom */}
+            <div className="h-[36px] mb-1.5">
+              <h3 className="text-[15px] font-bold text-[#1c1c1e] leading-tight line-clamp-2">{task.name}</h3>
+            </div>
+
+            {/* 2. Score The Load + 4 jauges */}
+            <div className="space-y-1 mb-2">
               {(() => {
                 const gs = Math.min(36, task.global_score ?? (task.mental_load_score * 7));
                 const gsColor = gs <= 8 ? '#34c759' : gs <= 16 ? '#007aff' : gs <= 24 ? '#ff9500' : '#ff3b30';
                 return (
-                  <div className="flex flex-col items-end flex-shrink-0">
-                    <span className="text-[10px] text-[#8e8e93] uppercase font-bold tracking-wide">The Load</span>
-                    <span className="text-[28px] font-black leading-none" style={{ color: gsColor }}>{gs}</span>
-                    <span className="text-[9px] text-[#c7c7cc]">/36</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] w-[56px] flex-shrink-0 font-bold text-[#1c1c1e]">The Load</span>
+                    <div className="flex-1 h-3 rounded-full" style={{ background: '#f2f2f7' }}>
+                      <div className="h-3 rounded-full transition-all" style={{ width: `${Math.min(100, (gs / 36) * 100)}%`, background: gsColor }} />
+                    </div>
+                    <span className="text-[14px] font-black flex-shrink-0" style={{ color: gsColor }}>{gs}</span>
                   </div>
                 );
               })()}
-            </div>
-
-            {/* 3. 4 jauges */}
-            <div className="space-y-1 mb-2">
               <MiniGauge label="Durée" value={sb?.time_score ?? Math.min(8, task.mental_load_score * 2)} max={8} />
               <MiniGauge label="Physique" value={sb?.physical_score ?? Math.min(5, task.mental_load_score)} max={5} />
               <MiniGauge label="Mental" value={sb?.mental_load_score ?? Math.min(18, task.mental_load_score * 3)} max={18} />
