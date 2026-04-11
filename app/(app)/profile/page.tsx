@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useHouseholdStore } from '@/stores/householdStore';
@@ -57,11 +57,17 @@ export default function ProfilePage() {
   };
   const handleRename = async () => { if (!newName.trim()) return; await renameHousehold(newName.trim()); setEditingName(false); };
 
+  const [targetLocal, setTargetLocal] = useState<number>(profile?.target_share_percent ?? 50);
+  // Sync quand le profil change
+  useEffect(() => {
+    if (profile?.target_share_percent != null) setTargetLocal(profile.target_share_percent);
+  }, [profile?.target_share_percent]);
+
   const handleTargetChange = async (value: number) => {
+    setTargetLocal(value); // Mise à jour immédiate de l'UI
     if (!profile?.id) return;
     const supabase = createClient();
     await supabase.from('profiles').update({ target_share_percent: value }).eq('id', profile.id);
-    await useAuthStore.getState().refreshProfile();
   };
   const handleCopyCode = () => {
     if (household?.invite_code) {
@@ -154,14 +160,14 @@ export default function ProfilePage() {
         <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
           <div className="px-4 py-3">
             <p className="text-[15px] text-[#1c1c1e] mb-2">
-              Je vise <strong style={{ color: '#007aff' }}>{profile?.target_share_percent ?? 50}%</strong> des tâches du foyer
+              Je vise <strong style={{ color: '#007aff' }}>{targetLocal}%</strong> des tâches du foyer
             </p>
             <input
               type="range"
               min={10}
               max={90}
               step={5}
-              defaultValue={profile?.target_share_percent ?? 50}
+              value={targetLocal}
               onChange={(e) => handleTargetChange(Number(e.target.value))}
               className="w-full"
               style={{ accentColor: '#007aff' }}
