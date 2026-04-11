@@ -99,6 +99,12 @@ export default function NewTaskPage() {
     let nextDueAt: string | null = null;
     if (dueDate) {
       nextDueAt = new Date(`${dueDate}T${dueTime || '09:00'}:00`).toISOString();
+    } else if (frequency !== 'once') {
+      // Auto-calculer la première échéance si pas de date renseignée
+      const { computeNextDueAt } = await import('@/utils/taskDueDate');
+      const interval = frequency === 'custom' && customIntervalDays ? parseInt(customIntervalDays, 10) : null;
+      const computed = computeNextDueAt(frequency, new Date(), interval);
+      nextDueAt = computed?.toISOString() ?? null;
     }
 
     const result = await createTask(profile.household_id, {
