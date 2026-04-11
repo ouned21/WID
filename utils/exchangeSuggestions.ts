@@ -105,13 +105,13 @@ export function generateExchangeSuggestions(
           const improvement = Math.min(scoreDiff, Math.abs(over.gap));
 
           suggestions.push({
-            fromMemberId: over.memberId,
-            fromMemberName: over.displayName,
-            toMemberId: under.memberId,
-            toMemberName: under.displayName,
-            taskToGive: heavyTask,
-            taskToReceive: lightTask,
-            impactDescription: `${over.displayName} donne "${heavyTask.name}" et prend "${lightTask.name}"`,
+            fromMemberId: under.memberId,
+            fromMemberName: under.displayName,
+            toMemberId: over.memberId,
+            toMemberName: over.displayName,
+            taskToGive: lightTask,
+            taskToReceive: heavyTask,
+            impactDescription: `${under.displayName}, acceptez-vous "${heavyTask.name}" en échange de "${lightTask.name}" ?`,
             balanceImprovement: improvement,
           });
 
