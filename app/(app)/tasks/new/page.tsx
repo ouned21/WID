@@ -47,9 +47,14 @@ export default function NewTaskPage() {
   const [physical, setPhysical] = useState<PhysicalEffort>('light');
   const [frequency, setFrequency] = useState<Frequency>('weekly');
 
+  // Pré-calculer la date par défaut (demain)
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const defaultDate = tomorrow.toISOString().split('T')[0];
+
   // Extras
   const [assignedTo, setAssignedTo] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [dueDate, setDueDate] = useState(defaultDate);
   const [dueTime, setDueTime] = useState('09:00');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [startsAt, setStartsAt] = useState('');
@@ -96,15 +101,14 @@ export default function NewTaskPage() {
     const categoryId = selectedCategoryId || (dbCategories[0]?.id ?? '');
     if (!categoryId) { setError('Choisissez une catégorie.'); return; }
 
+    if (!dueDate && frequency !== 'once') {
+      setError('La date prévue est obligatoire.');
+      return;
+    }
+
     let nextDueAt: string | null = null;
     if (dueDate) {
       nextDueAt = new Date(`${dueDate}T${dueTime || '09:00'}:00`).toISOString();
-    } else if (frequency !== 'once') {
-      // Auto-calculer la première échéance si pas de date renseignée
-      const { computeNextDueAt } = await import('@/utils/taskDueDate');
-      const interval = frequency === 'custom' && customIntervalDays ? parseInt(customIntervalDays, 10) : null;
-      const computed = computeNextDueAt(frequency, new Date(), interval);
-      nextDueAt = computed?.toISOString() ?? null;
     }
 
     const result = await createTask(profile.household_id, {
