@@ -82,29 +82,30 @@ function TaskCard({ task, onComplete, isCompleted }: {
         </div>
       ) : (
         <>
-          {/* Corps de la carte — hauteurs fixes */}
           <Link href={`/tasks/${task.id}`} className="flex-1 p-3 flex flex-col">
-            {/* 1. Nom — hauteur fixe 2 lignes */}
-            <div className="h-[40px] mb-1.5">
-              <h3 className="text-[14px] font-bold text-[#1c1c1e] leading-tight line-clamp-2">{task.name}</h3>
-            </div>
-
-            {/* 2. Score The Load — hauteur fixe */}
-            <div className="h-[20px] flex items-center gap-2 mb-2">
+            {/* 1. Nom + Score The Load en haut */}
+            <div className="flex items-start justify-between gap-1 mb-1">
+              <div className="h-[36px] flex-1">
+                <h3 className="text-[14px] font-bold text-[#1c1c1e] leading-tight line-clamp-2">{task.name}</h3>
+              </div>
               {(() => {
                 const gs = task.global_score ?? (task.mental_load_score * 7);
                 const gsColor = gs <= 8 ? '#34c759' : gs <= 16 ? '#007aff' : gs <= 24 ? '#ff9500' : '#ff3b30';
                 return (
-                  <>
-                    <span className="text-[10px] font-semibold text-[#8e8e93]">The Load</span>
-                    <span className="text-[14px] font-bold" style={{ color: gsColor }}>{gs}</span>
-                    <span className="text-[10px] text-[#c7c7cc]">/36</span>
-                  </>
+                  <span className="text-[16px] font-bold flex-shrink-0" style={{ color: gsColor }}>{gs}</span>
                 );
               })()}
             </div>
 
-            {/* 3. 4 jauges — hauteur fixe */}
+            {/* 2. Catégorie + fréquence */}
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold text-white" style={{ background: catColor }}>
+                {task.category?.name}
+              </span>
+              <span className="text-[9px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
+            </div>
+
+            {/* 3. 4 jauges */}
             <div className="space-y-1 mb-2">
               <MiniGauge label="Durée" value={sb?.time_score ?? Math.min(8, task.mental_load_score * 2)} max={8} />
               <MiniGauge label="Physique" value={sb?.physical_score ?? Math.min(5, task.mental_load_score)} max={5} />
@@ -112,8 +113,8 @@ function TaskCard({ task, onComplete, isCompleted }: {
               <MiniGauge label="Impact" value={sb?.household_impact_score ?? Math.min(4, Math.ceil(task.mental_load_score * 0.8))} max={4} />
             </div>
 
-            {/* 4. Assignée + date — hauteur fixe */}
-            <div className="h-[18px] flex items-center gap-2">
+            {/* 4. Assignée + date */}
+            <div className="flex items-center gap-2 mt-auto">
               {task.assignee ? (
                 <span className="flex items-center gap-0.5">
                   <span className="h-3.5 w-3.5 rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ background: '#007aff' }}>
@@ -125,26 +126,18 @@ function TaskCard({ task, onComplete, isCompleted }: {
                 <span className="text-[10px] text-[#c7c7cc]">Non assigné</span>
               )}
               <span className="text-[10px] text-[#8e8e93]">
-                {task.next_due_at ? new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '—'}
+                {task.next_due_at ? new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : ''}
               </span>
             </div>
           </Link>
 
-          {/* 5. Catégorie + fréquence + bouton FAIT */}
-          <div className="px-3 pb-3 pt-1">
-            <div className="flex items-center gap-1.5 mb-2">
-              <span className="rounded-full px-2 py-0.5 text-[8px] font-semibold text-white" style={{ background: catColor }}>
-                {task.category?.name}
-              </span>
-              <span className="text-[9px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
-            </div>
-            <div className="flex justify-center">
+          {/* 5. Bouton FAIT — bas droite */}
+          <div className="px-3 pb-2 flex justify-end">
             <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
-              className="rounded-lg px-3 py-[4px] text-[10px] font-bold tracking-widest border-[1.5px] transition-all"
+              className="rounded-md px-2.5 py-[3px] text-[9px] font-bold tracking-widest border-[1.5px] transition-all"
               style={{ borderColor: '#34c759', color: '#34c759', background: 'transparent' }}>
               FAIT
             </button>
-            </div>
           </div>
         </>
       )}
@@ -344,19 +337,16 @@ export default function TasksPage() {
           style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }} />
       </div>
 
-      {/* Filtres par section */}
-      <div className="px-4 pb-2 space-y-2">
-        <div className="flex flex-wrap gap-2">
-          <Chip label="Toutes" active={sectionFilter === 'all'} onClick={() => setSectionFilter('all')} />
-          <Chip label="En retard" active={sectionFilter === 'overdue'} onClick={() => setSectionFilter('overdue')} color="#ff3b30" />
-          <Chip label="Aujourd'hui" active={sectionFilter === 'today'} onClick={() => setSectionFilter('today')} color="#007aff" />
-          <Chip label="Demain" active={sectionFilter === 'demain'} onClick={() => setSectionFilter('tomorrow')} color="#af52de" />
-          <Chip label="Semaine" active={sectionFilter === 'week'} onClick={() => setSectionFilter('week')} color="#5856d6" />
-          <Chip label="Plus tard" active={sectionFilter === 'later'} onClick={() => setSectionFilter('later')} />
-        </div>
-        <div className="flex gap-2">
-          <Chip label="Toutes" active={filters.assignment === 'all'} onClick={() => setFilters({ assignment: 'all' })} />
-          <Chip label="Mes tâches" active={filters.assignment === 'mine'} onClick={() => setFilters({ assignment: 'mine' })} />
+      {/* Filtres — une seule ligne scrollable */}
+      <div className="px-4 pb-2 overflow-x-auto">
+        <div className="flex gap-1.5 whitespace-nowrap">
+          <Chip label="Toutes" active={sectionFilter === 'all' && filters.assignment === 'all'} onClick={() => { setSectionFilter('all'); setFilters({ assignment: 'all' }); }} />
+          <Chip label="Mes tâches" active={filters.assignment === 'mine'} onClick={() => setFilters({ assignment: filters.assignment === 'mine' ? 'all' : 'mine' })} />
+          <Chip label="En retard" active={sectionFilter === 'overdue'} onClick={() => setSectionFilter(sectionFilter === 'overdue' ? 'all' : 'overdue')} color="#ff3b30" />
+          <Chip label="Aujourd'hui" active={sectionFilter === 'today'} onClick={() => setSectionFilter(sectionFilter === 'today' ? 'all' : 'today')} color="#007aff" />
+          <Chip label="Demain" active={sectionFilter === 'tomorrow'} onClick={() => setSectionFilter(sectionFilter === 'tomorrow' ? 'all' : 'tomorrow')} color="#af52de" />
+          <Chip label="Semaine" active={sectionFilter === 'week'} onClick={() => setSectionFilter(sectionFilter === 'week' ? 'all' : 'week')} color="#5856d6" />
+          <Chip label="Plus tard" active={sectionFilter === 'later'} onClick={() => setSectionFilter(sectionFilter === 'later' ? 'all' : 'later')} />
         </div>
       </div>
 
