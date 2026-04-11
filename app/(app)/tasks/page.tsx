@@ -69,87 +69,80 @@ function TaskCard({ task, onComplete, isCompleted }: {
       style={phase === 'idle' ? { boxShadow: '0 1px 6px rgba(0,0,0,0.08)' } : {}}
     >
       {phase !== 'idle' ? (
-        <div className="flex flex-col items-center justify-center py-8 px-3">
-          <svg width="36" height="36" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" viewBox="0 0 24 24" className="mb-2">
+        <div className="flex flex-col items-center justify-center py-6 px-3">
+          <svg width="32" height="32" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" viewBox="0 0 24 24" className="mb-1">
             <path d="M5 13l4 4L19 7" />
           </svg>
           <p className="text-[14px] font-bold text-white text-center">{task.name}</p>
-          <p className="text-[12px] text-white/80 mt-0.5">Validé !</p>
+          <p className="text-[12px] text-white/80">Validé !</p>
         </div>
       ) : (
-        <>
+        <Link href={`/tasks/${task.id}`} className="flex flex-col flex-1">
           {/* Bandeau catégorie */}
           <div className="px-3 py-1.5 flex items-center justify-between" style={{ background: catColor }}>
             <span className="text-[11px] font-semibold truncate" style={{ color: textOnCat }}>{task.category?.name}</span>
-            {task.global_score != null ? (
-              <span className="text-[12px] font-bold" style={{ color: textOnCat }}>{task.global_score}/36</span>
-            ) : (
-              <span className="text-[12px] font-bold" style={{ color: textOnCat }}>{task.mental_load_score}/5</span>
-            )}
+            <span className="text-[11px] font-medium" style={{ color: textOnCat }}>
+              {task.next_due_at && new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+            </span>
           </div>
 
-          {/* Corps de la carte */}
+          {/* Corps */}
           <div className="flex-1 p-3 flex flex-col">
-            <Link href={`/tasks/${task.id}`} className="flex-1">
-              <h3 className="text-[14px] font-semibold text-[#1c1c1e] leading-tight mb-1.5">{task.name}</h3>
-            </Link>
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <h3 className="text-[14px] font-semibold text-[#1c1c1e] leading-tight flex-1">{task.name}</h3>
+              {/* Bouton Fait discret */}
+              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
+                className="flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center border-2 transition-all"
+                style={{ borderColor: '#34c759' }}
+                aria-label="Marquer comme fait">
+                <svg width="12" height="12" fill="none" stroke="#34c759" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+            </div>
 
-            {/* Mini jauges si score V2 disponible */}
-            {task.score_breakdown && (
-              <div className="space-y-1 mb-2">
-                {[
-                  { label: '⏱', value: (task.score_breakdown as Record<string, number>).time_score ?? 0, max: 8 },
-                  { label: '💪', value: (task.score_breakdown as Record<string, number>).physical_score ?? 0, max: 5 },
-                  { label: '🧠', value: (task.score_breakdown as Record<string, number>).mental_load_score ?? 0, max: 18 },
-                  { label: '👥', value: (task.score_breakdown as Record<string, number>).household_impact_score ?? 0, max: 4 },
-                ].map((g) => {
+            {/* 4 jauges — toujours visibles */}
+            <div className="space-y-1 mb-2">
+              {(() => {
+                const sb = task.score_breakdown as Record<string, number> | null;
+                const gauges = sb ? [
+                  { label: '⏱ Temps', value: sb.time_score ?? 0, max: 8 },
+                  { label: '💪 Physique', value: sb.physical_score ?? 0, max: 5 },
+                  { label: '🧠 Mental', value: sb.mental_load_score ?? 0, max: 18 },
+                  { label: '👥 Impact', value: sb.household_impact_score ?? 0, max: 4 },
+                ] : [
+                  { label: '🧠 Charge', value: task.mental_load_score, max: 5 },
+                ];
+                return gauges.map((g) => {
                   const pct = Math.min(100, (g.value / g.max) * 100);
                   const c = pct <= 33 ? '#34c759' : pct <= 66 ? '#ff9500' : '#ff3b30';
                   return (
                     <div key={g.label} className="flex items-center gap-1.5">
-                      <span className="text-[9px] w-4">{g.label}</span>
+                      <span className="text-[9px] w-14 flex-shrink-0 text-[#8e8e93]">{g.label}</span>
                       <div className="flex-1 h-1.5 rounded-full" style={{ background: '#f2f2f7' }}>
                         <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: c }} />
                       </div>
+                      <span className="text-[9px] w-4 text-right text-[#8e8e93]">{g.value}</span>
                     </div>
                   );
-                })}
-              </div>
-            )}
+                });
+              })()}
+            </div>
 
-            <div className="space-y-0.5 mb-2">
-              <p className="text-[11px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</p>
+            {/* Infos en bas */}
+            <div className="flex items-center gap-2 mt-auto">
+              <span className="text-[10px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
               {task.assignee && (
-                <div className="flex items-center gap-1">
-                  <span className="h-3.5 w-3.5 rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ background: '#007aff' }}>
+                <span className="flex items-center gap-0.5">
+                  <span className="h-3 w-3 rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ background: '#007aff' }}>
                     {task.assignee.display_name.charAt(0).toUpperCase()}
                   </span>
                   <span className="text-[10px] text-[#3c3c43]">{task.assignee.display_name}</span>
-                </div>
+                </span>
               )}
-              {task.next_due_at && (
-                <p className="text-[10px] text-[#8e8e93]">
-                  {new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                  {' · '}
-                  {new Date(task.next_due_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              )}
-            </div>
-
-            {/* Actions empilées */}
-            <div className="space-y-1.5 mt-auto">
-              <button onClick={handleClick}
-                className="w-full rounded-lg py-[7px] text-[13px] font-semibold text-white" style={{ background: '#34c759' }}>
-                ✓ Fait
-              </button>
-              <Link href={`/tasks/${task.id}`}
-                className="block w-full rounded-lg py-[7px] text-center text-[13px] font-medium text-[#007aff]"
-                style={{ background: '#f2f2f7' }}>
-                Détail
-              </Link>
             </div>
           </div>
-        </>
+        </Link>
       )}
     </div>
   );
