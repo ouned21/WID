@@ -89,18 +89,18 @@ function TaskCard({ task, onComplete, isCompleted }: {
               <h3 className="text-[14px] font-bold text-[#1c1c1e] leading-tight line-clamp-2">{task.name}</h3>
             </div>
 
-            {/* 2. Catégorie + fréquence + score — hauteur fixe */}
-            <div className="h-[20px] flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5">
-                <span className="rounded-full px-2 py-0.5 text-[9px] font-semibold text-white" style={{ background: catColor }}>
-                  {task.category?.name}
-                </span>
-                <span className="text-[9px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
-              </div>
+            {/* 2. Score The Load — hauteur fixe */}
+            <div className="h-[20px] flex items-center gap-2 mb-2">
               {(() => {
                 const gs = task.global_score ?? (task.mental_load_score * 7);
                 const gsColor = gs <= 8 ? '#34c759' : gs <= 16 ? '#007aff' : gs <= 24 ? '#ff9500' : '#ff3b30';
-                return <span className="text-[11px] font-bold" style={{ color: gsColor }}>{gs}/36</span>;
+                return (
+                  <>
+                    <span className="text-[10px] font-semibold text-[#8e8e93]">The Load</span>
+                    <span className="text-[14px] font-bold" style={{ color: gsColor }}>{gs}</span>
+                    <span className="text-[10px] text-[#c7c7cc]">/36</span>
+                  </>
+                );
               })()}
             </div>
 
@@ -130,13 +130,21 @@ function TaskCard({ task, onComplete, isCompleted }: {
             </div>
           </Link>
 
-          {/* 5. Bouton FAIT — toujours en bas */}
-          <div className="px-3 pb-3 pt-1 flex justify-center">
+          {/* 5. Catégorie + fréquence + bouton FAIT */}
+          <div className="px-3 pb-3 pt-1">
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="rounded-full px-2 py-0.5 text-[8px] font-semibold text-white" style={{ background: catColor }}>
+                {task.category?.name}
+              </span>
+              <span className="text-[9px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
+            </div>
+            <div className="flex justify-center">
             <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
               className="rounded-lg px-3 py-[4px] text-[10px] font-bold tracking-widest border-[1.5px] transition-all"
               style={{ borderColor: '#34c759', color: '#34c759', background: 'transparent' }}>
               FAIT
             </button>
+            </div>
           </div>
         </>
       )}
