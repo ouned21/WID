@@ -78,30 +78,57 @@ function TaskCard({ task, onComplete, isCompleted }: {
         </div>
       ) : (
         <>
-          {/* Bandeau catégorie en haut */}
-          <div className="px-3 py-2 flex items-center justify-between" style={{ background: catColor }}>
+          {/* Bandeau catégorie */}
+          <div className="px-3 py-1.5 flex items-center justify-between" style={{ background: catColor }}>
             <span className="text-[11px] font-semibold truncate" style={{ color: textOnCat }}>{task.category?.name}</span>
-            <span className="text-right leading-tight" style={{ color: textOnCat }}><span className="block text-[9px] opacity-70">Charge mentale</span><span className="text-[13px] font-bold">{task.mental_load_score}/5</span></span>
+            {task.global_score != null ? (
+              <span className="text-[12px] font-bold" style={{ color: textOnCat }}>{task.global_score}/36</span>
+            ) : (
+              <span className="text-[12px] font-bold" style={{ color: textOnCat }}>{task.mental_load_score}/5</span>
+            )}
           </div>
 
           {/* Corps de la carte */}
           <div className="flex-1 p-3 flex flex-col">
             <Link href={`/tasks/${task.id}`} className="flex-1">
-              <h3 className="text-[15px] font-semibold text-[#1c1c1e] leading-tight mb-2">{task.name}</h3>
+              <h3 className="text-[14px] font-semibold text-[#1c1c1e] leading-tight mb-1.5">{task.name}</h3>
             </Link>
 
-            <div className="space-y-1 mb-3">
+            {/* Mini jauges si score V2 disponible */}
+            {task.score_breakdown && (
+              <div className="space-y-1 mb-2">
+                {[
+                  { label: '⏱', value: (task.score_breakdown as Record<string, number>).time_score ?? 0, max: 8 },
+                  { label: '💪', value: (task.score_breakdown as Record<string, number>).physical_score ?? 0, max: 5 },
+                  { label: '🧠', value: (task.score_breakdown as Record<string, number>).mental_load_score ?? 0, max: 18 },
+                  { label: '👥', value: (task.score_breakdown as Record<string, number>).household_impact_score ?? 0, max: 4 },
+                ].map((g) => {
+                  const pct = Math.min(100, (g.value / g.max) * 100);
+                  const c = pct <= 33 ? '#34c759' : pct <= 66 ? '#ff9500' : '#ff3b30';
+                  return (
+                    <div key={g.label} className="flex items-center gap-1.5">
+                      <span className="text-[9px] w-4">{g.label}</span>
+                      <div className="flex-1 h-1.5 rounded-full" style={{ background: '#f2f2f7' }}>
+                        <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: c }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="space-y-0.5 mb-2">
               <p className="text-[11px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</p>
               {task.assignee && (
                 <div className="flex items-center gap-1">
-                  <span className="h-4 w-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{ background: '#007aff' }}>
+                  <span className="h-3.5 w-3.5 rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ background: '#007aff' }}>
                     {task.assignee.display_name.charAt(0).toUpperCase()}
                   </span>
-                  <span className="text-[11px] text-[#3c3c43]">{task.assignee.display_name}</span>
+                  <span className="text-[10px] text-[#3c3c43]">{task.assignee.display_name}</span>
                 </div>
               )}
               {task.next_due_at && (
-                <p className="text-[11px] text-[#8e8e93]">
+                <p className="text-[10px] text-[#8e8e93]">
                   {new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                   {' · '}
                   {new Date(task.next_due_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
