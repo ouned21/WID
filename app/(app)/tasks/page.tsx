@@ -254,15 +254,15 @@ export default function TasksPage() {
           <div className="mt-3 space-y-1.5 text-[13px]">
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded-full" style={{ background: '#34c759' }} />
-              <span className="text-[#1c1c1e]"><strong>0-2</strong> — Légère (ranger, essuyer)</span>
+              <span className="text-[#1c1c1e]"><strong>0-2</strong> — Légère</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded-full" style={{ background: '#ff9500' }} />
-              <span className="text-[#1c1c1e]"><strong>3</strong> — Modérée (courses, ménage complet)</span>
+              <span className="text-[#1c1c1e]"><strong>3</strong> — Modérée</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded-full" style={{ background: '#ff3b30' }} />
-              <span className="text-[#1c1c1e]"><strong>4-5</strong> — Élevée (admin, organisation, impôts)</span>
+              <span className="text-[#1c1c1e]"><strong>4-5</strong> — Élevée</span>
             </div>
           </div>
         </div>
