@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
@@ -13,26 +13,29 @@ export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { profile } = useAuthStore();
-  const { tasks, completeTask, updateTask, archiveTask, deleteTask, fetchTaskDetail, completing, updating, archiving } = useTaskStore();
+  const { tasks, completeTask, updateTask, archiveTask, deleteTask, fetchTaskDetail, completing, archiving } = useTaskStore();
   const { members } = useHouseholdStore();
   const task = tasks.find((t) => t.id === id);
 
   const [completions, setCompletions] = useState<TaskCompletion[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-
-  // Champs editables inline — null = pas en edition
-  const [editingField, setEditingField] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState<string>('');
-  const [editScore, setEditScore] = useState(0);
-
-  // Completion
   const [showCompleteForm, setShowCompleteForm] = useState(false);
-  const [completeDuration, setCompleteDuration] = useState<string>('');
+  const [completeDuration, setCompleteDuration] = useState('');
   const [completeNote, setCompleteNote] = useState('');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   useEffect(() => {
     if (id) { setLoadingHistory(true); fetchTaskDetail(id).then((data) => { setCompletions(data); setLoadingHistory(false); }); }
   }, [id, fetchTaskDetail]);
+
+  // Sauvegarde automatique d'un champ
+  const autoSave = useCallback(async (field: string, value: unknown) => {
+    if (!task) return;
+    setSaveStatus('saving');
+    const result = await updateTask(task.id, { [field]: value });
+    setSaveStatus(result.ok ? 'saved' : 'error');
+    setTimeout(() => setSaveStatus('idle'), 1500);
+  }, [task, updateTask]);
 
   if (!task) {
     return (
@@ -52,20 +55,6 @@ export default function TaskDetailPage() {
     setCompletions(data);
   };
 
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const handleSaveField = async (field: string, value: unknown) => {
-    setSaving(true);
-    setSaveError(null);
-    const result = await updateTask(task.id, { [field]: value });
-    setSaving(false);
-    if (result.ok) {
-      setEditingField(null);
-    } else {
-      setSaveError(result.error ?? 'Erreur lors de la sauvegarde.');
-    }
-  };
-
   const handleArchive = async () => {
     if (!confirm('Archiver cette tâche ?')) return;
     await archiveTask(task.id);
@@ -73,173 +62,104 @@ export default function TaskDetailPage() {
   };
 
   const catColor = task.category?.color_hex ?? '#8e8e93';
-  const scoreColor = task.mental_load_score >= 4 ? '#ff3b30' : task.mental_load_score >= 3 ? '#ff9500' : '#34c759';
-
-  const startEditName = () => { setEditingField('name'); setEditValue(task.name); };
-  const startEditFrequency = () => { setEditingField('frequency'); setEditValue(task.frequency); };
-  const startEditAssignee = () => { setEditingField('assigned_to'); setEditValue(task.assigned_to ?? ''); };
-  const startEditScore = () => { setEditingField('mental_load_score'); setEditScore(task.mental_load_score); };
 
   return (
     <div className="pt-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between px-4">
         <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
+        {saveStatus !== 'idle' && (
+          <span className="text-[13px] font-medium" style={{
+            color: saveStatus === 'saving' ? '#8e8e93' : saveStatus === 'saved' ? '#34c759' : '#ff3b30'
+          }}>
+            {saveStatus === 'saving' ? 'Sauvegarde...' : saveStatus === 'saved' ? '✓ Sauvegardé' : 'Erreur'}
+          </span>
+        )}
       </div>
 
-      {saveError && (
-        <div className="mx-4 rounded-xl px-4 py-3 text-[14px]" style={{ background: '#fff2f2', color: '#ff3b30' }}>{saveError}</div>
-      )}
-
-      {/* Fiche tâche — champs cliquables */}
+      {/* Fiche tâche */}
       <div className="mx-4 rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
 
-        {/* Nom */}
+        {/* Nom — éditable inline, sauvegarde au blur */}
         <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
-          {editingField === 'name' ? (
-            <div className="flex items-center gap-2">
-              <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} autoFocus
-                className="flex-1 text-[20px] font-bold text-[#1c1c1e] bg-transparent outline-none" />
-              <button onClick={() => handleSaveField('name', editValue.trim())}
-                className="text-[15px] font-semibold" style={{ color: '#007aff' }}>{saving ? '...' : 'OK'}</button>
-              <button onClick={() => setEditingField(null)} className="text-[15px] text-[#8e8e93]">✕</button>
-            </div>
-          ) : (
-            <button onClick={startEditName} className="w-full text-left flex items-center justify-between">
-              <h2 className="text-[20px] font-bold text-[#1c1c1e]">{task.name}</h2>
-              <svg width="16" height="16" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </button>
-          )}
+          <input
+            type="text"
+            defaultValue={task.name}
+            onBlur={(e) => {
+              const val = e.target.value.trim();
+              if (val && val !== task.name) autoSave('name', val);
+            }}
+            className="w-full text-[20px] font-bold text-[#1c1c1e] bg-transparent outline-none"
+          />
         </div>
 
-        {/* Catégorie (lecture seule) + Score */}
+        {/* Catégorie + Score */}
         <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
           <span className="rounded-full px-2.5 py-0.5 text-[12px] font-semibold text-white" style={{ background: catColor }}>
             {task.category?.name}
           </span>
-          {editingField === 'mental_load_score' ? (
-            <div className="flex items-center gap-2">
-              <span className="text-[15px] font-bold" style={{ color: editScore >= 4 ? '#ff3b30' : editScore >= 3 ? '#ff9500' : '#34c759' }}>
-                {editScore}/5
-              </span>
-              <input type="range" min={0} max={5} value={editScore} onChange={(e) => setEditScore(Number(e.target.value))}
-                className="w-24" style={{ accentColor: editScore >= 4 ? '#ff3b30' : editScore >= 3 ? '#ff9500' : '#34c759' }} />
-              <button onClick={() => handleSaveField('mental_load_score', editScore)}
-                className="text-[13px] font-semibold" style={{ color: '#007aff' }}>{saving ? '...' : 'OK'}</button>
-            </div>
-          ) : (
-            <button onClick={startEditScore} className="flex items-center gap-1.5">
-              <span className="text-[11px] text-[#8e8e93]">Charge mentale</span>
-              <span className="text-[20px] font-bold" style={{ color: scoreColor }}>{task.mental_load_score}</span>
-              <span className="text-[11px] text-[#8e8e93]">/5</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-[#8e8e93]">Charge mentale</span>
+            <select
+              defaultValue={task.mental_load_score}
+              onChange={(e) => autoSave('mental_load_score', Number(e.target.value))}
+              className="text-[17px] font-bold bg-transparent outline-none"
+              style={{ color: task.mental_load_score >= 4 ? '#ff3b30' : task.mental_load_score >= 3 ? '#ff9500' : '#34c759' }}
+            >
+              {[0,1,2,3,4,5].map((v) => <option key={v} value={v}>{v}/5</option>)}
+            </select>
+          </div>
         </div>
 
-        {/* Fréquence */}
+        {/* Fréquence — select direct */}
         <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
-          {editingField === 'frequency' ? (
-            <div>
-              <label className="text-[11px] text-[#8e8e93] uppercase">Fréquence</label>
-              <div className="flex items-center gap-2 mt-1">
-                <select value={editValue} onChange={(e) => setEditValue(e.target.value)}
-                  className="flex-1 text-[17px] text-[#1c1c1e] bg-transparent outline-none">
-                  {FREQUENCY_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-                </select>
-                <button onClick={() => handleSaveField('frequency', editValue)}
-                  className="text-[15px] font-semibold" style={{ color: '#007aff' }}>{saving ? '...' : 'OK'}</button>
-              </div>
-            </div>
-          ) : (
-            <button onClick={startEditFrequency} className="w-full text-left flex items-center justify-between">
-              <div>
-                <p className="text-[11px] text-[#8e8e93] uppercase">Fréquence</p>
-                <p className="text-[17px] font-medium text-[#1c1c1e]">{frequencyLabel(task.frequency)}</p>
-              </div>
-              <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
-            </button>
-          )}
+          <p className="text-[11px] text-[#8e8e93] uppercase mb-1">Fréquence</p>
+          <select
+            defaultValue={task.frequency}
+            onChange={(e) => autoSave('frequency', e.target.value)}
+            className="w-full text-[17px] font-medium text-[#1c1c1e] bg-transparent outline-none"
+          >
+            {FREQUENCY_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+          </select>
         </div>
 
-        {/* Assignée à */}
+        {/* Assignée à — select direct */}
         <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
-          {editingField === 'assigned_to' ? (
-            <div>
-              <label className="text-[11px] text-[#8e8e93] uppercase">Assignée à</label>
-              <div className="flex items-center gap-2 mt-1">
-                <select value={editValue} onChange={(e) => setEditValue(e.target.value)}
-                  className="flex-1 text-[17px] text-[#1c1c1e] bg-transparent outline-none">
-                  <option value="">Non assigné</option>
-                  {members.map((m) => (<option key={m.id} value={m.id}>{m.display_name}</option>))}
-                </select>
-                <button onClick={() => handleSaveField('assigned_to', editValue || null)}
-                  className="text-[15px] font-semibold" style={{ color: '#007aff' }}>{saving ? '...' : 'OK'}</button>
-              </div>
-            </div>
-          ) : (
-            <button onClick={startEditAssignee} className="w-full text-left flex items-center justify-between">
-              <div>
-                <p className="text-[11px] text-[#8e8e93] uppercase">Assignée à</p>
-                <p className="text-[17px] font-medium text-[#1c1c1e]">{task.assignee?.display_name ?? 'Non assigné'}</p>
-              </div>
-              <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
-            </button>
-          )}
+          <p className="text-[11px] text-[#8e8e93] uppercase mb-1">Assignée à</p>
+          <select
+            defaultValue={task.assigned_to ?? ''}
+            onChange={(e) => autoSave('assigned_to', e.target.value || null)}
+            className="w-full text-[17px] font-medium text-[#1c1c1e] bg-transparent outline-none"
+          >
+            <option value="">Non assigné</option>
+            {members.map((m) => (<option key={m.id} value={m.id}>{m.display_name}</option>))}
+          </select>
         </div>
 
-        {/* Prochaine échéance — cliquable */}
+        {/* Prochaine échéance — date/time directs */}
         <div className="px-4 py-3">
-          {editingField === 'next_due_at' ? (
-            <div>
-              <label className="text-[11px] text-[#8e8e93] uppercase">Prochaine échéance</label>
-              <div className="flex items-center gap-2 mt-1">
-                <input type="date" value={editValue.split('T')[0] || ''}
-                  onChange={(e) => {
-                    const time = editValue.split('T')[1] || '09:00';
-                    setEditValue(`${e.target.value}T${time}`);
-                  }}
-                  className="flex-1 text-[17px] text-[#1c1c1e] bg-transparent outline-none" />
-                <input type="time" value={editValue.split('T')[1]?.substring(0, 5) || '09:00'}
-                  onChange={(e) => {
-                    const date = editValue.split('T')[0] || new Date().toISOString().split('T')[0];
-                    setEditValue(`${date}T${e.target.value}`);
-                  }}
-                  className="w-20 text-[17px] text-[#1c1c1e] bg-transparent outline-none" />
-                <button onClick={() => {
-                  const iso = new Date(`${editValue}:00`).toISOString();
-                  handleSaveField('next_due_at', iso);
-                }} className="text-[15px] font-semibold" style={{ color: '#007aff' }}>{saving ? '...' : 'OK'}</button>
-              </div>
-            </div>
-          ) : (
-            <button onClick={() => {
-              if (task.next_due_at) {
-                const d = new Date(task.next_due_at);
-                const date = d.toISOString().split('T')[0];
-                const time = d.toTimeString().substring(0, 5);
-                setEditValue(`${date}T${time}`);
-              } else {
-                const now = new Date();
-                const date = now.toISOString().split('T')[0];
-                setEditValue(`${date}T09:00`);
-              }
-              setEditingField('next_due_at');
-            }} className="w-full text-left flex items-center justify-between">
-              <div>
-                <p className="text-[11px] text-[#8e8e93] uppercase">Prochaine échéance</p>
-                {task.next_due_at ? (
-                  <p className="text-[17px] font-medium text-[#1c1c1e]">
-                    {new Date(task.next_due_at).toLocaleDateString('fr-FR', { dateStyle: 'full' })}
-                    {' · '}
-                    {new Date(task.next_due_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                ) : (
-                  <p className="text-[17px] text-[#c7c7cc]">Aucune — cliquez pour définir</p>
-                )}
-              </div>
-              <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
-            </button>
-          )}
+          <p className="text-[11px] text-[#8e8e93] uppercase mb-1">Prochaine échéance</p>
+          <div className="flex gap-2">
+            <input
+              type="date"
+              defaultValue={task.next_due_at ? new Date(task.next_due_at).toISOString().split('T')[0] : ''}
+              onChange={(e) => {
+                if (!e.target.value) return;
+                const time = task.next_due_at ? new Date(task.next_due_at).toTimeString().substring(0, 5) : '09:00';
+                autoSave('next_due_at', new Date(`${e.target.value}T${time}:00`).toISOString());
+              }}
+              className="flex-1 text-[17px] text-[#1c1c1e] bg-transparent outline-none"
+            />
+            <input
+              type="time"
+              defaultValue={task.next_due_at ? new Date(task.next_due_at).toTimeString().substring(0, 5) : '09:00'}
+              onChange={(e) => {
+                const date = task.next_due_at ? new Date(task.next_due_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+                autoSave('next_due_at', new Date(`${date}T${e.target.value}:00`).toISOString());
+              }}
+              className="w-24 text-[17px] text-[#1c1c1e] bg-transparent outline-none"
+            />
+          </div>
         </div>
       </div>
 
