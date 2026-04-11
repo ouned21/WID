@@ -7,6 +7,7 @@ import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { filterTasks, splitTasksIntoSections } from '@/utils/taskSelectors';
 import { frequencyLabel } from '@/utils/frequency';
+import { timeLabel, physicalLabel, mentalLabel, impactLabel } from '@/utils/taskScoring';
 import type { TaskListItem } from '@/types/database';
 
 // -- Chip ----------------------------------------------------------------------
@@ -28,16 +29,16 @@ function Chip({ label, active, onClick, color }: {
 
 // -- Jauge mini ----------------------------------------------------------------
 
-function MiniGauge({ label, value, max }: { label: string; value: number; max: number }) {
+function MiniGauge({ label, value, max, note }: { label: string; value: number; max: number; note?: string }) {
   const pct = Math.min(100, (value / max) * 100);
   const c = pct <= 33 ? '#34c759' : pct <= 66 ? '#ff9500' : '#ff3b30';
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-[10px] w-16 flex-shrink-0 text-[#8e8e93]">{label}</span>
+    <div className="flex items-center gap-1">
+      <span className="text-[9px] w-[52px] flex-shrink-0 text-[#8e8e93] truncate">{label}</span>
       <div className="flex-1 h-1.5 rounded-full" style={{ background: '#f2f2f7' }}>
         <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: c }} />
       </div>
-      <span className="text-[10px] w-3 text-right text-[#8e8e93] flex-shrink-0">{value}</span>
+      <span className="text-[9px] w-[38px] text-right text-[#8e8e93] flex-shrink-0 truncate">{note ?? value}</span>
     </div>
   );
 }
@@ -99,10 +100,10 @@ function TaskCard({ task, onComplete, isCompleted }: {
 
             {/* 3. 4 jauges — hauteur fixe */}
             <div className="space-y-1 mb-2">
-              <MiniGauge label="⏱ Temps" value={sb?.time_score ?? 0} max={8} />
-              <MiniGauge label="💪 Physique" value={sb?.physical_score ?? 0} max={5} />
-              <MiniGauge label="🧠 Mental" value={sb?.mental_load_score ?? task.mental_load_score} max={sb ? 18 : 5} />
-              <MiniGauge label="👥 Impact" value={sb?.household_impact_score ?? 0} max={4} />
+              <MiniGauge label="Durée" value={sb?.time_score ?? 0} max={8} note={timeLabel(sb?.time_score ?? 0)} />
+              <MiniGauge label="Physique" value={sb?.physical_score ?? 0} max={5} note={physicalLabel(sb?.physical_score ?? 0)} />
+              <MiniGauge label="Mental" value={sb?.mental_load_score ?? task.mental_load_score} max={sb ? 18 : 5} note={mentalLabel(sb?.mental_load_score ?? task.mental_load_score)} />
+              <MiniGauge label="Impact" value={sb?.household_impact_score ?? 0} max={4} note={impactLabel(sb?.household_impact_score ?? 0)} />
             </div>
 
             {/* 4. Assignée + date — hauteur fixe */}
