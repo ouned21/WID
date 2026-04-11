@@ -53,11 +53,17 @@ export default function TaskDetailPage() {
   };
 
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const handleSaveField = async (field: string, value: unknown) => {
     setSaving(true);
-    await updateTask(task.id, { [field]: value });
+    setSaveError(null);
+    const result = await updateTask(task.id, { [field]: value });
     setSaving(false);
-    setEditingField(null);
+    if (result.ok) {
+      setEditingField(null);
+    } else {
+      setSaveError(result.error ?? 'Erreur lors de la sauvegarde.');
+    }
   };
 
   const handleArchive = async () => {
@@ -80,6 +86,10 @@ export default function TaskDetailPage() {
       <div className="flex items-center justify-between px-4">
         <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
       </div>
+
+      {saveError && (
+        <div className="mx-4 rounded-xl px-4 py-3 text-[14px]" style={{ background: '#fff2f2', color: '#ff3b30' }}>{saveError}</div>
+      )}
 
       {/* Fiche tâche — champs cliquables */}
       <div className="mx-4 rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>

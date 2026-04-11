@@ -8,19 +8,19 @@ import { useHouseholdStore } from '@/stores/householdStore';
 import { useTaskNotifications } from '@/utils/useTaskNotifications';
 
 const NAV_ITEMS = [
+  { href: '/dashboard', label: 'Accueil', icon: (
+    <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+      <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" />
+    </svg>
+  )},
   { href: '/tasks', label: 'Tâches', icon: (
     <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
       <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
     </svg>
   )},
-  { href: '/exchanges', label: 'Échanges', icon: (
+  { href: '/exchanges', label: 'Deals', icon: (
     <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
       <path d="M7 16l-4-4m0 0l4-4m-4 4h18M17 8l4 4m0 0l-4 4m4-4H3" />
-    </svg>
-  )},
-  { href: '/distribution', label: 'Stats', icon: (
-    <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-      <path d="M18 20V10M12 20V4M6 20v-6" />
     </svg>
   )},
   { href: '/profile', label: 'Profil', icon: (

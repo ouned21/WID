@@ -71,7 +71,7 @@ export async function middleware(request: NextRequest) {
     // Connecte avec foyer mais sur une page auth/household : redirect vers /tasks
     if (hasHousehold && (isAuthPage || isHouseholdPage)) {
       const url = request.nextUrl.clone();
-      url.pathname = '/tasks';
+      url.pathname = '/dashboard';
       return NextResponse.redirect(url);
     }
   }

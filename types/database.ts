@@ -69,11 +69,16 @@ export type HouseholdTask = {
   name: string;
   category_id: string;
   frequency: Frequency;
-  custom_interval_days: number | null; // Pour frequency='custom'
+  custom_interval_days: number | null;
   assigned_to: string | null;
-  mental_load_score: number; // 0-5
+  mental_load_score: number; // ancien score 0-5, conservé pour compatibilité
+  duration_estimate: string | null; // very_short, short, medium, long, very_long
+  physical_effort: string | null; // none, light, medium, high
+  scoring_category: string | null; // catégorie de scoring (children, meals, etc.)
+  score_breakdown: Record<string, unknown> | null; // ScoreBreakdown JSON
+  global_score: number | null; // score global calculé (2-36)
   next_due_at: string | null;
-  starts_at: string | null; // Date de début future
+  starts_at: string | null;
   is_active: boolean;
   created_by: string;
   created_at: string;

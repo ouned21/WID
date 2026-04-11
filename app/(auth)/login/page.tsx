@@ -18,7 +18,7 @@ export default function LoginPage() {
     e.preventDefault();
     clearError();
     const result = await signIn(email, password);
-    if (result.ok) router.push('/tasks');
+    if (result.ok) router.push('/dashboard');
   };
 
   return (

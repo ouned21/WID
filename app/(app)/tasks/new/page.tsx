@@ -6,6 +6,21 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { FREQUENCY_OPTIONS } from '@/utils/frequency';
+import {
+  computeTaskScore,
+  DURATION_OPTIONS,
+  PHYSICAL_OPTIONS,
+  SCORING_CATEGORY_OPTIONS,
+  timeLabel,
+  physicalLabel,
+  mentalLabel,
+  impactLabel,
+  dominantEmoji,
+  type DurationEstimate,
+  type PhysicalEffort,
+  type TaskCategory as ScoringCategory,
+  type ScoreBreakdown,
+} from '@/utils/taskScoring';
 import type { Frequency, TaskCategory, TaskTemplate } from '@/types/database';
 import { createClient } from '@/lib/supabase';
 
@@ -15,23 +30,33 @@ export default function NewTaskPage() {
   const { createTask, creating } = useTaskStore();
   const { members } = useHouseholdStore();
 
-  const [categories, setCategories] = useState<TaskCategory[]>([]);
+  // Catalogue
+  const [dbCategories, setDbCategories] = useState<TaskCategory[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
+
+  // Mode
   const [mode, setMode] = useState<'catalogue' | 'libre'>('catalogue');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+
+  // Inputs scoring (5 champs)
   const [name, setName] = useState('');
+  const [scoringCategory, setScoringCategory] = useState<ScoringCategory>('misc');
+  const [duration, setDuration] = useState<DurationEstimate>('medium');
+  const [physical, setPhysical] = useState<PhysicalEffort>('light');
   const [frequency, setFrequency] = useState<Frequency>('weekly');
-  const [mentalLoadScore, setMentalLoadScore] = useState(3);
-  const [assignedTo, setAssignedTo] = useState<string>('');
-  const [customIntervalDays, setCustomIntervalDays] = useState<string>('');
-  const [dueDate, setDueDate] = useState<string>('');
-  const [dueTime, setDueTime] = useState<string>('09:00');
-  const [startsAt, setStartsAt] = useState<string>('');
+
+  // Extras
+  const [assignedTo, setAssignedTo] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('09:00');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [startsAt, setStartsAt] = useState('');
+  const [customIntervalDays, setCustomIntervalDays] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const [loadingCatalog, setLoadingCatalog] = useState(true);
+  // Charger le catalogue
   useEffect(() => {
     async function load() {
       const supabase = createClient();
@@ -39,10 +64,8 @@ export default function NewTaskPage() {
         supabase.from('task_categories').select('*').order('sort_order'),
         supabase.from('task_templates').select('*'),
       ]);
-      if (catRes.error || tplRes.error) {
-        setError('Impossible de charger le catalogue. Vérifiez votre connexion.');
-      }
-      if (catRes.data) setCategories(catRes.data as TaskCategory[]);
+      if (catRes.error || tplRes.error) setError('Impossible de charger le catalogue.');
+      if (catRes.data) setDbCategories(catRes.data as TaskCategory[]);
       if (tplRes.data) setTemplates(tplRes.data as TaskTemplate[]);
       setLoadingCatalog(false);
     }
@@ -54,30 +77,38 @@ export default function NewTaskPage() {
     return templates.filter((t) => t.category_id === selectedCategoryId);
   }, [templates, selectedCategoryId]);
 
+  // Score calculé en temps réel
+  const score: ScoreBreakdown = useMemo(() => {
+    return computeTaskScore({ title: name, category: scoringCategory, duration, physical, frequency });
+  }, [name, scoringCategory, duration, physical, frequency]);
+
   const handleSelectTemplate = (tpl: TaskTemplate) => {
     setSelectedTemplateId(tpl.id);
     setName(tpl.name);
     setFrequency(tpl.default_frequency);
-    setMentalLoadScore(tpl.default_mental_load_score);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(null);
+    e.preventDefault();
+    setError(null);
     if (!profile?.household_id) return;
     if (!name.trim()) { setError('Le nom est obligatoire.'); return; }
-    const categoryId = selectedCategoryId || (categories[0]?.id ?? '');
+    const categoryId = selectedCategoryId || (dbCategories[0]?.id ?? '');
     if (!categoryId) { setError('Choisissez une catégorie.'); return; }
 
     let nextDueAt: string | null = null;
     if (dueDate) {
-      const dateTime = dueTime ? `${dueDate}T${dueTime}:00` : `${dueDate}T09:00:00`;
-      nextDueAt = new Date(dateTime).toISOString();
+      nextDueAt = new Date(`${dueDate}T${dueTime || '09:00'}:00`).toISOString();
     }
 
     const result = await createTask(profile.household_id, {
-      name: name.trim(), category_id: categoryId, frequency,
-      mental_load_score: mentalLoadScore, assigned_to: assignedTo || null,
-      template_id: selectedTemplateId || null, next_due_at: nextDueAt,
+      name: name.trim(),
+      category_id: categoryId,
+      frequency,
+      mental_load_score: Math.round(score.global_score / 7), // Compat 0-5 pour l'ancien champ
+      assigned_to: assignedTo || null,
+      template_id: selectedTemplateId || null,
+      next_due_at: nextDueAt,
       custom_interval_days: frequency === 'custom' && customIntervalDays ? parseInt(customIntervalDays, 10) : null,
       starts_at: startsAt ? new Date(`${startsAt}T00:00:00`).toISOString() : null,
     });
@@ -85,20 +116,21 @@ export default function NewTaskPage() {
     else setError(result.error ?? 'Erreur inconnue.');
   };
 
-  const scoreColor = mentalLoadScore >= 4 ? '#ff3b30' : mentalLoadScore >= 3 ? '#ff9500' : '#34c759';
+  const globalColor =
+    score.global_score <= 8 ? '#34c759' :
+    score.global_score <= 16 ? '#007aff' :
+    score.global_score <= 24 ? '#ff9500' :
+    '#ff3b30';
 
   return (
     <div className="pt-4">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 mb-4">
-        <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>
-          ← Retour
-        </button>
+        <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
         <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Nouvelle tâche</h2>
         <div className="w-16" />
       </div>
 
-      {/* Toggle catalogue / libre */}
+      {/* Toggle */}
       <div className="mx-4 mb-4 rounded-lg p-0.5 flex" style={{ background: '#e5e5ea' }}>
         <button onClick={() => setMode('catalogue')}
           className={`flex-1 rounded-md py-[6px] text-[13px] font-semibold transition-all ${mode === 'catalogue' ? 'bg-white text-[#1c1c1e] shadow-sm' : 'text-[#8e8e93]'}`}>
@@ -115,16 +147,16 @@ export default function NewTaskPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Catégories */}
+        {/* Catégorie DB (pour le lien avec Supabase) */}
         <div className="px-4">
           <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2">Catégorie</p>
           <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => (
+            {dbCategories.map((cat) => (
               <button key={cat.id} type="button"
                 onClick={() => { setSelectedCategoryId(cat.id); setSelectedTemplateId(''); }}
                 className="rounded-full px-3.5 py-[6px] text-[13px] font-semibold transition-all"
                 style={selectedCategoryId === cat.id
-                  ? { background: cat.color_hex, color: 'white' }
+                  ? { background: cat.color_hex, color: (() => { const hex = cat.color_hex.replace('#',''); const r = parseInt(hex.substring(0,2),16); const g = parseInt(hex.substring(2,4),16); const b = parseInt(hex.substring(4,6),16); return (0.299*r+0.587*g+0.114*b)/255 > 0.6 ? '#1c1c1e' : '#fff'; })() }
                   : { background: 'white', color: '#3c3c43', boxShadow: '0 0.5px 2px rgba(0,0,0,0.08)' }
                 }>
                 {/\p{Emoji}/u.test(cat.icon) ? `${cat.icon} ` : ''}{cat.name}
@@ -151,22 +183,74 @@ export default function NewTaskPage() {
                     )}
                     <p className={`text-[15px] ${selectedTemplateId === tpl.id ? 'font-semibold text-[#007aff]' : 'text-[#1c1c1e]'}`}>{tpl.name}</p>
                   </div>
-                  <span className="text-[13px] text-[#8e8e93]">{tpl.default_mental_load_score}/5</span>
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* Formulaire iOS grouped */}
+        {/* Formulaire principal */}
         <div className="mx-4 rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          {/* Nom */}
           <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
             <label className="text-[13px] text-[#8e8e93] block mb-1">Nom de la tâche</label>
             <input type="text" required maxLength={100} value={name} onChange={(e) => setName(e.target.value)}
               className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
-              placeholder={mode === 'catalogue' ? 'Sélectionnez ci-dessus' : 'Ex : Nettoyer le frigo'} />
+              placeholder="Ex : Préparer le dîner" />
           </div>
 
+          {/* Type de tâche (scoring) */}
+          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <label className="text-[13px] text-[#8e8e93] block mb-2">Type de tâche</label>
+            <div className="flex flex-wrap gap-1.5">
+              {SCORING_CATEGORY_OPTIONS.map((opt) => (
+                <button key={opt.value} type="button" onClick={() => setScoringCategory(opt.value)}
+                  className="rounded-full px-2.5 py-1 text-[12px] font-medium transition-all"
+                  style={scoringCategory === opt.value
+                    ? { background: '#007aff', color: 'white' }
+                    : { background: '#f2f2f7', color: '#3c3c43' }
+                  }>
+                  {opt.emoji} {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Durée */}
+          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <label className="text-[13px] text-[#8e8e93] block mb-2">Durée estimée</label>
+            <div className="flex gap-1.5">
+              {DURATION_OPTIONS.map((opt) => (
+                <button key={opt.value} type="button" onClick={() => setDuration(opt.value)}
+                  className="flex-1 rounded-lg py-2 text-[12px] font-medium text-center transition-all"
+                  style={duration === opt.value
+                    ? { background: '#007aff', color: 'white' }
+                    : { background: '#f2f2f7', color: '#3c3c43' }
+                  }>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Effort physique */}
+          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <label className="text-[13px] text-[#8e8e93] block mb-2">Effort physique</label>
+            <div className="flex gap-1.5">
+              {PHYSICAL_OPTIONS.map((opt) => (
+                <button key={opt.value} type="button" onClick={() => setPhysical(opt.value)}
+                  className="flex-1 rounded-lg py-2 text-[12px] font-medium text-center transition-all"
+                  style={physical === opt.value
+                    ? { background: '#007aff', color: 'white' }
+                    : { background: '#f2f2f7', color: '#3c3c43' }
+                  }>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Fréquence */}
           <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
             <label className="text-[13px] text-[#8e8e93] block mb-1">Fréquence</label>
             <select value={frequency} onChange={(e) => setFrequency(e.target.value as Frequency)}
@@ -183,22 +267,22 @@ export default function NewTaskPage() {
               <input type="number" min={1} max={365} value={customIntervalDays}
                 onChange={(e) => setCustomIntervalDays(e.target.value)}
                 className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
-                placeholder="Ex : 10 (tous les 10 jours)" />
+                placeholder="Ex : 10" />
             </div>
           )}
 
+          {/* Assignation */}
           <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
             <label className="text-[13px] text-[#8e8e93] block mb-1">Assigner à</label>
             <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}
               className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none">
               <option value="">Non assigné</option>
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>{m.display_name}</option>
-              ))}
+              {members.map((m) => (<option key={m.id} value={m.id}>{m.display_name}</option>))}
             </select>
           </div>
 
-          <div className="px-4 py-3 flex gap-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+          {/* Date / Heure */}
+          <div className="px-4 py-3 flex gap-3">
             <div className="flex-1">
               <label className="text-[13px] text-[#8e8e93] block mb-1">Date prévue</label>
               <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
@@ -210,21 +294,26 @@ export default function NewTaskPage() {
                 className="w-full text-[15px] text-[#1c1c1e] bg-transparent outline-none" />
             </div>
           </div>
+        </div>
 
-          <div className="px-4 py-4">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-[13px] text-[#8e8e93]">Charge mentale <span className="text-[11px]">(effort cognitif et émotionnel)</span></label>
-              <span className="text-[17px] font-bold" style={{ color: scoreColor }}>{mentalLoadScore}/5</span>
+        {/* Score en temps réel */}
+        <div className="mx-4 rounded-2xl p-4" style={{ background: 'white', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide">Score estimé</p>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px]">{dominantEmoji(score.dominant)}</span>
+              <span className="text-[22px] font-bold" style={{ color: globalColor }}>{score.global_score}</span>
+              <span className="text-[13px] text-[#8e8e93]">/ 36</span>
             </div>
-            <input type="range" min={0} max={5} step={1} value={mentalLoadScore}
-              onChange={(e) => setMentalLoadScore(Number(e.target.value))}
-              className="w-full"
-              style={{ accentColor: scoreColor }}
-            />
-            <div className="flex justify-between text-[11px] text-[#c7c7cc] mt-1">
-              <span>Négligeable</span>
-              <span>Très élevée</span>
-            </div>
+          </div>
+          <p className="text-[14px] font-semibold mb-3" style={{ color: globalColor }}>{score.global_label}</p>
+
+          {/* 4 jauges */}
+          <div className="space-y-2">
+            <ScoreBar label="⏱ Temps" value={score.time_score} max={8} sublabel={timeLabel(score.time_score)} />
+            <ScoreBar label="💪 Physique" value={score.physical_score} max={5} sublabel={physicalLabel(score.physical_score)} />
+            <ScoreBar label="🧠 Mental" value={score.mental_load_score} max={18} sublabel={mentalLabel(score.mental_load_score)} />
+            <ScoreBar label="👨‍👩‍👧 Impact" value={score.household_impact_score} max={4} sublabel={impactLabel(score.household_impact_score)} />
           </div>
         </div>
 
@@ -237,8 +326,8 @@ export default function NewTaskPage() {
         </div>
 
         {showAdvanced && (
-          <div className="mx-4 mt-2 rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-            <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+          <div className="mx-4 rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+            <div className="px-4 py-3">
               <label className="text-[13px] text-[#8e8e93] block mb-1">Date de début différée</label>
               <input type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)}
                 className="w-full text-[15px] text-[#1c1c1e] bg-transparent outline-none" />
@@ -247,7 +336,8 @@ export default function NewTaskPage() {
           </div>
         )}
 
-        <div className="px-4 pt-4 pb-8">
+        {/* Créer */}
+        <div className="px-4 pt-2 pb-8">
           <button type="submit" disabled={creating}
             className="w-full rounded-xl py-[14px] text-[17px] font-semibold text-white disabled:opacity-50"
             style={{ background: '#007aff' }}>
@@ -255,6 +345,26 @@ export default function NewTaskPage() {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+// -- Composant jauge -----------------------------------------------------------
+
+function ScoreBar({ label, value, max, sublabel }: { label: string; value: number; max: number; sublabel: string }) {
+  const pct = Math.min(100, (value / max) * 100);
+  const color =
+    pct <= 33 ? '#34c759' :
+    pct <= 66 ? '#ff9500' :
+    '#ff3b30';
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-[12px] w-20 flex-shrink-0">{label}</span>
+      <div className="flex-1 h-2 rounded-full" style={{ background: '#f2f2f7' }}>
+        <div className="h-2 rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <span className="text-[11px] text-[#8e8e93] w-16 text-right flex-shrink-0">{sublabel}</span>
     </div>
   );
 }
