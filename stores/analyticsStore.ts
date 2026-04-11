@@ -45,20 +45,41 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
     const since = new Date();
     since.setDate(since.getDate() - period);
 
-    // Requete minimale : raw completions (agration 100% client)
+    // Requête simple : completions du foyer sur la période
     const { data: rawCompletions, error } = await supabase
       .from('task_completions')
-      .select('completed_by, task_id, household_tasks!inner(category_id, task_categories!inner(id, name, color_hex))')
-      .eq('household_tasks.household_id', householdId)
+      .select('completed_by, task_id')
+      .eq('household_id', householdId)
       .gte('completed_at', since.toISOString());
 
     if (error) {
+      console.error('[analyticsStore] Erreur fetch completions:', error);
       set({ loading: false, error: error.message });
       return;
     }
 
     const completions = rawCompletions ?? [];
     const totalCompletions = completions.length;
+
+    // Charger les catégories des tâches séparément
+    const taskIds = [...new Set(completions.map((c) => c.task_id))];
+    let taskCategories: Record<string, { categoryId: string; categoryName: string; colorHex: string }> = {};
+
+    if (taskIds.length > 0) {
+      const { data: tasksData } = await supabase
+        .from('household_tasks')
+        .select('id, category_id, task_categories(id, name, color_hex)')
+        .in('id', taskIds);
+
+      if (tasksData) {
+        for (const t of tasksData) {
+          const cat = t.task_categories as unknown as { id: string; name: string; color_hex: string } | null;
+          if (cat) {
+            taskCategories[t.id] = { categoryId: cat.id, categoryName: cat.name, colorHex: cat.color_hex };
+          }
+        }
+      }
+    }
 
     // -- Analytics par membre --
     // Source de verite = householdStore.members (un membre a 0% apparait toujours)
@@ -92,17 +113,16 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
       mentalLoadPercentage: 0,
     }));
 
-    // -- Breakdown par categorie --
+    // -- Breakdown par catégorie --
     const catMap = new Map<string, { name: string; colorHex: string; count: number }>();
     for (const c of completions) {
-      const taskData = c.household_tasks as unknown as { category_id: string; task_categories: { id: string; name: string; color_hex: string } };
-      if (taskData?.task_categories) {
-        const cat = taskData.task_categories;
-        const existing = catMap.get(cat.id);
+      const catInfo = taskCategories[c.task_id];
+      if (catInfo) {
+        const existing = catMap.get(catInfo.categoryId);
         if (existing) {
           existing.count += 1;
         } else {
-          catMap.set(cat.id, { name: cat.name, colorHex: cat.color_hex, count: 1 });
+          catMap.set(catInfo.categoryId, { name: catInfo.categoryName, colorHex: catInfo.colorHex, count: 1 });
         }
       }
     }
