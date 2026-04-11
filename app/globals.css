@@ -1,8 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f2f2f7;
+  --foreground: #1c1c1e;
+  --card: #ffffff;
+  --ios-blue: #007aff;
+  --ios-green: #34c759;
+  --ios-orange: #ff9500;
+  --ios-red: #ff3b30;
+  --ios-purple: #af52de;
+  --ios-gray: #8e8e93;
+  --ios-gray2: #aeaeb2;
+  --ios-gray3: #c7c7cc;
+  --ios-gray4: #d1d1d6;
+  --ios-gray5: #e5e5ea;
+  --ios-gray6: #f2f2f7;
+  --ios-separator: rgba(60, 60, 67, 0.12);
 }
 
 @theme inline {
@@ -12,15 +25,31 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* iOS-style range slider */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--ios-gray5);
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 0.5px 4px rgba(0,0,0,0.12), 0 0.5px 1px rgba(0,0,0,0.08);
+  border: 0.5px solid rgba(0,0,0,0.04);
+  cursor: pointer;
 }

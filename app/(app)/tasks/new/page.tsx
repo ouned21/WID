@@ -17,7 +17,6 @@ export default function NewTaskPage() {
 
   const [categories, setCategories] = useState<TaskCategory[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
-
   const [mode, setMode] = useState<'catalogue' | 'libre'>('catalogue');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
@@ -55,15 +54,11 @@ export default function NewTaskPage() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
+    e.preventDefault(); setError(null);
     if (!profile?.household_id) return;
     if (!name.trim()) { setError('Le nom est obligatoire.'); return; }
-    if (!selectedCategoryId && mode === 'catalogue') { setError('Choisissez une catégorie.'); return; }
-
     const categoryId = selectedCategoryId || (categories[0]?.id ?? '');
-    if (!categoryId) { setError('Aucune catégorie disponible.'); return; }
+    if (!categoryId) { setError('Choisissez une catégorie.'); return; }
 
     let nextDueAt: string | null = null;
     if (dueDate) {
@@ -72,221 +67,149 @@ export default function NewTaskPage() {
     }
 
     const result = await createTask(profile.household_id, {
-      name: name.trim(),
-      category_id: categoryId,
-      frequency,
-      mental_load_score: mentalLoadScore,
-      assigned_to: assignedTo || null,
-      template_id: selectedTemplateId || null,
-      next_due_at: nextDueAt,
+      name: name.trim(), category_id: categoryId, frequency,
+      mental_load_score: mentalLoadScore, assigned_to: assignedTo || null,
+      template_id: selectedTemplateId || null, next_due_at: nextDueAt,
     });
-
-    if (result.ok) {
-      router.push('/tasks');
-    } else {
-      setError(result.error ?? 'Erreur inconnue.');
-    }
+    if (result.ok) router.push('/tasks');
+    else setError(result.error ?? 'Erreur inconnue.');
   };
 
+  const scoreColor = mentalLoadScore >= 7 ? '#ff3b30' : mentalLoadScore >= 4 ? '#ff9500' : '#34c759';
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-900">Nouvelle tâche</h2>
-        <button
-          onClick={() => router.back()}
-          className="text-sm text-indigo-600 font-medium hover:underline"
-        >
-          Annuler
+    <div className="pt-4">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 mb-4">
+        <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>
+          ← Retour
         </button>
+        <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Nouvelle tâche</h2>
+        <div className="w-16" />
       </div>
 
       {/* Toggle catalogue / libre */}
-      <div className="flex gap-2 rounded-xl bg-slate-100 p-1">
-        <button
-          onClick={() => setMode('catalogue')}
-          className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${
-            mode === 'catalogue' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'
-          }`}
-        >
-          Depuis le catalogue
+      <div className="mx-4 mb-4 rounded-lg p-0.5 flex" style={{ background: '#e5e5ea' }}>
+        <button onClick={() => setMode('catalogue')}
+          className={`flex-1 rounded-md py-[6px] text-[13px] font-semibold transition-all ${mode === 'catalogue' ? 'bg-white text-[#1c1c1e] shadow-sm' : 'text-[#8e8e93]'}`}>
+          Catalogue
         </button>
-        <button
-          onClick={() => setMode('libre')}
-          className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${
-            mode === 'libre' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'
-          }`}
-        >
+        <button onClick={() => setMode('libre')}
+          className={`flex-1 rounded-md py-[6px] text-[13px] font-semibold transition-all ${mode === 'libre' ? 'bg-white text-[#1c1c1e] shadow-sm' : 'text-[#8e8e93]'}`}>
           Tâche libre
         </button>
       </div>
 
       {error && (
-        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div className="mx-4 mb-4 rounded-xl px-4 py-3 text-[14px]" style={{ background: '#fff2f2', color: '#ff3b30' }}>{error}</div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Sélection catégorie */}
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-slate-700">Catégorie</label>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Catégories */}
+        <div className="px-4">
+          <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2">Catégorie</p>
           <div className="flex flex-wrap gap-2">
             {categories.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
+              <button key={cat.id} type="button"
                 onClick={() => { setSelectedCategoryId(cat.id); setSelectedTemplateId(''); }}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                  selectedCategoryId === cat.id
-                    ? 'text-white shadow-sm'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
-                }`}
-                style={selectedCategoryId === cat.id ? { backgroundColor: cat.color_hex } : {}}
-              >
+                className="rounded-full px-3.5 py-[6px] text-[13px] font-semibold transition-all"
+                style={selectedCategoryId === cat.id
+                  ? { background: cat.color_hex, color: 'white' }
+                  : { background: 'white', color: '#3c3c43', boxShadow: '0 0.5px 2px rgba(0,0,0,0.08)' }
+                }>
                 {cat.icon} {cat.name}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Catalogue de templates */}
+        {/* Templates */}
         {mode === 'catalogue' && selectedCategoryId && filteredTemplates.length > 0 && (
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">
-              Choisir une tâche
-            </label>
+          <div className="px-4">
+            <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2">Choisir une tâche</p>
             <div className="grid grid-cols-2 gap-2">
               {filteredTemplates.map((tpl) => (
-                <button
-                  key={tpl.id}
-                  type="button"
-                  onClick={() => handleSelectTemplate(tpl)}
-                  className={`rounded-xl border-2 p-3 text-left text-sm transition-all ${
-                    selectedTemplateId === tpl.id
-                      ? 'border-indigo-500 bg-indigo-50'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
-                >
-                  <p className="font-semibold text-slate-900">{tpl.name}</p>
-                  <p className="mt-0.5 text-xs text-slate-400">
-                    Charge : {tpl.default_mental_load_score}/10
-                  </p>
+                <button key={tpl.id} type="button" onClick={() => handleSelectTemplate(tpl)}
+                  className="rounded-xl p-3 text-left transition-all"
+                  style={selectedTemplateId === tpl.id
+                    ? { background: 'white', boxShadow: '0 0 0 2px #007aff' }
+                    : { background: 'white', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }
+                  }>
+                  <p className="text-[14px] font-medium text-[#1c1c1e]">{tpl.name}</p>
+                  <p className="text-[12px] text-[#8e8e93] mt-0.5">Charge : {tpl.default_mental_load_score}/10</p>
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* Nom de la tâche */}
-        <div>
-          <label htmlFor="taskName" className="block text-sm font-semibold text-slate-700">
-            Nom de la tâche
-          </label>
-          <input
-            id="taskName"
-            type="text"
-            required
-            maxLength={100}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            placeholder={mode === 'catalogue' ? 'Sélectionnez un modèle ci-dessus' : 'Ex : Nettoyer le frigo'}
-          />
-        </div>
-
-        {/* Fréquence */}
-        <div>
-          <label htmlFor="frequency" className="block text-sm font-semibold text-slate-700">
-            Fréquence
-          </label>
-          <select
-            id="frequency"
-            value={frequency}
-            onChange={(e) => setFrequency(e.target.value as Frequency)}
-            className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-          >
-            {FREQUENCY_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Charge mentale (0-10) */}
-        <div>
-          <label className="block text-sm font-semibold text-slate-700">
-            Charge mentale : <span className={`font-bold ${
-              mentalLoadScore >= 7 ? 'text-red-600' :
-              mentalLoadScore >= 4 ? 'text-amber-600' :
-              'text-emerald-600'
-            }`}>{mentalLoadScore}/10</span>
-          </label>
-          <input
-            type="range"
-            min={0}
-            max={10}
-            step={1}
-            value={mentalLoadScore}
-            onChange={(e) => setMentalLoadScore(Number(e.target.value))}
-            className="mt-2 w-full accent-indigo-600"
-          />
-          <div className="flex justify-between text-xs text-slate-400 mt-1">
-            <span>0 — Négligeable</span>
-            <span>10 — Très lourde</span>
+        {/* Formulaire iOS grouped */}
+        <div className="mx-4 rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <label className="text-[13px] text-[#8e8e93] block mb-1">Nom de la tâche</label>
+            <input type="text" required maxLength={100} value={name} onChange={(e) => setName(e.target.value)}
+              className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
+              placeholder={mode === 'catalogue' ? 'Sélectionnez ci-dessus' : 'Ex : Nettoyer le frigo'} />
           </div>
-        </div>
 
-        {/* Date et heure */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="dueDate" className="block text-sm font-semibold text-slate-700">
-              Date prévue
-            </label>
-            <input
-              id="dueDate"
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <label className="text-[13px] text-[#8e8e93] block mb-1">Fréquence</label>
+            <select value={frequency} onChange={(e) => setFrequency(e.target.value as Frequency)}
+              className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none">
+              {FREQUENCY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <label className="text-[13px] text-[#8e8e93] block mb-1">Assigner à</label>
+            <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}
+              className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none">
+              <option value="">Non assigné</option>
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>{m.display_name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="px-4 py-3 flex gap-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <div className="flex-1">
+              <label className="text-[13px] text-[#8e8e93] block mb-1">Date prévue</label>
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+                className="w-full text-[15px] text-[#1c1c1e] bg-transparent outline-none" />
+            </div>
+            <div className="w-24">
+              <label className="text-[13px] text-[#8e8e93] block mb-1">Heure</label>
+              <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)}
+                className="w-full text-[15px] text-[#1c1c1e] bg-transparent outline-none" />
+            </div>
+          </div>
+
+          <div className="px-4 py-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[13px] text-[#8e8e93]">Charge mentale</label>
+              <span className="text-[17px] font-bold" style={{ color: scoreColor }}>{mentalLoadScore}/10</span>
+            </div>
+            <input type="range" min={0} max={10} step={1} value={mentalLoadScore}
+              onChange={(e) => setMentalLoadScore(Number(e.target.value))}
+              className="w-full"
+              style={{ accentColor: scoreColor }}
             />
-          </div>
-          <div>
-            <label htmlFor="dueTime" className="block text-sm font-semibold text-slate-700">
-              Heure
-            </label>
-            <input
-              id="dueTime"
-              type="time"
-              value={dueTime}
-              onChange={(e) => setDueTime(e.target.value)}
-              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            />
+            <div className="flex justify-between text-[11px] text-[#c7c7cc] mt-1">
+              <span>Négligeable</span>
+              <span>Très lourde</span>
+            </div>
           </div>
         </div>
 
-        {/* Assignation */}
-        <div>
-          <label htmlFor="assignedTo" className="block text-sm font-semibold text-slate-700">
-            Assigner à
-          </label>
-          <select
-            id="assignedTo"
-            value={assignedTo}
-            onChange={(e) => setAssignedTo(e.target.value)}
-            className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-          >
-            <option value="">Non assigné</option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>{m.display_name}</option>
-            ))}
-          </select>
+        <div className="px-4 pb-8">
+          <button type="submit" disabled={creating}
+            className="w-full rounded-xl py-[14px] text-[17px] font-semibold text-white disabled:opacity-50"
+            style={{ background: '#007aff' }}>
+            {creating ? 'Création...' : 'Créer la tâche'}
+          </button>
         </div>
-
-        {/* Bouton créer */}
-        <button
-          type="submit"
-          disabled={creating}
-          className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-        >
-          {creating ? 'Création...' : 'Créer la tâche'}
-        </button>
       </form>
     </div>
   );

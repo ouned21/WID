@@ -39,6 +39,11 @@ export async function middleware(request: NextRequest) {
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/register');
   const isHouseholdPage = pathname.startsWith('/household');
 
+  // Mode preview : pas de redirections (pour le preview local)
+  if (request.nextUrl.searchParams.has('preview')) {
+    return response;
+  }
+
   // Pas connecte : redirect vers /login (sauf si deja sur une page auth)
   if (!user && !isAuthPage) {
     const url = request.nextUrl.clone();

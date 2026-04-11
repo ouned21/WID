@@ -4,46 +4,32 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
-import { useHouseholdStore } from '@/stores/householdStore';
 import { filterTasks, splitTasksIntoSections } from '@/utils/taskSelectors';
 import { frequencyLabel } from '@/utils/frequency';
 import type { TaskListItem, TaskCategory } from '@/types/database';
 
-// -- Chip de filtre ------------------------------------------------------------
+// -- Chip iOS ------------------------------------------------------------------
 
-function FilterChip({
-  label,
-  active,
-  onClick,
-  color,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  color?: string;
+function Chip({ label, active, onClick, color }: {
+  label: string; active: boolean; onClick: () => void; color?: string;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
-        active
-          ? 'text-white shadow-sm'
-          : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
-      }`}
-      style={active ? { backgroundColor: color ?? '#6366f1' } : {}}
+      className="rounded-full px-4 py-[7px] text-[13px] font-semibold transition-all"
+      style={active
+        ? { background: color ?? '#007aff', color: 'white' }
+        : { background: 'white', color: '#3c3c43', boxShadow: '0 0.5px 2px rgba(0,0,0,0.08)' }
+      }
     >
       {label}
     </button>
   );
 }
 
-// -- Carte de tâche ------------------------------------------------------------
+// -- Carte tâche iOS -----------------------------------------------------------
 
-function TaskCard({
-  task,
-  onComplete,
-  isCompleted,
-}: {
+function TaskCard({ task, onComplete, isCompleted }: {
   task: TaskListItem;
   onComplete: (id: string) => Promise<void>;
   isCompleted: boolean;
@@ -56,132 +42,110 @@ function TaskCard({
     onComplete(task.id);
   }, [task.id, onComplete, clicked, isCompleted]);
 
-  const categoryColor = task.category?.color_hex ?? '#94a3b8';
+  const catColor = task.category?.color_hex ?? '#8e8e93';
+  const scoreColor = task.mental_load_score >= 7 ? '#ff3b30' : task.mental_load_score >= 4 ? '#ff9500' : '#34c759';
 
   if (isCompleted) return null;
 
   return (
-    <div className={`rounded-2xl border-l-4 p-4 shadow-sm transition-all duration-500 ${
-      clicked ? 'bg-emerald-50 border-emerald-400 scale-[0.98]' : 'bg-white hover:shadow-md'
-    }`}
-    style={!clicked ? { borderLeftColor: categoryColor } : undefined}
+    <div
+      className={`rounded-2xl bg-white p-4 transition-all duration-300 ${
+        clicked ? 'opacity-40 scale-[0.97]' : ''
+      }`}
+      style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <Link
-            href={`/tasks/${task.id}`}
-            className="text-sm font-bold text-slate-900 hover:text-indigo-600 transition-colors"
-          >
-            {task.name}
-          </Link>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-            <span
-              className="rounded-full px-2 py-0.5 font-medium text-white"
-              style={{ backgroundColor: categoryColor }}
-            >
-              {task.category?.name}
-            </span>
-            <span className="text-slate-400">{frequencyLabel(task.frequency)}</span>
-            {task.assignee && (
-              <span className="rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-600">
-                {task.assignee.display_name}
-              </span>
-            )}
-            {task.next_due_at && (
-              <span className="text-slate-400">
-                {new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Score charge mentale — cercle coloré */}
-        <div className={`flex h-11 w-11 flex-shrink-0 flex-col items-center justify-center rounded-full ${
-          task.mental_load_score >= 7 ? 'bg-red-100 text-red-700' :
-          task.mental_load_score >= 4 ? 'bg-amber-100 text-amber-700' :
-          'bg-emerald-100 text-emerald-700'
-        }`}>
-          <span className="text-sm font-bold leading-none">{task.mental_load_score}</span>
+      {/* Ligne du haut : catégorie + score */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold text-white" style={{ background: catColor }}>
+          {task.category?.name}
+        </span>
+        <div className="flex items-baseline gap-0.5">
+          <span className="text-[20px] font-bold leading-none" style={{ color: scoreColor }}>{task.mental_load_score}</span>
+          <span className="text-[11px] text-[#c7c7cc]">/10</span>
         </div>
       </div>
 
+      {/* Nom de la tâche */}
+      <Link href={`/tasks/${task.id}`}>
+        <h3 className="text-[17px] font-semibold text-[#1c1c1e] mb-1.5">{task.name}</h3>
+      </Link>
+
+      {/* Infos */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <span className="text-[13px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
+        {task.assignee && (
+          <span className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-medium" style={{ background: '#f2f2f7', color: '#3c3c43' }}>
+            <span className="h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: '#007aff' }}>
+              {task.assignee.display_name.charAt(0).toUpperCase()}
+            </span>
+            {task.assignee.display_name}
+          </span>
+        )}
+        {task.next_due_at && (
+          <span className="text-[13px] text-[#8e8e93]">
+            {new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+          </span>
+        )}
+      </div>
+
       {/* Actions */}
-      <div className="mt-3 flex gap-2">
+      <div className="flex gap-2">
         {clicked ? (
-          <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white">
-            ✓ Validé !
+          <span className="flex-1 flex items-center justify-center gap-1 rounded-xl py-[8px] text-[14px] font-semibold text-white" style={{ background: '#34c759' }}>
+            <svg width="14" height="14" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
+            Validé !
           </span>
         ) : (
-          <button
-            onClick={handleClick}
-            className="rounded-lg bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 transition-colors"
-          >
+          <button onClick={handleClick}
+            className="flex-1 rounded-xl py-[8px] text-[14px] font-semibold text-white" style={{ background: '#34c759' }}>
             ✓ Fait
           </button>
         )}
-        <Link
-          href={`/tasks/${task.id}`}
-          className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200 transition-colors"
-        >
-          Modifier
+        <Link href={`/tasks/${task.id}`}
+          className="rounded-xl px-4 py-[8px] text-[14px] font-medium text-[#007aff]"
+          style={{ background: '#f2f2f7' }}>
+          Détail
         </Link>
       </div>
     </div>
   );
 }
 
-// -- Section de tâches ---------------------------------------------------------
+// -- Section tâches iOS --------------------------------------------------------
 
-const SECTION_STYLES: Record<string, { accent: string; bg: string; dot: string }> = {
-  'En retard': { accent: 'text-red-600', bg: 'bg-red-50', dot: 'bg-red-500' },
-  'Aujourd\'hui': { accent: 'text-indigo-600', bg: 'bg-indigo-50', dot: 'bg-indigo-500' },
-  'Demain': { accent: 'text-violet-600', bg: 'bg-violet-50', dot: 'bg-violet-500' },
-  'Cette semaine': { accent: 'text-sky-600', bg: 'bg-sky-50', dot: 'bg-sky-500' },
-  'Plus tard': { accent: 'text-slate-500', bg: 'bg-slate-50', dot: 'bg-slate-400' },
+const SECTION_COLORS: Record<string, string> = {
+  'En retard': '#ff3b30',
+  'Aujourd\'hui': '#007aff',
+  'Demain': '#af52de',
+  'Cette semaine': '#5856d6',
+  'Plus tard': '#8e8e93',
 };
 
-function TaskSection({
-  title,
-  tasks,
-  onComplete,
-  completedIds,
-}: {
+function TaskSection({ title, tasks, onComplete, completedIds }: {
   title: string;
   tasks: TaskListItem[];
   onComplete: (id: string) => Promise<void>;
   completedIds: Set<string>;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
-  const style = SECTION_STYLES[title] ?? SECTION_STYLES['Plus tard'];
-
-  // Ne pas compter les tâches déjà complétées dans le total affiché
   const visibleCount = tasks.filter((t) => !completedIds.has(t.id)).length;
   if (visibleCount === 0) return null;
 
+  const color = SECTION_COLORS[title] ?? '#8e8e93';
+
   return (
-    <section>
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className={`mb-3 flex w-full items-center gap-2 rounded-lg ${style.bg} px-3 py-2`}
-      >
-        <span className={`h-2.5 w-2.5 rounded-full ${style.dot}`} />
-        <span className={`text-sm font-bold ${style.accent}`}>
+    <section className="mb-6">
+      <div className="flex items-center gap-2 px-4 mb-1.5">
+        <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+        <h3 className="text-[13px] font-semibold uppercase tracking-wide" style={{ color }}>
           {title}
-        </span>
-        <span className={`rounded-full ${style.bg} px-2 py-0.5 text-xs font-bold ${style.accent}`}>
-          {visibleCount}
-        </span>
-        <span className={`ml-auto text-xs ${style.accent} transition-transform ${collapsed ? '' : 'rotate-90'}`}>
-          ›
-        </span>
-      </button>
-      {!collapsed && (
-        <div className="space-y-3 pl-1">
-          {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} onComplete={onComplete} isCompleted={completedIds.has(task.id)} />
-          ))}
-        </div>
-      )}
+        </h3>
+        <span className="text-[13px] font-semibold" style={{ color }}>{visibleCount}</span>
+      </div>
+      <div className="space-y-3 px-4">
+        {tasks.map((task) => (
+          <TaskCard key={task.id} task={task} onComplete={onComplete} isCompleted={completedIds.has(task.id)} />
+        ))}
+      </div>
     </section>
   );
 }
@@ -193,17 +157,13 @@ export default function TasksPage() {
   const { tasks, filters, loading, fetchTasks, completeTask, setFilters } = useTaskStore();
 
   useEffect(() => {
-    if (profile?.household_id) {
-      fetchTasks(profile.household_id);
-    }
+    if (profile?.household_id) fetchTasks(profile.household_id);
   }, [profile?.household_id, fetchTasks]);
 
   const categories = useMemo(() => {
     const map = new Map<string, TaskCategory>();
     for (const task of tasks) {
-      if (task.category && !map.has(task.category.id)) {
-        map.set(task.category.id, task.category);
-      }
+      if (task.category && !map.has(task.category.id)) map.set(task.category.id, task.category);
     }
     return Array.from(map.values()).sort((a, b) => a.sort_order - b.sort_order);
   }, [tasks]);
@@ -217,107 +177,84 @@ export default function TasksPage() {
   const totalTasks = tasks.filter((t) => !completedIds.has(t.id)).length;
 
   const handleComplete = useCallback(async (taskId: string) => {
-    // Lancer la complétion et le timer en parallèle
     const completionPromise = completeTask(taskId);
-    const timerPromise = new Promise<void>((resolve) => setTimeout(resolve, 1500));
-
-    // Attendre que les deux soient finis (min 1.5s de feedback)
+    const timerPromise = new Promise<void>((resolve) => setTimeout(resolve, 1200));
     await Promise.all([completionPromise, timerPromise]);
-
-    // Masquer la carte
     setCompletedIds((prev) => new Set(prev).add(taskId));
   }, [completeTask]);
 
   return (
-    <div className="space-y-5">
-      {/* Header avec compteur */}
-      <div className="flex items-end justify-between">
+    <div>
+      {/* Header de page */}
+      <div className="flex items-end justify-between px-4 pt-4 pb-3">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Tâches</h2>
+          <h2 className="text-[28px] font-bold text-[#1c1c1e]">Tâches</h2>
           {totalTasks > 0 && (
-            <p className="text-sm text-slate-400">{totalTasks} tâche{totalTasks > 1 ? 's' : ''} actives</p>
+            <p className="text-[13px] text-[#8e8e93]">{totalTasks} active{totalTasks > 1 ? 's' : ''}</p>
           )}
         </div>
         <Link
           href="/tasks/new"
-          className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
+          className="flex items-center gap-1 rounded-full px-4 py-2 text-[15px] font-semibold text-white"
+          style={{ background: '#007aff' }}
         >
-          + Nouvelle
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Nouvelle
         </Link>
       </div>
 
-      {/* Filtres catégories */}
-      <div className="flex flex-wrap gap-2">
-        <FilterChip
-          label="Toutes"
-          active={filters.categoryId === 'all'}
-          onClick={() => setFilters({ categoryId: 'all' })}
-          color="#6366f1"
-        />
-        {categories.map((cat) => (
-          <FilterChip
-            key={cat.id}
-            label={cat.name}
-            active={filters.categoryId === cat.id}
-            onClick={() => setFilters({ categoryId: cat.id })}
-            color={cat.color_hex}
-          />
-        ))}
-      </div>
-
-      {/* Filtres assignation */}
-      <div className="flex gap-2">
-        <FilterChip
-          label="Toutes"
-          active={filters.assignment === 'all'}
-          onClick={() => setFilters({ assignment: 'all' })}
-          color="#6366f1"
-        />
-        <FilterChip
-          label="Mes tâches"
-          active={filters.assignment === 'mine'}
-          onClick={() => setFilters({ assignment: 'mine' })}
-          color="#6366f1"
-        />
+      {/* Filtres */}
+      <div className="px-4 pb-2 space-y-2">
+        <div className="flex flex-wrap gap-2">
+          <Chip label="Toutes" active={filters.categoryId === 'all'} onClick={() => setFilters({ categoryId: 'all' })} />
+          {categories.map((cat) => (
+            <Chip key={cat.id} label={cat.name} active={filters.categoryId === cat.id} onClick={() => setFilters({ categoryId: cat.id })} color={cat.color_hex} />
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <Chip label="Toutes" active={filters.assignment === 'all'} onClick={() => setFilters({ assignment: 'all' })} />
+          <Chip label="Mes tâches" active={filters.assignment === 'mine'} onClick={() => setFilters({ assignment: 'mine' })} />
+        </div>
       </div>
 
       {/* Contenu */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+        <div className="flex items-center justify-center py-16">
+          <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[#e5e5ea] border-t-[#007aff]" />
         </div>
       ) : totalTasks === 0 ? (
-        <div className="rounded-2xl bg-white p-8 shadow-sm border border-slate-100 text-center space-y-5">
-          <div className="text-5xl">🏠</div>
-          <div>
-            <h3 className="text-xl font-bold text-slate-900">Bienvenue dans votre foyer !</h3>
-            <p className="mt-2 text-sm text-slate-500 max-w-sm mx-auto">
-              Commencez par ajouter vos premières tâches. Vous pouvez choisir depuis notre catalogue ou en créer des personnalisées.
-            </p>
-          </div>
-          <div className="space-y-3 max-w-xs mx-auto text-left">
-            <div className="flex items-start gap-3 rounded-xl bg-indigo-50 p-3">
-              <span className="text-indigo-500 font-bold">1</span>
-              <p className="text-sm text-slate-700">Créez vos tâches récurrentes (ménage, courses, linge...)</p>
+        <div className="mx-4 rounded-2xl bg-white p-10 text-center" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          <p className="text-[40px] mb-3">🏠</p>
+          <h3 className="text-[20px] font-bold text-[#1c1c1e]">Bienvenue dans votre foyer !</h3>
+          <p className="mt-2 text-[15px] text-[#8e8e93] max-w-[280px] mx-auto">
+            Commencez par ajouter vos premières tâches depuis le catalogue ou en créant les vôtres.
+          </p>
+          <div className="mt-6 space-y-2 max-w-[260px] mx-auto text-left">
+            <div className="flex items-center gap-3 rounded-xl p-3" style={{ background: '#f2f2f7' }}>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold text-white" style={{ background: '#007aff' }}>1</span>
+              <span className="text-[14px] text-[#1c1c1e]">Créez vos tâches</span>
             </div>
-            <div className="flex items-start gap-3 rounded-xl bg-violet-50 p-3">
-              <span className="text-violet-500 font-bold">2</span>
-              <p className="text-sm text-slate-700">Assignez-les aux membres du foyer</p>
+            <div className="flex items-center gap-3 rounded-xl p-3" style={{ background: '#f2f2f7' }}>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold text-white" style={{ background: '#af52de' }}>2</span>
+              <span className="text-[14px] text-[#1c1c1e]">Assignez-les</span>
             </div>
-            <div className="flex items-start gap-3 rounded-xl bg-emerald-50 p-3">
-              <span className="text-emerald-500 font-bold">3</span>
-              <p className="text-sm text-slate-700">Marquez-les comme faites et suivez la répartition</p>
+            <div className="flex items-center gap-3 rounded-xl p-3" style={{ background: '#f2f2f7' }}>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold text-white" style={{ background: '#34c759' }}>3</span>
+              <span className="text-[14px] text-[#1c1c1e]">Suivez la répartition</span>
             </div>
           </div>
           <Link
             href="/tasks/new"
-            className="inline-block rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-8 py-3 text-sm font-semibold text-white hover:from-indigo-700 hover:to-violet-700 shadow-sm transition-all"
+            className="mt-6 inline-block rounded-full px-6 py-2.5 text-[15px] font-semibold text-white"
+            style={{ background: '#007aff' }}
           >
-            + Créer ma première tâche
+            Créer ma première tâche
           </Link>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="pt-2">
           <TaskSection title="En retard" tasks={sections.overdue} onComplete={handleComplete} completedIds={completedIds} />
           <TaskSection title="Aujourd'hui" tasks={sections.today} onComplete={handleComplete} completedIds={completedIds} />
           <TaskSection title="Demain" tasks={sections.tomorrow} onComplete={handleComplete} completedIds={completedIds} />

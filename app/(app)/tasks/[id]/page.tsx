@@ -14,12 +14,10 @@ export default function TaskDetailPage() {
   const { profile } = useAuthStore();
   const { tasks, completeTask, updateTask, archiveTask, fetchTaskDetail, completing, updating, archiving } = useTaskStore();
   const { members } = useHouseholdStore();
-
   const task = tasks.find((t) => t.id === id);
 
   const [completions, setCompletions] = useState<TaskCompletion[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editFrequency, setEditFrequency] = useState<Frequency>('weekly');
@@ -27,32 +25,19 @@ export default function TaskDetailPage() {
   const [editAssignedTo, setEditAssignedTo] = useState('');
 
   useEffect(() => {
-    if (id) {
-      setLoadingHistory(true);
-      fetchTaskDetail(id).then((data) => {
-        setCompletions(data);
-        setLoadingHistory(false);
-      });
-    }
+    if (id) { setLoadingHistory(true); fetchTaskDetail(id).then((data) => { setCompletions(data); setLoadingHistory(false); }); }
   }, [id, fetchTaskDetail]);
 
   useEffect(() => {
-    if (task) {
-      setEditName(task.name);
-      setEditFrequency(task.frequency);
-      setEditScore(task.mental_load_score);
-      setEditAssignedTo(task.assigned_to ?? '');
-    }
+    if (task) { setEditName(task.name); setEditFrequency(task.frequency); setEditScore(task.mental_load_score); setEditAssignedTo(task.assigned_to ?? ''); }
   }, [task]);
 
   if (!task) {
     return (
-      <div className="space-y-4">
-        <button onClick={() => router.back()} className="text-sm text-indigo-600 font-medium hover:underline">
-          ← Retour
-        </button>
-        <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-12 text-center">
-          <p className="text-lg font-semibold text-slate-400">Tâche introuvable</p>
+      <div className="pt-4 px-4">
+        <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
+        <div className="mt-8 text-center">
+          <p className="text-[17px] text-[#8e8e93]">Tâche introuvable</p>
         </div>
       </div>
     );
@@ -66,201 +51,163 @@ export default function TaskDetailPage() {
   };
 
   const handleSaveEdit = async () => {
-    const result = await updateTask(task.id, {
-      name: editName.trim(),
-      frequency: editFrequency,
-      mental_load_score: editScore,
-      assigned_to: editAssignedTo || null,
-    });
+    const result = await updateTask(task.id, { name: editName.trim(), frequency: editFrequency, mental_load_score: editScore, assigned_to: editAssignedTo || null });
     if (result.ok) setEditing(false);
   };
 
   const handleArchive = async () => {
-    if (!confirm('Archiver cette tâche ? Elle ne sera plus visible dans la liste.')) return;
+    if (!confirm('Archiver cette tâche ?')) return;
     const result = await archiveTask(task.id);
     if (result.ok) router.push('/tasks');
   };
 
-  const categoryColor = task.category?.color_hex ?? '#94a3b8';
+  const catColor = task.category?.color_hex ?? '#8e8e93';
+  const scoreColor = task.mental_load_score >= 7 ? '#ff3b30' : task.mental_load_score >= 4 ? '#ff9500' : '#34c759';
+  const editScoreColor = editScore >= 7 ? '#ff3b30' : editScore >= 4 ? '#ff9500' : '#34c759';
 
   return (
-    <div className="space-y-6">
-      <button onClick={() => router.back()} className="text-sm text-indigo-600 font-medium hover:underline">
-        ← Retour aux tâches
-      </button>
+    <div className="pt-4 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4">
+        <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>
+          ← Retour
+        </button>
+        {!editing && (
+          <button onClick={() => setEditing(true)} className="text-[17px] font-medium" style={{ color: '#007aff' }}>
+            Modifier
+          </button>
+        )}
+      </div>
 
-      {/* En-tête */}
-      <div className="rounded-2xl border-l-4 bg-white p-6 shadow-sm" style={{ borderLeftColor: categoryColor }}>
-        {!editing ? (
-          <div className="space-y-4">
-            <div className="flex items-start justify-between">
+      {!editing ? (
+        <>
+          {/* Fiche tâche */}
+          <div className="mx-4 rounded-2xl bg-white p-5" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+            <div className="flex items-start justify-between mb-4">
               <div>
-                <h2 className="text-xl font-bold text-slate-900">{task.name}</h2>
-                <span
-                  className="mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium text-white"
-                  style={{ backgroundColor: categoryColor }}
-                >
+                <h2 className="text-[22px] font-bold text-[#1c1c1e]">{task.name}</h2>
+                <span className="inline-block mt-1 rounded-full px-2.5 py-0.5 text-[12px] font-semibold text-white" style={{ background: catColor }}>
                   {task.category?.name}
                 </span>
               </div>
-              <div className={`flex h-14 w-14 flex-col items-center justify-center rounded-full ${
-                task.mental_load_score >= 7 ? 'bg-red-100 text-red-700' :
-                task.mental_load_score >= 4 ? 'bg-amber-100 text-amber-700' :
-                'bg-emerald-100 text-emerald-700'
-              }`}>
-                <span className="text-lg font-bold leading-none">{task.mental_load_score}</span>
-                <span className="text-[9px]">/10</span>
+              <div className="flex flex-col items-center">
+                <span className="text-[28px] font-bold" style={{ color: scoreColor }}>{task.mental_load_score}</span>
+                <span className="text-[11px] text-[#8e8e93]">/10</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-xs text-slate-400">Fréquence</p>
-                <p className="font-semibold text-slate-900">{frequencyLabel(task.frequency)}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl p-3" style={{ background: '#f2f2f7' }}>
+                <p className="text-[11px] text-[#8e8e93] uppercase">Fréquence</p>
+                <p className="text-[15px] font-semibold text-[#1c1c1e]">{frequencyLabel(task.frequency)}</p>
               </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-xs text-slate-400">Assignée à</p>
-                <p className="font-semibold text-slate-900">{task.assignee?.display_name ?? 'Non assigné'}</p>
+              <div className="rounded-xl p-3" style={{ background: '#f2f2f7' }}>
+                <p className="text-[11px] text-[#8e8e93] uppercase">Assignée à</p>
+                <p className="text-[15px] font-semibold text-[#1c1c1e]">{task.assignee?.display_name ?? 'Non assigné'}</p>
               </div>
               {task.next_due_at && (
-                <div className="rounded-xl bg-slate-50 p-3 col-span-2">
-                  <p className="text-xs text-slate-400">Prochaine échéance</p>
-                  <p className="font-semibold text-slate-900">
+                <div className="rounded-xl p-3 col-span-2" style={{ background: '#f2f2f7' }}>
+                  <p className="text-[11px] text-[#8e8e93] uppercase">Prochaine échéance</p>
+                  <p className="text-[15px] font-semibold text-[#1c1c1e]">
                     {new Date(task.next_due_at).toLocaleDateString('fr-FR', { dateStyle: 'full' })}
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="flex gap-2">
-              <button
-                onClick={handleComplete}
-                disabled={completing}
-                className="flex-1 rounded-xl bg-emerald-500 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-50 transition-colors"
-              >
-                {completing ? 'En cours...' : '✓ Marquer comme fait'}
-              </button>
-              <button
-                onClick={() => setEditing(true)}
-                className="rounded-xl bg-slate-100 px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
-              >
-                Modifier
-              </button>
-            </div>
+            <button onClick={handleComplete} disabled={completing}
+              className="w-full mt-4 rounded-xl py-[12px] text-[17px] font-semibold text-white disabled:opacity-50"
+              style={{ background: '#34c759' }}>
+              {completing ? 'En cours...' : '✓ Marquer comme fait'}
+            </button>
           </div>
-        ) : (
-          /* Formulaire d'édition */
-          <div className="space-y-4">
-            <h3 className="text-lg font-bold text-slate-900">Modifier la tâche</h3>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Nom</label>
-              <input
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Fréquence</label>
-              <select
-                value={editFrequency}
-                onChange={(e) => setEditFrequency(e.target.value as Frequency)}
-                className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-              >
-                {FREQUENCY_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Charge mentale : <span className="font-bold text-indigo-600">{editScore}/10</span>
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={10}
-                value={editScore}
-                onChange={(e) => setEditScore(Number(e.target.value))}
-                className="mt-2 w-full accent-indigo-600"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Assigner à</label>
-              <select
-                value={editAssignedTo}
-                onChange={(e) => setEditAssignedTo(e.target.value)}
-                className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-              >
-                <option value="">Non assigné</option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>{m.display_name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={handleSaveEdit}
-                disabled={updating}
-                className="flex-1 rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-              >
-                {updating ? 'Enregistrement...' : 'Enregistrer'}
-              </button>
-              <button
-                onClick={() => setEditing(false)}
-                className="rounded-xl bg-slate-100 px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-200"
-              >
-                Annuler
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Historique des complétions */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
-        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">
-          Historique
-        </h3>
-        {loadingHistory ? (
-          <div className="flex justify-center py-4">
-            <div className="h-6 w-6 animate-spin rounded-full border-3 border-indigo-200 border-t-indigo-600" />
-          </div>
-        ) : completions.length === 0 ? (
-          <p className="text-sm text-slate-400 text-center py-4">Aucune complétion enregistrée.</p>
-        ) : (
-          <div className="space-y-2">
-            {completions.map((c) => (
-              <div key={c.id} className="flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="text-emerald-500">✓</span>
-                  <span className="font-medium text-slate-700">
-                    {new Date(c.completed_at).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
-                  </span>
+          {/* Historique */}
+          <div className="mx-4">
+            <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Historique</p>
+            <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+              {loadingHistory ? (
+                <div className="flex justify-center py-6">
+                  <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-[#e5e5ea] border-t-[#007aff]" />
                 </div>
-                {c.duration_minutes != null && (
-                  <span className="text-xs text-slate-400">{c.duration_minutes} min</span>
-                )}
-              </div>
-            ))}
+              ) : completions.length === 0 ? (
+                <p className="text-[15px] text-[#8e8e93] text-center py-6">Aucune complétion</p>
+              ) : (
+                completions.map((c, i) => (
+                  <div key={c.id} className="flex items-center justify-between px-4 py-3"
+                    style={i < completions.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[14px]" style={{ color: '#34c759' }}>✓</span>
+                      <span className="text-[15px] text-[#1c1c1e]">
+                        {new Date(c.completed_at).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
+                      </span>
+                    </div>
+                    {c.duration_minutes != null && (
+                      <span className="text-[13px] text-[#8e8e93]">{c.duration_minutes} min</span>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Archiver */}
-      <button
-        onClick={handleArchive}
-        disabled={archiving}
-        className="w-full rounded-xl border border-red-200 bg-red-50 py-3 text-sm font-semibold text-red-600 hover:bg-red-100 disabled:opacity-50 transition-colors"
-      >
-        {archiving ? 'Archivage...' : 'Archiver cette tâche'}
-      </button>
+          {/* Archiver */}
+          <div className="mx-4 pb-8">
+            <button onClick={handleArchive} disabled={archiving}
+              className="w-full rounded-xl bg-white py-3 text-[17px] font-medium disabled:opacity-50"
+              style={{ color: '#ff3b30', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+              {archiving ? 'Archivage...' : 'Archiver cette tâche'}
+            </button>
+          </div>
+        </>
+      ) : (
+        /* Mode édition */
+        <div className="mx-4 space-y-4">
+          <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+            <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+              <label className="text-[13px] text-[#8e8e93] block mb-1">Nom</label>
+              <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)}
+                className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none" />
+            </div>
+            <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+              <label className="text-[13px] text-[#8e8e93] block mb-1">Fréquence</label>
+              <select value={editFrequency} onChange={(e) => setEditFrequency(e.target.value as Frequency)}
+                className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none">
+                {FREQUENCY_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+              </select>
+            </div>
+            <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+              <label className="text-[13px] text-[#8e8e93] block mb-1">Assigner à</label>
+              <select value={editAssignedTo} onChange={(e) => setEditAssignedTo(e.target.value)}
+                className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none">
+                <option value="">Non assigné</option>
+                {members.map((m) => (<option key={m.id} value={m.id}>{m.display_name}</option>))}
+              </select>
+            </div>
+            <div className="px-4 py-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[13px] text-[#8e8e93]">Charge mentale</label>
+                <span className="text-[17px] font-bold" style={{ color: editScoreColor }}>{editScore}/10</span>
+              </div>
+              <input type="range" min={0} max={10} value={editScore} onChange={(e) => setEditScore(Number(e.target.value))}
+                className="w-full" style={{ accentColor: editScoreColor }} />
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button onClick={handleSaveEdit} disabled={updating}
+              className="flex-1 rounded-xl py-[12px] text-[17px] font-semibold text-white disabled:opacity-50"
+              style={{ background: '#007aff' }}>
+              {updating ? 'Enregistrement...' : 'Enregistrer'}
+            </button>
+            <button onClick={() => setEditing(false)}
+              className="rounded-xl px-6 py-[12px] text-[17px] text-[#8e8e93] bg-white"
+              style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

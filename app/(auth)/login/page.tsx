@@ -23,63 +23,59 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className="text-center">
-        <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-2xl font-bold text-white shadow-lg mb-4">
+      <div className="text-center pt-8">
+        <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-[20px] text-[32px] font-bold text-white mb-3" style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)' }}>
           W
         </div>
-        <h1 className="text-3xl font-bold text-slate-900">WID</h1>
-        <p className="mt-1 text-sm text-slate-500">What I Did — Connectez-vous</p>
+        <h1 className="text-[28px] font-bold text-[#1c1c1e]">WID</h1>
+        <p className="text-[15px] text-[#8e8e93]">What I Did</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
+      <form onSubmit={handleSubmit}>
         {error && (
-          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-xl px-4 py-3 text-[14px] mb-4" style={{ background: '#fff2f2', color: '#ff3b30' }}>
             {error}
           </div>
         )}
 
-        <div>
-          <label htmlFor="email" className="block text-sm font-semibold text-slate-700">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            placeholder="votre@email.com"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="password" className="block text-sm font-semibold text-slate-700">
-            Mot de passe
-          </label>
-          <input
-            id="password"
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            placeholder="••••••••"
-          />
+        <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <label className="text-[13px] text-[#8e8e93] block mb-1">Email</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
+              placeholder="votre@email.com"
+            />
+          </div>
+          <div className="px-4 py-3">
+            <label className="text-[13px] text-[#8e8e93] block mb-1">Mot de passe</label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
+              placeholder="••••••••"
+            />
+          </div>
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-2.5 text-sm font-semibold text-white hover:from-indigo-700 hover:to-violet-700 disabled:opacity-50 transition-all shadow-sm"
+          className="w-full mt-4 rounded-xl py-[14px] text-[17px] font-semibold text-white disabled:opacity-50"
+          style={{ background: '#007aff' }}
         >
           {loading ? 'Connexion...' : 'Se connecter'}
         </button>
       </form>
 
-      <p className="text-center text-sm text-slate-500">
+      <p className="text-center text-[15px] text-[#8e8e93]">
         Pas encore de compte ?{' '}
-        <a href="/register" className="font-semibold text-indigo-600 hover:underline">
+        <a href="/register" className="font-semibold" style={{ color: '#007aff' }}>
           Créer un compte
         </a>
       </p>

@@ -7,9 +7,21 @@ import { useAuthStore } from '@/stores/authStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 
 const NAV_ITEMS = [
-  { href: '/tasks', label: 'Tâches', icon: '✓', activeColor: 'text-indigo-600' },
-  { href: '/distribution', label: 'Répartition', icon: '⚖', activeColor: 'text-violet-600' },
-  { href: '/profile', label: 'Profil', icon: '●', activeColor: 'text-emerald-600' },
+  { href: '/tasks', label: 'Tâches', icon: (
+    <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+      <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+    </svg>
+  )},
+  { href: '/distribution', label: 'Répartition', icon: (
+    <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+      <path d="M18 20V10M12 20V4M6 20v-6" />
+    </svg>
+  )},
+  { href: '/profile', label: 'Profil', icon: (
+    <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" />
+    </svg>
+  )},
 ] as const;
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -29,53 +41,50 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (!isInitialized) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 to-white">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+      <div className="flex min-h-screen items-center justify-center" style={{ background: '#f2f2f7' }}>
+        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[#e5e5ea] border-t-[#007aff]" />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 to-indigo-50/30">
-      {/* Header avec gradient */}
-      <header className="bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 shadow-lg">
-        <div className="mx-auto flex max-w-3xl items-center justify-between">
+    <div className="flex min-h-screen flex-col" style={{ background: '#f2f2f7' }}>
+      {/* Header iOS-style */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b" style={{ borderColor: 'var(--ios-separator)' }}>
+        <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-white tracking-tight">WID</h1>
+            <h1 className="text-[17px] font-semibold" style={{ color: '#1c1c1e' }}>WID</h1>
             {household && (
-              <p className="text-xs text-indigo-200">{household.name}</p>
+              <p className="text-[13px]" style={{ color: '#8e8e93' }}>{household.name}</p>
             )}
           </div>
-          <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold text-white">
+          <div
+            className="flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-semibold text-white"
+            style={{ background: '#007aff' }}
+          >
             {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
           </div>
         </div>
       </header>
 
-      {/* Contenu principal */}
-      <main className="flex-1 px-4 py-6">
-        <div className="mx-auto max-w-3xl">{children}</div>
+      {/* Contenu */}
+      <main className="flex-1 px-4 pt-2 pb-24">
+        <div className="mx-auto max-w-lg">{children}</div>
       </main>
 
-      {/* Navigation bottom tabs */}
-      <nav className="sticky bottom-0 border-t border-slate-200 bg-white/80 backdrop-blur-lg">
-        <div className="mx-auto flex max-w-3xl">
+      {/* Tab bar iOS */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-t" style={{ borderColor: 'var(--ios-separator)' }}>
+        <div className="mx-auto max-w-lg flex">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`relative flex flex-1 flex-col items-center gap-1 py-3 text-xs font-semibold transition-colors ${
-                  isActive
-                    ? item.activeColor
-                    : 'text-slate-400 hover:text-slate-600'
-                }`}
+                className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors"
+                style={{ color: isActive ? '#007aff' : '#8e8e93' }}
               >
-                {isActive && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full bg-current" />
-                )}
-                <span className="text-lg">{item.icon}</span>
+                {item.icon}
                 <span>{item.label}</span>
               </Link>
             );
