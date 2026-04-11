@@ -185,8 +185,8 @@ export default function TasksPage() {
   const { tasks, filters, loading, fetchTasks, completeTask, setFilters } = useTaskStore();
   const { members } = useHouseholdStore();
 
-  // Filtre par section (au lieu de catégorie)
   const [sectionFilter, setSectionFilter] = useState<string>('all');
+  const [showScoreInfo, setShowScoreInfo] = useState(false);
 
   useEffect(() => {
     if (profile?.household_id) fetchTasks(profile.household_id);
@@ -235,7 +235,15 @@ export default function TasksPage() {
       {/* Header */}
       <div className="flex items-end justify-between px-4 pt-4 pb-3">
         <div>
-          <h2 className="text-[28px] font-bold text-[#1c1c1e]">Tâches</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[28px] font-bold text-[#1c1c1e]">Tâches</h2>
+            <button onClick={() => setShowScoreInfo(!showScoreInfo)}
+              className="flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold text-white mt-1"
+              style={{ background: '#8e8e93' }}
+              aria-label="Comment lire le score The Load">
+              i
+            </button>
+          </div>
           {totalTasks > 0 && (
             <p className="text-[13px] text-[#8e8e93]">{totalTasks} tâche{totalTasks > 1 ? 's' : ''} active{totalTasks > 1 ? 's' : ''}</p>
           )}
@@ -249,6 +257,56 @@ export default function TasksPage() {
           Nouvelle
         </Link>
       </div>
+
+      {/* Panneau explication score The Load */}
+      {showScoreInfo && (
+        <div className="mx-4 mb-3 rounded-2xl bg-white p-4" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          <div className="flex items-start justify-between mb-3">
+            <h3 className="text-[16px] font-bold text-[#1c1c1e]">Comment lire le score The Load</h3>
+            <button onClick={() => setShowScoreInfo(false)} className="text-[17px] text-[#8e8e93]">✕</button>
+          </div>
+          <p className="text-[13px] text-[#8e8e93] mb-3">
+            Chaque tâche est évaluée sur <strong className="text-[#1c1c1e]">36 points</strong> répartis sur 4 critères.
+            Plus le score est élevé, plus la tâche pèse dans votre quotidien.
+          </p>
+          <div className="space-y-2 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] w-16">Durée</span>
+              <span className="text-[12px] text-[#8e8e93]">Temps nécessaire pour effectuer la tâche (max 8)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] w-16">Physique</span>
+              <span className="text-[12px] text-[#8e8e93]">Effort corporel requis (max 5)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] w-16">Mental</span>
+              <span className="text-[12px] text-[#8e8e93]">Anticipation, décisions, stress, responsabilité (max 18)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] w-16">Impact</span>
+              <span className="text-[12px] text-[#8e8e93]">Combien de personnes du foyer en bénéficient (max 4)</span>
+            </div>
+          </div>
+          <div className="space-y-1.5 text-[12px]">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: '#34c759' }} />
+              <span className="text-[#1c1c1e]"><strong>0–8</strong> — Légère</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: '#007aff' }} />
+              <span className="text-[#1c1c1e]"><strong>9–16</strong> — Modérée</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: '#ff9500' }} />
+              <span className="text-[#1c1c1e]"><strong>17–24</strong> — Significative</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: '#ff3b30' }} />
+              <span className="text-[#1c1c1e]"><strong>25–36</strong> — Lourde à très lourde</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mode vacances */}
       {profile?.vacation_mode && (() => {
