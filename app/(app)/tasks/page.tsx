@@ -66,7 +66,7 @@ function TaskCard({ task, onComplete, isCompleted }: {
 
   return (
     <div
-      className={`rounded-2xl overflow-hidden flex flex-col transition-all h-[240px] ${
+      className={`rounded-2xl overflow-hidden flex flex-col transition-all h-[260px] ${
         phase === 'idle' ? 'bg-white' :
         phase === 'success' ? 'bg-[#34c759] scale-[0.94] duration-300' :
         'bg-[#34c759] opacity-0 scale-[0.8] duration-500'
@@ -89,20 +89,27 @@ function TaskCard({ task, onComplete, isCompleted }: {
               <h3 className="text-[14px] font-bold text-[#1c1c1e] leading-tight line-clamp-2">{task.name}</h3>
             </div>
 
-            {/* 2. Catégorie + fréquence — hauteur fixe */}
-            <div className="h-[20px] flex items-center gap-2 mb-2">
-              <span className="rounded-full px-2 py-0.5 text-[9px] font-semibold text-white" style={{ background: catColor }}>
-                {task.category?.name}
-              </span>
-              <span className="text-[9px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
+            {/* 2. Catégorie + fréquence + score — hauteur fixe */}
+            <div className="h-[20px] flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5">
+                <span className="rounded-full px-2 py-0.5 text-[9px] font-semibold text-white" style={{ background: catColor }}>
+                  {task.category?.name}
+                </span>
+                <span className="text-[9px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
+              </div>
+              {(() => {
+                const gs = task.global_score ?? (task.mental_load_score * 7);
+                const gsColor = gs <= 8 ? '#34c759' : gs <= 16 ? '#007aff' : gs <= 24 ? '#ff9500' : '#ff3b30';
+                return <span className="text-[11px] font-bold" style={{ color: gsColor }}>{gs}/36</span>;
+              })()}
             </div>
 
             {/* 3. 4 jauges — hauteur fixe */}
             <div className="space-y-1 mb-2">
-              <MiniGauge label="Durée" value={sb?.time_score ?? 0} max={8} />
-              <MiniGauge label="Physique" value={sb?.physical_score ?? 0} max={5} />
-              <MiniGauge label="Mental" value={sb?.mental_load_score ?? task.mental_load_score} max={sb ? 18 : 5} />
-              <MiniGauge label="Impact" value={sb?.household_impact_score ?? 0} max={4} />
+              <MiniGauge label="Durée" value={sb?.time_score ?? Math.min(8, task.mental_load_score * 2)} max={8} />
+              <MiniGauge label="Physique" value={sb?.physical_score ?? Math.min(5, task.mental_load_score)} max={5} />
+              <MiniGauge label="Mental" value={sb?.mental_load_score ?? Math.min(18, task.mental_load_score * 3)} max={18} />
+              <MiniGauge label="Impact" value={sb?.household_impact_score ?? Math.min(4, Math.ceil(task.mental_load_score * 0.8))} max={4} />
             </div>
 
             {/* 4. Assignée + date — hauteur fixe */}
@@ -162,7 +169,7 @@ function TaskSection({ title, tasks, onComplete, completedIds }: {
         <h3 className="text-[13px] font-semibold uppercase tracking-wide" style={{ color }}>{title}</h3>
         <span className="rounded-full min-w-[20px] text-center px-1.5 py-0.5 text-[11px] font-bold text-white" style={{ background: color }}>{visibleCount}</span>
       </div>
-      <div className="grid grid-cols-2 gap-3 px-4">
+      <div className="grid grid-cols-2 gap-2.5 px-3">
         {tasks.map((task) => (
           <TaskCard key={task.id} task={task} onComplete={onComplete} isCompleted={completedIds.has(task.id)} />
         ))}
