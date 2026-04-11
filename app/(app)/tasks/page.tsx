@@ -7,28 +7,42 @@ import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { filterTasks, splitTasksIntoSections } from '@/utils/taskSelectors';
 import { frequencyLabel } from '@/utils/frequency';
-import type { TaskListItem, TaskCategory } from '@/types/database';
+import type { TaskListItem } from '@/types/database';
 
-// -- Chip iOS ------------------------------------------------------------------
+// -- Chip ----------------------------------------------------------------------
 
 function Chip({ label, active, onClick, color }: {
   label: string; active: boolean; onClick: () => void; color?: string;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className="rounded-full px-4 py-[7px] text-[13px] font-semibold transition-all"
+    <button onClick={onClick}
+      className="rounded-full px-3.5 py-[7px] text-[13px] font-semibold transition-all"
       style={active
         ? { background: color ?? '#007aff', color: 'white' }
         : { background: 'white', color: '#3c3c43', boxShadow: '0 0.5px 2px rgba(0,0,0,0.08)' }
-      }
-    >
+      }>
       {label}
     </button>
   );
 }
 
-// -- Carte tâche iOS -----------------------------------------------------------
+// -- Jauge mini ----------------------------------------------------------------
+
+function MiniGauge({ label, value, max }: { label: string; value: number; max: number }) {
+  const pct = Math.min(100, (value / max) * 100);
+  const c = pct <= 33 ? '#34c759' : pct <= 66 ? '#ff9500' : '#ff3b30';
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] w-16 flex-shrink-0 text-[#8e8e93]">{label}</span>
+      <div className="flex-1 h-1.5 rounded-full" style={{ background: '#f2f2f7' }}>
+        <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: c }} />
+      </div>
+      <span className="text-[10px] w-3 text-right text-[#8e8e93] flex-shrink-0">{value}</span>
+    </div>
+  );
+}
+
+// -- Carte tâche ---------------------------------------------------------------
 
 function TaskCard({ task, onComplete, isCompleted }: {
   task: TaskListItem;
@@ -41,23 +55,14 @@ function TaskCard({ task, onComplete, isCompleted }: {
     if (phase !== 'idle' || isCompleted) return;
     setPhase('success');
     onComplete(task.id);
-    // Phase success (carte verte) pendant 800ms, puis exit (glisse et disparait)
     setTimeout(() => setPhase('exit'), 800);
   }, [task.id, onComplete, phase, isCompleted]);
 
   const catColor = task.category?.color_hex ?? '#8e8e93';
-  const scoreColor = task.mental_load_score >= 4 ? '#ff3b30' : task.mental_load_score >= 3 ? '#ff9500' : '#34c759';
-
-  const textOnCat = useMemo(() => {
-    const hex = catColor.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    return luminance > 0.6 ? '#1c1c1e' : '#ffffff';
-  }, [catColor]);
 
   if (isCompleted) return null;
+
+  const sb = task.score_breakdown as Record<string, number> | null;
 
   return (
     <div
@@ -74,81 +79,69 @@ function TaskCard({ task, onComplete, isCompleted }: {
             <path d="M5 13l4 4L19 7" />
           </svg>
           <p className="text-[14px] font-bold text-white text-center">{task.name}</p>
-          <p className="text-[12px] text-white/80">Validé !</p>
         </div>
       ) : (
-        <Link href={`/tasks/${task.id}`} className="flex flex-col flex-1">
-          {/* Bandeau catégorie */}
-          <div className="px-3 py-1.5 flex items-center justify-between" style={{ background: catColor }}>
-            <span className="text-[11px] font-semibold truncate" style={{ color: textOnCat }}>{task.category?.name}</span>
-            <span className="text-[11px] font-medium" style={{ color: textOnCat }}>
-              {task.next_due_at && new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-            </span>
-          </div>
+        <>
+          {/* Corps de la carte */}
+          <Link href={`/tasks/${task.id}`} className="flex-1 p-3 flex flex-col">
+            {/* Nom en haut */}
+            <h3 className="text-[15px] font-bold text-[#1c1c1e] leading-tight mb-2">{task.name}</h3>
 
-          {/* Corps */}
-          <div className="flex-1 p-3 flex flex-col">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <h3 className="text-[14px] font-semibold text-[#1c1c1e] leading-tight flex-1">{task.name}</h3>
-              {/* Bouton Fait discret */}
-              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
-                className="flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center border-2 transition-all"
-                style={{ borderColor: '#34c759' }}
-                aria-label="Marquer comme fait">
-                <svg width="12" height="12" fill="none" stroke="#34c759" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
-                  <path d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-            </div>
-
-            {/* 4 jauges — toujours visibles */}
-            <div className="space-y-1 mb-2">
-              {(() => {
-                const sb = task.score_breakdown as Record<string, number> | null;
-                const gauges = sb ? [
-                  { label: '⏱ Temps', value: sb.time_score ?? 0, max: 8 },
-                  { label: '💪 Physique', value: sb.physical_score ?? 0, max: 5 },
-                  { label: '🧠 Mental', value: sb.mental_load_score ?? 0, max: 18 },
-                  { label: '👥 Impact', value: sb.household_impact_score ?? 0, max: 4 },
-                ] : [
-                  { label: '🧠 Charge', value: task.mental_load_score, max: 5 },
-                ];
-                return gauges.map((g) => {
-                  const pct = Math.min(100, (g.value / g.max) * 100);
-                  const c = pct <= 33 ? '#34c759' : pct <= 66 ? '#ff9500' : '#ff3b30';
-                  return (
-                    <div key={g.label} className="flex items-center gap-1.5">
-                      <span className="text-[9px] w-14 flex-shrink-0 text-[#8e8e93]">{g.label}</span>
-                      <div className="flex-1 h-1.5 rounded-full" style={{ background: '#f2f2f7' }}>
-                        <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: c }} />
-                      </div>
-                      <span className="text-[9px] w-4 text-right text-[#8e8e93]">{g.value}</span>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-
-            {/* Infos en bas */}
-            <div className="flex items-center gap-2 mt-auto">
+            {/* Catégorie en badge petit */}
+            <div className="flex items-center gap-2 mb-2">
+              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold text-white" style={{ background: catColor }}>
+                {task.category?.name}
+              </span>
               <span className="text-[10px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
+            </div>
+
+            {/* 4 jauges — position fixe */}
+            <div className="space-y-1 mb-2">
+              {sb ? (
+                <>
+                  <MiniGauge label="⏱ Temps" value={sb.time_score ?? 0} max={8} />
+                  <MiniGauge label="💪 Physique" value={sb.physical_score ?? 0} max={5} />
+                  <MiniGauge label="🧠 Mental" value={sb.mental_load_score ?? 0} max={18} />
+                  <MiniGauge label="👥 Impact" value={sb.household_impact_score ?? 0} max={4} />
+                </>
+              ) : (
+                <MiniGauge label="🧠 Charge" value={task.mental_load_score} max={5} />
+              )}
+            </div>
+
+            {/* Infos bas */}
+            <div className="flex items-center gap-2 mt-auto">
               {task.assignee && (
                 <span className="flex items-center gap-0.5">
-                  <span className="h-3 w-3 rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ background: '#007aff' }}>
+                  <span className="h-3.5 w-3.5 rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ background: '#007aff' }}>
                     {task.assignee.display_name.charAt(0).toUpperCase()}
                   </span>
                   <span className="text-[10px] text-[#3c3c43]">{task.assignee.display_name}</span>
                 </span>
               )}
+              {task.next_due_at && (
+                <span className="text-[10px] text-[#8e8e93]">
+                  {new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                </span>
+              )}
             </div>
+          </Link>
+
+          {/* Bouton FAIT — en bas, bordure épaisse */}
+          <div className="px-3 pb-3">
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
+              className="w-full rounded-xl py-[6px] text-[13px] font-bold tracking-wide border-2 transition-all"
+              style={{ borderColor: '#34c759', color: '#34c759', background: 'transparent' }}>
+              FAIT
+            </button>
           </div>
-        </Link>
+        </>
       )}
     </div>
   );
 }
 
-// -- Section tâches iOS --------------------------------------------------------
+// -- Section -------------------------------------------------------------------
 
 const SECTION_COLORS: Record<string, string> = {
   'En retard': '#ff3b30',
@@ -159,23 +152,18 @@ const SECTION_COLORS: Record<string, string> = {
 };
 
 function TaskSection({ title, tasks, onComplete, completedIds }: {
-  title: string;
-  tasks: TaskListItem[];
-  onComplete: (id: string) => Promise<void>;
-  completedIds: Set<string>;
+  title: string; tasks: TaskListItem[];
+  onComplete: (id: string) => Promise<void>; completedIds: Set<string>;
 }) {
   const visibleCount = tasks.filter((t) => !completedIds.has(t.id)).length;
   if (visibleCount === 0) return null;
-
   const color = SECTION_COLORS[title] ?? '#8e8e93';
 
   return (
     <section className="mb-6">
-      <div className="flex items-center gap-2 px-4 mb-1.5">
+      <div className="flex items-center gap-2 px-4 mb-2">
         <span className="h-2 w-2 rounded-full" style={{ background: color }} />
-        <h3 className="text-[13px] font-semibold uppercase tracking-wide" style={{ color }}>
-          {title}
-        </h3>
+        <h3 className="text-[13px] font-semibold uppercase tracking-wide" style={{ color }}>{title}</h3>
         <span className="rounded-full min-w-[20px] text-center px-1.5 py-0.5 text-[11px] font-bold text-white" style={{ background: color }}>{visibleCount}</span>
       </div>
       <div className="grid grid-cols-2 gap-3 px-4">
@@ -194,17 +182,12 @@ export default function TasksPage() {
   const { tasks, filters, loading, fetchTasks, completeTask, setFilters } = useTaskStore();
   const { members } = useHouseholdStore();
 
+  // Filtre par section (au lieu de catégorie)
+  const [sectionFilter, setSectionFilter] = useState<string>('all');
+
   useEffect(() => {
     if (profile?.household_id) fetchTasks(profile.household_id);
   }, [profile?.household_id, fetchTasks]);
-
-  const categories = useMemo(() => {
-    const map = new Map<string, TaskCategory>();
-    for (const task of tasks) {
-      if (task.category && !map.has(task.category.id)) map.set(task.category.id, task.category);
-    }
-    return Array.from(map.values()).sort((a, b) => a.sort_order - b.sort_order);
-  }, [tasks]);
 
   const vacationUserIds = useMemo(() => {
     return new Set(members.filter((m) => m.vacation_mode).map((m) => m.id));
@@ -212,7 +195,6 @@ export default function TasksPage() {
 
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
-  const [showInfo, setShowInfo] = useState(false);
 
   const sections = useMemo(() => {
     let filtered = filterTasks(tasks, filters, profile?.id ?? '', vacationUserIds);
@@ -222,6 +204,7 @@ export default function TasksPage() {
     }
     return splitTasksIntoSections(filtered);
   }, [tasks, filters, profile?.id, vacationUserIds, searchQuery]);
+
   const totalTasks = tasks.filter((t) => !completedIds.has(t.id)).length;
 
   const handleComplete = useCallback(async (taskId: string) => {
@@ -231,29 +214,32 @@ export default function TasksPage() {
     setCompletedIds((prev) => new Set(prev).add(taskId));
   }, [completeTask]);
 
+  // Sections à afficher selon le filtre
+  const visibleSections = useMemo(() => {
+    const all = [
+      { key: 'overdue', title: 'En retard', tasks: sections.overdue },
+      { key: 'today', title: 'Aujourd\'hui', tasks: sections.today },
+      { key: 'tomorrow', title: 'Demain', tasks: sections.tomorrow },
+      { key: 'week', title: 'Cette semaine', tasks: sections.week },
+      { key: 'later', title: 'Plus tard', tasks: sections.later },
+    ];
+    if (sectionFilter === 'all') return all;
+    return all.filter((s) => s.key === sectionFilter);
+  }, [sections, sectionFilter]);
+
   return (
     <div>
-      {/* Header de page */}
+      {/* Header */}
       <div className="flex items-end justify-between px-4 pt-4 pb-3">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-[28px] font-bold text-[#1c1c1e]">Tâches</h2>
-            <button onClick={() => setShowInfo(!showInfo)}
-              className="flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold text-white"
-              style={{ background: '#8e8e93' }}
-              aria-label="Informations sur la charge mentale">
-              i
-            </button>
-          </div>
+          <h2 className="text-[28px] font-bold text-[#1c1c1e]">Tâches</h2>
           {totalTasks > 0 && (
             <p className="text-[13px] text-[#8e8e93]">{totalTasks} tâche{totalTasks > 1 ? 's' : ''} active{totalTasks > 1 ? 's' : ''}</p>
           )}
         </div>
-        <Link
-          href="/tasks/new"
+        <Link href="/tasks/new"
           className="flex items-center gap-1 rounded-full px-4 py-2 text-[15px] font-semibold text-white"
-          style={{ background: '#007aff' }}
-        >
+          style={{ background: '#007aff' }}>
           <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
             <path d="M12 5v14M5 12h14" />
           </svg>
@@ -261,84 +247,49 @@ export default function TasksPage() {
         </Link>
       </div>
 
-      {/* Info charge mentale */}
-      {showInfo && (
-        <div className="mx-4 mb-2 rounded-xl bg-white p-4" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-          <div className="flex items-start justify-between">
-            <p className="text-[15px] font-semibold text-[#1c1c1e]">Charge mentale</p>
-            <button onClick={() => setShowInfo(false)} className="text-[15px] text-[#8e8e93]">✕</button>
+      {/* Mode vacances */}
+      {profile?.vacation_mode && (() => {
+        const daysSinceVacation = profile.vacation_started_at
+          ? Math.floor((Date.now() - new Date(profile.vacation_started_at).getTime()) / (1000 * 60 * 60 * 24))
+          : 0;
+        const isLong = daysSinceVacation >= 7;
+        return (
+          <div className="mx-4 mb-4 rounded-2xl p-5 text-center" style={{ background: isLong ? '#fff2f2' : '#fff8e1' }}>
+            <p className="text-[28px] mb-1">{isLong ? '⚠️' : '🏖️'}</p>
+            <p className="text-[17px] font-bold text-[#1c1c1e]">
+              {isLong ? `Mode vacances actif depuis ${daysSinceVacation} jours` : 'Mode vacances actif'}
+            </p>
+            <Link href="/profile" className="inline-block mt-3 rounded-xl px-5 py-2 text-[14px] font-semibold text-white"
+              style={{ background: isLong ? '#ff3b30' : '#007aff' }}>
+              {isLong ? 'Désactiver maintenant' : 'Gérer'}
+            </Link>
           </div>
-          <p className="text-[14px] text-[#8e8e93] mt-2">
-            La charge mentale mesure l&apos;effort cognitif et émotionnel d&apos;une tâche, pas seulement le temps qu&apos;elle prend.
-          </p>
-          <div className="mt-3 space-y-1.5 text-[13px]">
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full" style={{ background: '#34c759' }} />
-              <span className="text-[#1c1c1e]"><strong>0-2</strong> — Légère</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full" style={{ background: '#ff9500' }} />
-              <span className="text-[#1c1c1e]"><strong>3</strong> — Modérée</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full" style={{ background: '#ff3b30' }} />
-              <span className="text-[#1c1c1e]"><strong>4-5</strong> — Élevée</span>
-            </div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Recherche */}
       <div className="px-4 pb-2">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+        <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Rechercher une tâche..."
           className="w-full rounded-xl px-4 py-2.5 text-[15px] bg-white text-[#1c1c1e] outline-none placeholder:text-[#c7c7cc]"
-          style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}
-        />
+          style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }} />
       </div>
 
-      {/* Filtres */}
+      {/* Filtres par section */}
       <div className="px-4 pb-2 space-y-2">
         <div className="flex flex-wrap gap-2">
-          <Chip label="Toutes" active={filters.categoryId === 'all'} onClick={() => setFilters({ categoryId: 'all' })} />
-          {categories.map((cat) => (
-            <Chip key={cat.id} label={cat.name} active={filters.categoryId === cat.id} onClick={() => setFilters({ categoryId: cat.id })} color={cat.color_hex} />
-          ))}
+          <Chip label="Toutes" active={sectionFilter === 'all'} onClick={() => setSectionFilter('all')} />
+          <Chip label="En retard" active={sectionFilter === 'overdue'} onClick={() => setSectionFilter('overdue')} color="#ff3b30" />
+          <Chip label="Aujourd'hui" active={sectionFilter === 'today'} onClick={() => setSectionFilter('today')} color="#007aff" />
+          <Chip label="Demain" active={sectionFilter === 'demain'} onClick={() => setSectionFilter('tomorrow')} color="#af52de" />
+          <Chip label="Semaine" active={sectionFilter === 'week'} onClick={() => setSectionFilter('week')} color="#5856d6" />
+          <Chip label="Plus tard" active={sectionFilter === 'later'} onClick={() => setSectionFilter('later')} />
         </div>
         <div className="flex gap-2">
           <Chip label="Toutes" active={filters.assignment === 'all'} onClick={() => setFilters({ assignment: 'all' })} />
           <Chip label="Mes tâches" active={filters.assignment === 'mine'} onClick={() => setFilters({ assignment: 'mine' })} />
         </div>
       </div>
-
-      {/* Mode vacances actif */}
-      {profile?.vacation_mode && (() => {
-        const daysSinceVacation = profile.vacation_started_at
-          ? Math.floor((Date.now() - new Date(profile.vacation_started_at).getTime()) / (1000 * 60 * 60 * 24))
-          : 0;
-        const isLongVacation = daysSinceVacation >= 7;
-        return (
-          <div className="mx-4 mb-4 rounded-2xl p-5 text-center" style={{ background: isLongVacation ? '#fff2f2' : '#fff8e1' }}>
-            <p className="text-[28px] mb-1">{isLongVacation ? '⚠️' : '🏖️'}</p>
-            <p className="text-[17px] font-bold text-[#1c1c1e]">
-              {isLongVacation ? `Mode vacances actif depuis ${daysSinceVacation} jours` : 'Mode vacances actif'}
-            </p>
-            <p className="text-[14px] text-[#8e8e93] mt-1">
-              {isLongVacation
-                ? 'Êtes-vous toujours en vacances ? Vos tâches s\'accumulent.'
-                : 'Vos tâches sont en pause. Désactivez le mode vacances depuis votre profil pour les retrouver.'}
-            </p>
-            <Link href="/profile"
-              className="inline-block mt-3 rounded-xl px-5 py-2 text-[14px] font-semibold text-white"
-              style={{ background: isLongVacation ? '#ff3b30' : '#007aff' }}>
-              {isLongVacation ? 'Désactiver maintenant' : 'Gérer le mode vacances'}
-            </Link>
-          </div>
-        );
-      })()}
 
       {/* Contenu */}
       {loading ? (
@@ -348,41 +299,18 @@ export default function TasksPage() {
       ) : totalTasks === 0 ? (
         <div className="mx-4 rounded-2xl bg-white p-10 text-center" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
           <p className="text-[40px] mb-3">🏠</p>
-          <h3 className="text-[20px] font-bold text-[#1c1c1e]">Bienvenue dans votre foyer !</h3>
-          <p className="mt-2 text-[15px] text-[#8e8e93] max-w-[280px] mx-auto">
-            Commencez par ajouter vos premières tâches depuis le catalogue ou en créant les vôtres.
-          </p>
-          <div className="mt-6 space-y-2 max-w-[260px] mx-auto text-left">
-            <div className="flex items-center gap-3 rounded-xl p-3" style={{ background: '#f2f2f7' }}>
-              <span className="flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold text-white" style={{ background: '#007aff' }}>1</span>
-              <span className="text-[14px] text-[#1c1c1e]">Créez vos tâches</span>
-            </div>
-            <div className="flex items-center gap-3 rounded-xl p-3" style={{ background: '#f2f2f7' }}>
-              <span className="flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold text-white" style={{ background: '#af52de' }}>2</span>
-              <span className="text-[14px] text-[#1c1c1e]">Assignez-les</span>
-            </div>
-            <div className="flex items-center gap-3 rounded-xl p-3" style={{ background: '#f2f2f7' }}>
-              <span className="flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold text-white" style={{ background: '#34c759' }}>3</span>
-              <span className="text-[14px] text-[#1c1c1e]">Suivez la répartition</span>
-            </div>
-          </div>
-          <Link
-            href="/tasks/new"
-            className="mt-6 inline-block rounded-full px-6 py-2.5 text-[15px] font-semibold text-white"
-            style={{ background: '#007aff' }}
-          >
+          <h3 className="text-[20px] font-bold text-[#1c1c1e]">Bienvenue !</h3>
+          <p className="mt-2 text-[15px] text-[#8e8e93]">Commencez par ajouter vos premières tâches.</p>
+          <Link href="/tasks/new" className="mt-4 inline-block rounded-full px-6 py-2.5 text-[15px] font-semibold text-white" style={{ background: '#007aff' }}>
             Créer ma première tâche
           </Link>
         </div>
       ) : (
         <div className="pt-2">
-          <TaskSection title="En retard" tasks={sections.overdue} onComplete={handleComplete} completedIds={completedIds} />
-          <TaskSection title="Aujourd'hui" tasks={sections.today} onComplete={handleComplete} completedIds={completedIds} />
-          <TaskSection title="Demain" tasks={sections.tomorrow} onComplete={handleComplete} completedIds={completedIds} />
-          <TaskSection title="Cette semaine" tasks={sections.week} onComplete={handleComplete} completedIds={completedIds} />
-          <TaskSection title="Plus tard" tasks={sections.later} onComplete={handleComplete} completedIds={completedIds} />
+          {visibleSections.map((s) => (
+            <TaskSection key={s.key} title={s.title} tasks={s.tasks} onComplete={handleComplete} completedIds={completedIds} />
+          ))}
 
-          {/* Lien archives */}
           <div className="px-4 pt-2 pb-4">
             <Link href="/tasks/archived"
               className="block w-full rounded-xl bg-white py-3 text-center text-[15px] font-medium text-[#8e8e93]"
