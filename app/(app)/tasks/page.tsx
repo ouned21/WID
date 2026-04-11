@@ -51,71 +51,66 @@ function TaskCard({ task, onComplete, isCompleted }: {
 
   return (
     <div
-      className={`rounded-2xl p-4 transition-all overflow-hidden ${
+      className={`rounded-2xl overflow-hidden flex flex-col transition-all ${
         phase === 'idle' ? 'bg-white' :
-        phase === 'success' ? 'bg-[#34c759] scale-[0.96] duration-300' :
-        'bg-[#34c759] opacity-0 -translate-x-full scale-[0.9] duration-500'
+        phase === 'success' ? 'bg-[#34c759] scale-[0.94] duration-300' :
+        'bg-[#34c759] opacity-0 scale-[0.8] duration-500'
       }`}
-      style={phase === 'idle' ? { boxShadow: '0 1px 4px rgba(0,0,0,0.06)' } : {}}
+      style={phase === 'idle' ? { boxShadow: '0 1px 6px rgba(0,0,0,0.08)' } : {}}
     >
       {phase !== 'idle' ? (
-        /* État validé : grande checkmark au centre */
-        <div className="flex flex-col items-center justify-center py-4">
-          <svg width="40" height="40" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" viewBox="0 0 24 24" className="mb-2">
+        <div className="flex flex-col items-center justify-center py-8 px-3">
+          <svg width="36" height="36" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" viewBox="0 0 24 24" className="mb-2">
             <path d="M5 13l4 4L19 7" />
           </svg>
-          <p className="text-[17px] font-bold text-white">{task.name}</p>
-          <p className="text-[13px] text-white/80 mt-0.5">Validé !</p>
+          <p className="text-[14px] font-bold text-white text-center">{task.name}</p>
+          <p className="text-[12px] text-white/80 mt-0.5">Validé !</p>
         </div>
       ) : (
         <>
-          {/* Ligne du haut : catégorie + score */}
-          <div className="flex items-center justify-between mb-2">
-            <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold text-white" style={{ background: catColor }}>
-              {task.category?.name}
-            </span>
-            <div className="flex items-baseline gap-0.5">
-              <span className="text-[20px] font-bold leading-none" style={{ color: scoreColor }}>{task.mental_load_score}</span>
-              <span className="text-[11px] text-[#c7c7cc]">/10</span>
-            </div>
+          {/* Bandeau catégorie en haut */}
+          <div className="px-3 py-2 flex items-center justify-between" style={{ background: catColor }}>
+            <span className="text-[11px] font-semibold text-white truncate">{task.category?.name}</span>
+            <span className="text-[13px] font-bold text-white">{task.mental_load_score}<span className="text-[10px] opacity-70">/10</span></span>
           </div>
 
-          {/* Nom de la tâche */}
-          <Link href={`/tasks/${task.id}`}>
-            <h3 className="text-[17px] font-semibold text-[#1c1c1e] mb-1.5">{task.name}</h3>
-          </Link>
-
-          {/* Infos */}
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className="text-[13px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
-            {task.assignee && (
-              <span className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-medium" style={{ background: '#f2f2f7', color: '#3c3c43' }}>
-                <span className="h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: '#007aff' }}>
-                  {task.assignee.display_name.charAt(0).toUpperCase()}
-                </span>
-                {task.assignee.display_name}
-              </span>
-            )}
-            {task.next_due_at && (
-              <span className="text-[13px] text-[#8e8e93]">
-                {new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                {' · '}
-                {new Date(task.next_due_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-2">
-            <button onClick={handleClick}
-              className="flex-1 rounded-xl py-[8px] text-[14px] font-semibold text-white" style={{ background: '#34c759' }}>
-              ✓ Fait
-            </button>
-            <Link href={`/tasks/${task.id}`}
-              className="rounded-xl px-4 py-[8px] text-[14px] font-medium text-[#007aff]"
-              style={{ background: '#f2f2f7' }}>
-              Détail
+          {/* Corps de la carte */}
+          <div className="flex-1 p-3 flex flex-col">
+            <Link href={`/tasks/${task.id}`} className="flex-1">
+              <h3 className="text-[15px] font-semibold text-[#1c1c1e] leading-tight mb-2">{task.name}</h3>
             </Link>
+
+            <div className="space-y-1 mb-3">
+              <p className="text-[11px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</p>
+              {task.assignee && (
+                <div className="flex items-center gap-1">
+                  <span className="h-4 w-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{ background: '#007aff' }}>
+                    {task.assignee.display_name.charAt(0).toUpperCase()}
+                  </span>
+                  <span className="text-[11px] text-[#3c3c43]">{task.assignee.display_name}</span>
+                </div>
+              )}
+              {task.next_due_at && (
+                <p className="text-[11px] text-[#8e8e93]">
+                  {new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                  {' · '}
+                  {new Date(task.next_due_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
+            </div>
+
+            {/* Actions empilées */}
+            <div className="space-y-1.5 mt-auto">
+              <button onClick={handleClick}
+                className="w-full rounded-lg py-[7px] text-[13px] font-semibold text-white" style={{ background: '#34c759' }}>
+                ✓ Fait
+              </button>
+              <Link href={`/tasks/${task.id}`}
+                className="block w-full rounded-lg py-[7px] text-center text-[13px] font-medium text-[#007aff]"
+                style={{ background: '#f2f2f7' }}>
+                Détail
+              </Link>
+            </div>
           </div>
         </>
       )}
@@ -153,7 +148,7 @@ function TaskSection({ title, tasks, onComplete, completedIds }: {
         </h3>
         <span className="rounded-full min-w-[20px] text-center px-1.5 py-0.5 text-[11px] font-bold text-white" style={{ background: color }}>{visibleCount}</span>
       </div>
-      <div className="space-y-3 px-4">
+      <div className="grid grid-cols-2 gap-3 px-4">
         {tasks.map((task) => (
           <TaskCard key={task.id} task={task} onComplete={onComplete} isCompleted={completedIds.has(task.id)} />
         ))}
