@@ -52,8 +52,8 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
     const userId = useAuthStore.getState().user?.id;
 
     if (!userId) {
-      set({ loading: false, error: 'Non authentifie.' });
-      return { ok: false, error: 'Non authentifie.' };
+      set({ loading: false, error: 'Non authentifié.' });
+      return { ok: false, error: 'Non authentifié.' };
     }
 
     // Generer un code d'invitation unique (retry si collision)
@@ -101,8 +101,8 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
       return { ok: true };
     }
 
-    set({ loading: false, error: lastError || 'Impossible de generer un code unique.' });
-    return { ok: false, error: lastError || 'Impossible de generer un code unique.' };
+    set({ loading: false, error: lastError || 'Impossible de générer un code unique.' });
+    return { ok: false, error: lastError || 'Impossible de générer un code unique.' };
   },
 
   joinHousehold: async (inviteCode) => {
@@ -112,13 +112,13 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
     const currentProfile = useAuthStore.getState().profile;
 
     if (!userId) {
-      set({ loading: false, error: 'Non authentifie.' });
-      return { ok: false, error: 'Non authentifie.' };
+      set({ loading: false, error: 'Non authentifié.' });
+      return { ok: false, error: 'Non authentifié.' };
     }
 
     if (currentProfile?.household_id) {
-      set({ loading: false, error: 'Vous appartenez deja a un foyer.' });
-      return { ok: false, error: 'Vous appartenez deja a un foyer.' };
+      set({ loading: false, error: 'Vous appartenez déjà à un foyer.' });
+      return { ok: false, error: 'Vous appartenez déjà à un foyer.' };
     }
 
     // Chercher le foyer par code d'invitation
@@ -183,7 +183,7 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
   leaveHousehold: async () => {
     const supabase = createClient();
     const userId = useAuthStore.getState().user?.id;
-    if (!userId) return { ok: false, error: 'Non authentifie.' };
+    if (!userId) return { ok: false, error: 'Non authentifié.' };
 
     const { error } = await supabase
       .from('profiles')

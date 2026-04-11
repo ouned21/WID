@@ -119,7 +119,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     if (error) {
       const msg = error.message === 'User already registered'
-        ? 'Un compte existe deja avec cet email.'
+        ? 'Un compte existe déjà avec cet email.'
         : error.message;
       set({ error: msg });
       return { ok: false, error: msg };

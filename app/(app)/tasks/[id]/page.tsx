@@ -52,8 +52,11 @@ export default function TaskDetailPage() {
     setCompletions(data);
   };
 
+  const [saving, setSaving] = useState(false);
   const handleSaveField = async (field: string, value: unknown) => {
+    setSaving(true);
     await updateTask(task.id, { [field]: value });
+    setSaving(false);
     setEditingField(null);
   };
 
@@ -88,7 +91,7 @@ export default function TaskDetailPage() {
               <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} autoFocus
                 className="flex-1 text-[20px] font-bold text-[#1c1c1e] bg-transparent outline-none" />
               <button onClick={() => handleSaveField('name', editValue.trim())}
-                className="text-[15px] font-semibold" style={{ color: '#007aff' }}>OK</button>
+                className="text-[15px] font-semibold" style={{ color: '#007aff' }}>{saving ? '...' : 'OK'}</button>
               <button onClick={() => setEditingField(null)} className="text-[15px] text-[#8e8e93]">✕</button>
             </div>
           ) : (
@@ -112,7 +115,7 @@ export default function TaskDetailPage() {
               <input type="range" min={0} max={10} value={editScore} onChange={(e) => setEditScore(Number(e.target.value))}
                 className="w-24" style={{ accentColor: editScore >= 7 ? '#ff3b30' : editScore >= 4 ? '#ff9500' : '#34c759' }} />
               <button onClick={() => handleSaveField('mental_load_score', editScore)}
-                className="text-[13px] font-semibold" style={{ color: '#007aff' }}>OK</button>
+                className="text-[13px] font-semibold" style={{ color: '#007aff' }}>{saving ? '...' : 'OK'}</button>
             </div>
           ) : (
             <button onClick={startEditScore} className="flex items-center gap-1.5">
@@ -134,7 +137,7 @@ export default function TaskDetailPage() {
                   {FREQUENCY_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
                 </select>
                 <button onClick={() => handleSaveField('frequency', editValue)}
-                  className="text-[15px] font-semibold" style={{ color: '#007aff' }}>OK</button>
+                  className="text-[15px] font-semibold" style={{ color: '#007aff' }}>{saving ? '...' : 'OK'}</button>
               </div>
             </div>
           ) : (
@@ -160,7 +163,7 @@ export default function TaskDetailPage() {
                   {members.map((m) => (<option key={m.id} value={m.id}>{m.display_name}</option>))}
                 </select>
                 <button onClick={() => handleSaveField('assigned_to', editValue || null)}
-                  className="text-[15px] font-semibold" style={{ color: '#007aff' }}>OK</button>
+                  className="text-[15px] font-semibold" style={{ color: '#007aff' }}>{saving ? '...' : 'OK'}</button>
               </div>
             </div>
           ) : (
@@ -195,7 +198,7 @@ export default function TaskDetailPage() {
                 <button onClick={() => {
                   const iso = new Date(`${editValue}:00`).toISOString();
                   handleSaveField('next_due_at', iso);
-                }} className="text-[15px] font-semibold" style={{ color: '#007aff' }}>OK</button>
+                }} className="text-[15px] font-semibold" style={{ color: '#007aff' }}>{saving ? '...' : 'OK'}</button>
               </div>
             </div>
           ) : (

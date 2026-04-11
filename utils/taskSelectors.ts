@@ -9,8 +9,18 @@ export function filterTasks(
   tasks: TaskListItem[],
   filters: TaskFilters,
   currentUserId: string,
+  vacationUserIds: Set<string> = new Set(),
 ): TaskListItem[] {
+  const now = new Date();
   return tasks.filter((task) => {
+    // Masquer les tâches dont la date de début est dans le futur
+    if (task.starts_at && new Date(task.starts_at) > now) {
+      return false;
+    }
+    // Masquer les tâches assignées à un membre en vacances
+    if (task.assigned_to && vacationUserIds.has(task.assigned_to)) {
+      return false;
+    }
     if (filters.categoryId !== 'all' && task.category_id !== filters.categoryId) {
       return false;
     }

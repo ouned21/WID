@@ -24,6 +24,8 @@ type CreateTaskPayload = {
   assigned_to?: string | null;
   next_due_at?: string | null;
   template_id?: string | null;
+  custom_interval_days?: number | null;
+  starts_at?: string | null;
 };
 
 type CompleteTaskPayload = {
@@ -143,8 +145,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   createTask: async (householdId, payload) => {
     // Validation
     if (!payload.name.trim()) return { ok: false, error: 'Le nom est obligatoire.' };
-    if (payload.name.trim().length > 100) return { ok: false, error: 'Le nom ne doit pas depasser 100 caracteres.' };
-    if (!payload.category_id) return { ok: false, error: 'La categorie est obligatoire.' };
+    if (payload.name.trim().length > 100) return { ok: false, error: 'Le nom ne doit pas dépasser 100 caractères.' };
+    if (!payload.category_id) return { ok: false, error: 'La catégorie est obligatoire.' };
     if (payload.mental_load_score < 0 || payload.mental_load_score > 10) {
       return { ok: false, error: 'La charge mentale doit etre entre 0 et 10.' };
     }
@@ -152,7 +154,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     set({ creating: true, error: null });
     const supabase = createClient();
     const userId = useAuthStore.getState().user?.id;
-    if (!userId) { set({ creating: false }); return { ok: false, error: 'Non authentifie.' }; }
+    if (!userId) { set({ creating: false }); return { ok: false, error: 'Non authentifié.' }; }
 
     const { error } = await supabase.from('household_tasks').insert({
       household_id: householdId,
@@ -163,6 +165,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       assigned_to: payload.assigned_to ?? null,
       next_due_at: payload.next_due_at ?? null,
       template_id: payload.template_id ?? null,
+      custom_interval_days: payload.custom_interval_days ?? null,
+      starts_at: payload.starts_at ?? null,
       created_by: userId,
     });
 
@@ -207,7 +211,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     }
 
     // 2. Calculer et mettre à jour la prochaine échéance
-    const nextDueAt = computeNextDueAt(task.frequency, now);
+    const nextDueAt = computeNextDueAt(task.frequency, now, task.custom_interval_days);
     const { error: updateError } = await supabase
       .from('household_tasks')
       .update({ next_due_at: nextDueAt?.toISOString() ?? null })
@@ -229,7 +233,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     const supabase = createClient();
 
     const task = get().tasks.find((t) => t.id === taskId);
-    if (!task) { set({ updating: false }); return { ok: false, error: 'Tache introuvable.' }; }
+    if (!task) { set({ updating: false }); return { ok: false, error: 'Tâche introuvable.' }; }
 
     // Si la frequence change, recalculer la prochaine echeance
     const updates: Record<string, unknown> = { ...payload };
@@ -259,7 +263,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     const supabase = createClient();
 
     const task = get().tasks.find((t) => t.id === taskId);
-    if (!task) { set({ archiving: false }); return { ok: false, error: 'Tache introuvable.' }; }
+    if (!task) { set({ archiving: false }); return { ok: false, error: 'Tâche introuvable.' }; }
 
     const { error } = await supabase
       .from('household_tasks')

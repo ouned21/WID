@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
+import { useHouseholdStore } from '@/stores/householdStore';
 import { filterTasks, splitTasksIntoSections } from '@/utils/taskSelectors';
 import { frequencyLabel } from '@/utils/frequency';
 import type { TaskListItem, TaskCategory } from '@/types/database';
@@ -172,6 +173,7 @@ function TaskSection({ title, tasks, onComplete, completedIds }: {
 export default function TasksPage() {
   const { profile } = useAuthStore();
   const { tasks, filters, loading, fetchTasks, completeTask, setFilters } = useTaskStore();
+  const { members } = useHouseholdStore();
 
   useEffect(() => {
     if (profile?.household_id) fetchTasks(profile.household_id);
@@ -185,10 +187,14 @@ export default function TasksPage() {
     return Array.from(map.values()).sort((a, b) => a.sort_order - b.sort_order);
   }, [tasks]);
 
+  const vacationUserIds = useMemo(() => {
+    return new Set(members.filter((m) => m.vacation_mode).map((m) => m.id));
+  }, [members]);
+
   const sections = useMemo(() => {
-    const filtered = filterTasks(tasks, filters, profile?.id ?? '');
+    const filtered = filterTasks(tasks, filters, profile?.id ?? '', vacationUserIds);
     return splitTasksIntoSections(filtered);
-  }, [tasks, filters, profile?.id]);
+  }, [tasks, filters, profile?.id, vacationUserIds]);
 
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const totalTasks = tasks.filter((t) => !completedIds.has(t.id)).length;

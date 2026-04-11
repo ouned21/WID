@@ -72,6 +72,8 @@ export default function NewTaskPage() {
       name: name.trim(), category_id: categoryId, frequency,
       mental_load_score: mentalLoadScore, assigned_to: assignedTo || null,
       template_id: selectedTemplateId || null, next_due_at: nextDueAt,
+      custom_interval_days: frequency === 'custom' && customIntervalDays ? parseInt(customIntervalDays, 10) : null,
+      starts_at: startsAt ? new Date(`${startsAt}T00:00:00`).toISOString() : null,
     });
     if (result.ok) router.push('/tasks');
     else setError(result.error ?? 'Erreur inconnue.');

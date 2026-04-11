@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { createClient } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
+import { useTaskStore } from '@/stores/taskStore';
 import type { TaskExchangeWithDetails, TaskExchangeStatus } from '@/types/database';
 
 type ExchangeState = {
@@ -110,6 +111,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
     }
 
     await get().fetchExchanges(exchange.household_id);
+
+    // Rafraîchir la liste des tâches si un échange a été accepté
+    if (action === 'accepted') {
+      await useTaskStore.getState().fetchTasks(exchange.household_id);
+    }
+
     return { ok: true };
   },
 
