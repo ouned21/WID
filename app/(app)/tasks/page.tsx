@@ -67,7 +67,7 @@ function TaskCard({ task, onComplete, isCompleted }: {
 
   return (
     <div
-      className={`rounded-2xl overflow-hidden flex flex-col transition-all ${
+      className={`rounded-2xl overflow-hidden flex flex-col transition-all h-[240px] ${
         phase === 'idle' ? 'bg-white' :
         phase === 'success' ? 'bg-[#34c759] scale-[0.94] duration-300' :
         'bg-[#34c759] opacity-0 scale-[0.8] duration-500'
