@@ -51,7 +51,7 @@ export default function RegisterPage() {
     <>
       <div className="text-center pt-8">
         <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-[20px] text-[32px] font-bold text-white mb-3" style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)' }}>
-          W
+          TL
         </div>
         <h1 className="text-[28px] font-bold text-[#1c1c1e]">Créer un compte</h1>
       </div>

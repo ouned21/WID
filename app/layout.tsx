@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WID — What I Did",
-  description: "Suivez et equilibrez les taches de votre foyer",
+  title: "The Load — Mesurez, équilibrez, allégez",
+  description: "Application de suivi et rééquilibrage des tâches domestiques",
 };
 
 export default function RootLayout({

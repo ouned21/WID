@@ -25,10 +25,10 @@ export default function LoginPage() {
     <>
       <div className="text-center pt-8">
         <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-[20px] text-[32px] font-bold text-white mb-3" style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)' }}>
-          W
+          TL
         </div>
-        <h1 className="text-[28px] font-bold text-[#1c1c1e]">WID</h1>
-        <p className="text-[15px] text-[#8e8e93]">What I Did</p>
+        <h1 className="text-[28px] font-bold text-[#1c1c1e]">The Load</h1>
+        <p className="text-[15px] text-[#8e8e93]">Mesurez, équilibrez, allégez</p>
       </div>
 
       <form onSubmit={handleSubmit}>

@@ -1,5 +1,5 @@
 /**
- * Moteur de scoring automatique des tâches WID.
+ * Moteur de scoring automatique des tâches The Load.
  *
  * Calcule 4 sous-scores à partir de 5 inputs simples :
  * - Time Score (1-8) : durée estimée

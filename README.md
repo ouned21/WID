@@ -1,6 +1,7 @@
-# WID — What I Did
+# The Load
 
 Application web de suivi et rééquilibrage des tâches domestiques.
+Mesurez, équilibrez, allégez.
 
 ## Stack
 

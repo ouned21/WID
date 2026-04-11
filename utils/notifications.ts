@@ -1,5 +1,5 @@
 /**
- * Gestion des notifications web pour WID.
+ * Gestion des notifications web pour The Load.
  * Utilise l'API Notification du navigateur pour les rappels de tâches.
  */
 
@@ -39,7 +39,7 @@ export function scheduleTaskNotification(
   if (delay <= 0 || delay > 24 * 60 * 60 * 1000) return null;
 
   const timerId = window.setTimeout(() => {
-    new Notification(`WID — ${taskName}`, {
+    new Notification(`The Load — ${taskName}`, {
       body: householdName
         ? `Tâche prévue maintenant · ${householdName}`
         : 'Tâche prévue maintenant',
