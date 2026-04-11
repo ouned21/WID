@@ -99,6 +99,8 @@ function TaskCard({ task, onComplete, isCompleted }: {
             {task.next_due_at && (
               <span className="text-[13px] text-[#8e8e93]">
                 {new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                {' · '}
+                {new Date(task.next_due_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
           </div>
