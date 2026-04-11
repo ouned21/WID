@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
@@ -164,6 +165,20 @@ export default function TaskDetailPage() {
               </div>
             )}
           </div>
+
+          {/* Bouton échange */}
+          {task.assigned_to && (
+            <div className="mx-4">
+              <Link href={`/exchanges?offer=${task.id}`}
+                className="flex items-center justify-center gap-2 w-full rounded-xl bg-white py-3 text-[15px] font-medium"
+                style={{ color: '#007aff', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+                  <path d="M7 16l-4-4m0 0l4-4m-4 4h18M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+                Proposer un échange
+              </Link>
+            </div>
+          )}
 
           {/* Historique */}
           <div className="mx-4">
