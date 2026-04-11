@@ -345,10 +345,13 @@ export default function TasksPage() {
           <Chip label="Toutes" active={filters.assignment === 'all'} onClick={() => setFilters({ assignment: 'all' })} />
         </div>
         {/* Ligne 2 : filtres par section */}
-        <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap">
+        <div className="flex gap-1.5">
           <Chip label="Toutes" active={sectionFilter === 'all'} onClick={() => setSectionFilter('all')} />
           <Chip label="En retard" active={sectionFilter === 'overdue'} onClick={() => setSectionFilter('overdue')} color="#ff3b30" />
           <Chip label="Aujourd'hui" active={sectionFilter === 'today'} onClick={() => setSectionFilter('today')} color="#007aff" />
+        </div>
+        {/* Ligne 3 */}
+        <div className="flex gap-1.5">
           <Chip label="Demain" active={sectionFilter === 'tomorrow'} onClick={() => setSectionFilter('tomorrow')} color="#af52de" />
           <Chip label="Semaine" active={sectionFilter === 'week'} onClick={() => setSectionFilter('week')} color="#5856d6" />
           <Chip label="Plus tard" active={sectionFilter === 'later'} onClick={() => setSectionFilter('later')} />
