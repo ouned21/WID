@@ -84,7 +84,7 @@ function TaskCard({ task, onComplete, isCompleted }: {
         <>
           <Link href={`/tasks/${task.id}`} className="flex-1 p-3 flex flex-col">
             {/* 1. Nom + Score The Load en haut */}
-            <div className="flex items-start justify-between gap-1 mb-1">
+            <div className="flex items-start justify-between gap-1 mb-2">
               <div className="h-[36px] flex-1">
                 <h3 className="text-[14px] font-bold text-[#1c1c1e] leading-tight line-clamp-2">{task.name}</h3>
               </div>
@@ -92,17 +92,12 @@ function TaskCard({ task, onComplete, isCompleted }: {
                 const gs = task.global_score ?? (task.mental_load_score * 7);
                 const gsColor = gs <= 8 ? '#34c759' : gs <= 16 ? '#007aff' : gs <= 24 ? '#ff9500' : '#ff3b30';
                 return (
-                  <span className="text-[16px] font-bold flex-shrink-0" style={{ color: gsColor }}>{gs}</span>
+                  <div className="flex flex-col items-end flex-shrink-0">
+                    <span className="text-[8px] text-[#8e8e93] uppercase font-semibold">The Load</span>
+                    <span className="text-[18px] font-bold leading-none" style={{ color: gsColor }}>{gs}</span>
+                  </div>
                 );
               })()}
-            </div>
-
-            {/* 2. Catégorie + fréquence */}
-            <div className="flex items-center gap-1.5 mb-2">
-              <span className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold text-white" style={{ background: catColor }}>
-                {task.category?.name}
-              </span>
-              <span className="text-[9px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
             </div>
 
             {/* 3. 4 jauges */}
@@ -131,8 +126,14 @@ function TaskCard({ task, onComplete, isCompleted }: {
             </div>
           </Link>
 
-          {/* 5. Bouton FAIT — bas droite */}
-          <div className="px-3 pb-2 flex justify-end">
+          {/* 5. Catégorie + fréquence + FAIT en bas */}
+          <div className="px-3 pb-2 flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <span className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold text-white" style={{ background: catColor }}>
+                {task.category?.name}
+              </span>
+              <span className="text-[8px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
+            </div>
             <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
               className="rounded-md px-2.5 py-[3px] text-[9px] font-bold tracking-widest border-[1.5px] transition-all"
               style={{ borderColor: '#34c759', color: '#34c759', background: 'transparent' }}>
