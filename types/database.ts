@@ -32,6 +32,7 @@ export type Profile = {
   left_at: string | null;
   vacation_mode: boolean;
   vacation_started_at: string | null;
+  target_share_percent: number | null; // Objectif de répartition (ex: 50 = vise 50%)
   created_at: string;
   updated_at: string;
 };

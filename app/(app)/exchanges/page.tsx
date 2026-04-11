@@ -15,13 +15,15 @@ export default function ExchangesPage() {
   const { members } = useHouseholdStore();
   const { exchanges, loading, fetchExchanges, proposeExchange, respondToExchange } = useExchangeStore();
 
-  // Pré-remplir si on vient de la page détail d'une tâche (?offer=taskId)
+  // Pré-remplir depuis les paramètres URL
   const prefilledOfferId = searchParams.get('offer');
+  const prefilledRequestId = searchParams.get('request');
+  const prefilledToId = searchParams.get('to');
 
   const [showForm, setShowForm] = useState(!!prefilledOfferId);
-  const [toUserId, setToUserId] = useState('');
+  const [toUserId, setToUserId] = useState(prefilledToId ?? '');
   const [offeredTaskId, setOfferedTaskId] = useState(prefilledOfferId ?? '');
-  const [requestedTaskId, setRequestedTaskId] = useState('');
+  const [requestedTaskId, setRequestedTaskId] = useState(prefilledRequestId ?? '');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 

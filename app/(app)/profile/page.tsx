@@ -56,6 +56,13 @@ export default function ProfilePage() {
     setTogglingVacation(false);
   };
   const handleRename = async () => { if (!newName.trim()) return; await renameHousehold(newName.trim()); setEditingName(false); };
+
+  const handleTargetChange = async (value: number) => {
+    if (!profile?.id) return;
+    const supabase = createClient();
+    await supabase.from('profiles').update({ target_share_percent: value }).eq('id', profile.id);
+    await useAuthStore.getState().refreshProfile();
+  };
   const handleCopyCode = () => {
     if (household?.invite_code) {
       navigator.clipboard.writeText(household.invite_code);
@@ -140,6 +147,36 @@ export default function ProfilePage() {
           </div>
         </>
       )}
+
+      {/* Objectif de répartition */}
+      <div className="mx-4">
+        <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Mon objectif</p>
+        <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          <div className="px-4 py-3">
+            <p className="text-[15px] text-[#1c1c1e] mb-2">
+              Je vise <strong style={{ color: '#007aff' }}>{profile?.target_share_percent ?? 50}%</strong> des tâches du foyer
+            </p>
+            <input
+              type="range"
+              min={10}
+              max={90}
+              step={5}
+              defaultValue={profile?.target_share_percent ?? 50}
+              onChange={(e) => handleTargetChange(Number(e.target.value))}
+              className="w-full"
+              style={{ accentColor: '#007aff' }}
+            />
+            <div className="flex justify-between text-[11px] text-[#c7c7cc] mt-1">
+              <span>10%</span>
+              <span>50% (égalitaire)</span>
+              <span>90%</span>
+            </div>
+            <p className="text-[12px] text-[#8e8e93] mt-2">
+              L&apos;app comparera votre répartition réelle à cet objectif et suggérera des échanges pour s&apos;en rapprocher.
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Mode vacances */}
       <div className="mx-4">

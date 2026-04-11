@@ -7,6 +7,7 @@ import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { useAnalyticsStore } from '@/stores/analyticsStore';
 import { frequencyLabel } from '@/utils/frequency';
+import { computeMemberBalance, generateExchangeSuggestions } from '@/utils/exchangeSuggestions';
 
 export default function DashboardPage() {
   const { profile } = useAuthStore();
@@ -68,6 +69,10 @@ export default function DashboardPage() {
 
     return { overdue, todayTasks, totalActive, myCount, myPercentage, myMentalTotal, equityGap, equityLabel, equityColor, heaviest, avgGlobalScore, mentalByMember };
   }, [tasks, profile?.id]);
+
+  // Balance et suggestions
+  const balance = useMemo(() => computeMemberBalance(tasks, members), [tasks, members]);
+  const suggestions = useMemo(() => generateExchangeSuggestions(tasks, members), [tasks, members]);
 
   const greeting = (() => {
     const hour = new Date().getHours();
@@ -134,6 +139,59 @@ export default function DashboardPage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Objectif vs réalité */}
+      {balance.length > 1 && balance.some((b) => Math.abs(b.gap) > 3) && (
+        <div className="px-4">
+          <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Objectif vs réalité</p>
+          <div className="rounded-xl bg-white p-4 space-y-3" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+            {balance.map((b) => {
+              const gapColor = Math.abs(b.gap) <= 5 ? '#34c759' : Math.abs(b.gap) <= 15 ? '#ff9500' : '#ff3b30';
+              return (
+                <div key={b.memberId} className="flex items-center justify-between">
+                  <span className="text-[14px] text-[#1c1c1e]">{b.displayName}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] text-[#8e8e93]">Objectif {b.targetPercent}%</span>
+                    <span className="text-[13px] font-bold" style={{ color: gapColor }}>
+                      Réel {b.currentPercent}%
+                    </span>
+                    {b.gap > 3 && <span className="text-[11px]" style={{ color: '#ff3b30' }}>↑ surcharge</span>}
+                    {b.gap < -3 && <span className="text-[11px]" style={{ color: '#007aff' }}>↓ sous-charge</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Suggestions d'échanges */}
+      {suggestions.length > 0 && (
+        <div className="px-4">
+          <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">💡 Suggestions de rééquilibrage</p>
+          <div className="space-y-2">
+            {suggestions.map((s, i) => (
+              <div key={i} className="rounded-xl bg-white p-4" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+                <p className="text-[14px] text-[#1c1c1e] mb-2">{s.impactDescription}</p>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="rounded-lg px-2 py-1 text-[12px] font-medium" style={{ background: '#fff2f2', color: '#ff3b30' }}>
+                    {s.taskToGive.name}
+                  </span>
+                  <span className="text-[#8e8e93]">↔</span>
+                  <span className="rounded-lg px-2 py-1 text-[12px] font-medium" style={{ background: '#f0f4ff', color: '#007aff' }}>
+                    {s.taskToReceive.name}
+                  </span>
+                </div>
+                <Link href={`/exchanges?offer=${s.taskToGive.id}&request=${s.taskToReceive.id}&to=${s.toMemberId}`}
+                  className="block w-full rounded-lg py-2 text-center text-[14px] font-semibold text-white"
+                  style={{ background: '#007aff' }}>
+                  Proposer cet échange
+                </Link>
+              </div>
+            ))}
           </div>
         </div>
       )}
