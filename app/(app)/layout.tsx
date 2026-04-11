@@ -70,6 +70,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div
             className="flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-semibold text-white"
             style={{ background: '#007aff' }}
+            role="img"
+            aria-label={`Avatar de ${profile?.display_name ?? 'utilisateur'}`}
           >
             {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
           </div>

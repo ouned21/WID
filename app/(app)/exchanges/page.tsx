@@ -176,6 +176,13 @@ export default function ExchangesPage() {
         </div>
       )}
 
+      {/* Chargement */}
+      {loading && (
+        <div className="flex items-center justify-center py-16">
+          <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[#e5e5ea] border-t-[#007aff]" />
+        </div>
+      )}
+
       {/* État vide */}
       {!loading && exchanges.length === 0 && !showForm && (
         <div className="mx-4 rounded-2xl bg-white p-10 text-center" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>

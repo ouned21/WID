@@ -30,6 +30,7 @@ export default function NewTaskPage() {
   const [startsAt, setStartsAt] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
   useEffect(() => {
     async function load() {
       const supabase = createClient();
@@ -37,8 +38,12 @@ export default function NewTaskPage() {
         supabase.from('task_categories').select('*').order('sort_order'),
         supabase.from('task_templates').select('*'),
       ]);
+      if (catRes.error || tplRes.error) {
+        setError('Impossible de charger le catalogue. Vérifiez votre connexion.');
+      }
       if (catRes.data) setCategories(catRes.data as TaskCategory[]);
       if (tplRes.data) setTemplates(tplRes.data as TaskTemplate[]);
+      setLoadingCatalog(false);
     }
     load();
   }, []);

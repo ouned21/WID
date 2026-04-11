@@ -24,7 +24,7 @@ export default function ArchivedTasksPage() {
       const { data } = await supabase
         .from('household_tasks')
         .select('*, category:task_categories(id, name, icon, color_hex, sort_order)')
-        .eq('household_id', profile!.household_id!)
+        .eq('household_id', profile?.household_id ?? '')
         .eq('is_active', false)
         .order('created_at', { ascending: false });
 

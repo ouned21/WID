@@ -18,9 +18,10 @@ export default function ProfilePage() {
   const [togglingVacation, setTogglingVacation] = useState(false);
   const handleToggleVacation = async () => {
     if (!profile?.id) return;
+    const newMode = !profile.vacation_mode;
+    if (newMode && !confirm('Activer le mode vacances ? Vos tâches seront masquées pour les autres membres.')) return;
     setTogglingVacation(true);
     const supabase = createClient();
-    const newMode = !profile.vacation_mode;
     await supabase.from('profiles').update({
       vacation_mode: newMode,
       vacation_started_at: newMode ? new Date().toISOString() : null,

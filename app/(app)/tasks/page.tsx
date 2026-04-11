@@ -48,15 +48,14 @@ function TaskCard({ task, onComplete, isCompleted }: {
   const catColor = task.category?.color_hex ?? '#8e8e93';
   const scoreColor = task.mental_load_score >= 7 ? '#ff3b30' : task.mental_load_score >= 4 ? '#ff9500' : '#34c759';
 
-  // Calcul automatique : texte sombre ou clair selon la luminosite du fond
-  const textOnCat = (() => {
+  const textOnCat = useMemo(() => {
     const hex = catColor.replace('#', '');
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
     const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
     return luminance > 0.6 ? '#1c1c1e' : '#ffffff';
-  })();
+  }, [catColor]);
 
   if (isCompleted) return null;
 
@@ -191,12 +190,17 @@ export default function TasksPage() {
     return new Set(members.filter((m) => m.vacation_mode).map((m) => m.id));
   }, [members]);
 
-  const sections = useMemo(() => {
-    const filtered = filterTasks(tasks, filters, profile?.id ?? '', vacationUserIds);
-    return splitTasksIntoSections(filtered);
-  }, [tasks, filters, profile?.id, vacationUserIds]);
-
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const sections = useMemo(() => {
+    let filtered = filterTasks(tasks, filters, profile?.id ?? '', vacationUserIds);
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter((t) => t.name.toLowerCase().includes(q));
+    }
+    return splitTasksIntoSections(filtered);
+  }, [tasks, filters, profile?.id, vacationUserIds, searchQuery]);
   const totalTasks = tasks.filter((t) => !completedIds.has(t.id)).length;
 
   const handleComplete = useCallback(async (taskId: string) => {
@@ -213,7 +217,7 @@ export default function TasksPage() {
         <div>
           <h2 className="text-[28px] font-bold text-[#1c1c1e]">Tâches</h2>
           {totalTasks > 0 && (
-            <p className="text-[13px] text-[#8e8e93]">{totalTasks} active{totalTasks > 1 ? 's' : ''}</p>
+            <p className="text-[13px] text-[#8e8e93]">{totalTasks} tâche{totalTasks > 1 ? 's' : ''} active{totalTasks > 1 ? 's' : ''}</p>
           )}
         </div>
         <Link
@@ -226,6 +230,18 @@ export default function TasksPage() {
           </svg>
           Nouvelle
         </Link>
+      </div>
+
+      {/* Recherche */}
+      <div className="px-4 pb-2">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Rechercher une tâche..."
+          className="w-full rounded-xl px-4 py-2.5 text-[15px] bg-white text-[#1c1c1e] outline-none placeholder:text-[#c7c7cc]"
+          style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}
+        />
       </div>
 
       {/* Filtres */}
