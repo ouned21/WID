@@ -127,16 +127,21 @@ export default function NewTaskPage() {
         {mode === 'catalogue' && selectedCategoryId && filteredTemplates.length > 0 && (
           <div className="px-4">
             <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2">Choisir une tâche</p>
-            <div className="grid grid-cols-2 gap-2">
-              {filteredTemplates.map((tpl) => (
+            <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+              {filteredTemplates.map((tpl, i) => (
                 <button key={tpl.id} type="button" onClick={() => handleSelectTemplate(tpl)}
-                  className="rounded-xl p-3 text-left transition-all"
-                  style={selectedTemplateId === tpl.id
-                    ? { background: 'white', boxShadow: '0 0 0 2px #007aff' }
-                    : { background: 'white', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }
-                  }>
-                  <p className="text-[14px] font-medium text-[#1c1c1e]">{tpl.name}</p>
-                  <p className="text-[12px] text-[#8e8e93] mt-0.5">Charge : {tpl.default_mental_load_score}/10</p>
+                  className="w-full flex items-center justify-between px-4 py-3 text-left transition-all"
+                  style={{
+                    ...(i < filteredTemplates.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}),
+                    ...(selectedTemplateId === tpl.id ? { background: '#f0f4ff' } : {}),
+                  }}>
+                  <div className="flex items-center gap-3">
+                    {selectedTemplateId === tpl.id && (
+                      <svg width="18" height="18" fill="#007aff" viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+                    )}
+                    <p className={`text-[15px] ${selectedTemplateId === tpl.id ? 'font-semibold text-[#007aff]' : 'text-[#1c1c1e]'}`}>{tpl.name}</p>
+                  </div>
+                  <span className="text-[13px] text-[#8e8e93]">{tpl.default_mental_load_score}/10</span>
                 </button>
               ))}
             </div>
