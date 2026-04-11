@@ -104,10 +104,19 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
                   </div>
                 );
               })()}
-              <MiniGauge label="Durée" value={sb?.time_score ?? Math.min(8, task.mental_load_score * 2)} max={8} />
-              <MiniGauge label="Physique" value={sb?.physical_score ?? Math.min(5, task.mental_load_score)} max={5} />
-              <MiniGauge label="Mental" value={sb?.mental_load_score ?? Math.min(18, task.mental_load_score * 3)} max={18} />
-              <MiniGauge label="Impact" value={sb?.household_impact_score ?? Math.min(4, Math.ceil(task.mental_load_score * 0.8))} max={4} />
+              {(() => {
+                // Proportionner les sous-jauges depuis le score global quand pas de breakdown
+                const gs = Math.min(36, task.global_score ?? (task.mental_load_score * 7));
+                const ratio = gs / 36; // 0 à 1
+                return (
+                  <>
+                    <MiniGauge label="Durée" value={sb?.time_score ?? Math.round(ratio * 8)} max={8} />
+                    <MiniGauge label="Physique" value={sb?.physical_score ?? Math.round(ratio * 5)} max={5} />
+                    <MiniGauge label="Mental" value={sb?.mental_load_score ?? Math.round(ratio * 18)} max={18} />
+                    <MiniGauge label="Impact" value={sb?.household_impact_score ?? Math.round(ratio * 4)} max={4} />
+                  </>
+                );
+              })()}
             </div>
 
             {/* 4. Assignée + date */}
