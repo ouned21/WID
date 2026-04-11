@@ -71,7 +71,7 @@ function TaskCard({ task, onComplete, isCompleted }: {
           {/* Bandeau catégorie en haut */}
           <div className="px-3 py-2 flex items-center justify-between" style={{ background: catColor }}>
             <span className="text-[11px] font-semibold text-white truncate">{task.category?.name}</span>
-            <span className="text-[11px] font-bold text-white">Charge {task.mental_load_score}/10</span>
+            <span className="text-right text-white leading-tight"><span className="block text-[9px] opacity-80">Charge mentale</span><span className="text-[13px] font-bold">{task.mental_load_score}/10</span></span>
           </div>
 
           {/* Corps de la carte */}
