@@ -93,8 +93,9 @@ function TaskCard({ task, onComplete, isCompleted }: {
                 const gsColor = gs <= 8 ? '#34c759' : gs <= 16 ? '#007aff' : gs <= 24 ? '#ff9500' : '#ff3b30';
                 return (
                   <div className="flex flex-col items-end flex-shrink-0">
-                    <span className="text-[8px] text-[#8e8e93] uppercase font-semibold">The Load</span>
-                    <span className="text-[18px] font-bold leading-none" style={{ color: gsColor }}>{gs}</span>
+                    <span className="text-[10px] text-[#8e8e93] uppercase font-bold tracking-wide">The Load</span>
+                    <span className="text-[28px] font-black leading-none" style={{ color: gsColor }}>{gs}</span>
+                    <span className="text-[9px] text-[#c7c7cc]">/36</span>
                   </div>
                 );
               })()}
