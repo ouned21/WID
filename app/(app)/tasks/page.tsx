@@ -82,55 +82,51 @@ function TaskCard({ task, onComplete, isCompleted }: {
         </div>
       ) : (
         <>
-          {/* Corps de la carte */}
+          {/* Corps de la carte — hauteurs fixes */}
           <Link href={`/tasks/${task.id}`} className="flex-1 p-3 flex flex-col">
-            {/* Nom en haut */}
-            <h3 className="text-[15px] font-bold text-[#1c1c1e] leading-tight mb-2">{task.name}</h3>
+            {/* 1. Nom — hauteur fixe 2 lignes */}
+            <div className="h-[40px] mb-1.5">
+              <h3 className="text-[14px] font-bold text-[#1c1c1e] leading-tight line-clamp-2">{task.name}</h3>
+            </div>
 
-            {/* Catégorie en badge petit */}
-            <div className="flex items-center gap-2 mb-2">
-              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold text-white" style={{ background: catColor }}>
+            {/* 2. Catégorie + fréquence — hauteur fixe */}
+            <div className="h-[20px] flex items-center gap-2 mb-2">
+              <span className="rounded-full px-2 py-0.5 text-[9px] font-semibold text-white" style={{ background: catColor }}>
                 {task.category?.name}
               </span>
-              <span className="text-[10px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
+              <span className="text-[9px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
             </div>
 
-            {/* 4 jauges — position fixe */}
+            {/* 3. 4 jauges — hauteur fixe */}
             <div className="space-y-1 mb-2">
-              {sb ? (
-                <>
-                  <MiniGauge label="⏱ Temps" value={sb.time_score ?? 0} max={8} />
-                  <MiniGauge label="💪 Physique" value={sb.physical_score ?? 0} max={5} />
-                  <MiniGauge label="🧠 Mental" value={sb.mental_load_score ?? 0} max={18} />
-                  <MiniGauge label="👥 Impact" value={sb.household_impact_score ?? 0} max={4} />
-                </>
-              ) : (
-                <MiniGauge label="🧠 Charge" value={task.mental_load_score} max={5} />
-              )}
+              <MiniGauge label="⏱ Temps" value={sb?.time_score ?? 0} max={8} />
+              <MiniGauge label="💪 Physique" value={sb?.physical_score ?? 0} max={5} />
+              <MiniGauge label="🧠 Mental" value={sb?.mental_load_score ?? task.mental_load_score} max={sb ? 18 : 5} />
+              <MiniGauge label="👥 Impact" value={sb?.household_impact_score ?? 0} max={4} />
             </div>
 
-            {/* Infos bas */}
-            <div className="flex items-center gap-2 mt-auto">
-              {task.assignee && (
+            {/* 4. Assignée + date — hauteur fixe */}
+            <div className="h-[18px] flex items-center gap-2">
+              {task.assignee ? (
                 <span className="flex items-center gap-0.5">
                   <span className="h-3.5 w-3.5 rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ background: '#007aff' }}>
                     {task.assignee.display_name.charAt(0).toUpperCase()}
                   </span>
                   <span className="text-[10px] text-[#3c3c43]">{task.assignee.display_name}</span>
                 </span>
+              ) : (
+                <span className="text-[10px] text-[#c7c7cc]">Non assigné</span>
               )}
-              {task.next_due_at && (
-                <span className="text-[10px] text-[#8e8e93]">
-                  {new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                </span>
-              )}
+              <span className="text-[10px] text-[#8e8e93]">
+                {task.next_due_at ? new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '—'}
+              </span>
             </div>
           </Link>
 
-          {/* Bouton FAIT — en bas, bordure épaisse */}
-          <div className="px-3 pb-3">
+          {/* 5. Bouton FAIT — toujours en bas */}
+          <div className="px-3 pb-3 pt-1">
             <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
-              className="w-full rounded-xl py-[6px] text-[13px] font-bold tracking-wide border-2 transition-all"
+              className="w-full rounded-xl py-[6px] text-[12px] font-bold tracking-widest border-2 transition-all"
               style={{ borderColor: '#34c759', color: '#34c759', background: 'transparent' }}>
               FAIT
             </button>
