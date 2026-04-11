@@ -44,9 +44,10 @@ function MiniGauge({ label, value, max }: { label: string; value: number; max: n
 
 // -- Carte tâche ---------------------------------------------------------------
 
-function TaskCard({ task, onComplete, isCompleted }: {
+function TaskCard({ task, onComplete, onDelete, isCompleted }: {
   task: TaskListItem;
   onComplete: (id: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   isCompleted: boolean;
 }) {
   const [phase, setPhase] = useState<'idle' | 'success' | 'exit'>('idle');
@@ -135,12 +136,22 @@ function TaskCard({ task, onComplete, isCompleted }: {
             <span className="text-[9px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
           </div>
 
-          {/* 6. Bouton FAIT seul */}
-          <div className="px-3 pb-2 pt-1.5 flex justify-center">
+          {/* 6. Boutons FAIT + Supprimer */}
+          <div className="px-3 pb-2 pt-1.5 flex justify-center gap-3">
             <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
               className="rounded-md px-3 py-[4px] text-[10px] font-bold tracking-widest border-[1.5px] transition-all"
               style={{ borderColor: '#34c759', color: '#34c759', background: 'transparent' }}>
               FAIT
+            </button>
+            <button onClick={(e) => {
+              e.preventDefault(); e.stopPropagation();
+              if (confirm('Supprimer définitivement cette tâche ?')) {
+                onDelete(task.id);
+              }
+            }}
+              className="rounded-md px-2 py-[4px] text-[10px] font-bold border-[1.5px] transition-all"
+              style={{ borderColor: '#ff3b30', color: '#ff3b30', background: 'transparent' }}>
+              🗑
             </button>
           </div>
         </>
@@ -159,9 +170,9 @@ const SECTION_COLORS: Record<string, string> = {
   'Plus tard': '#8e8e93',
 };
 
-function TaskSection({ title, tasks, onComplete, completedIds }: {
+function TaskSection({ title, tasks, onComplete, onDelete, completedIds }: {
   title: string; tasks: TaskListItem[];
-  onComplete: (id: string) => Promise<void>; completedIds: Set<string>;
+  onComplete: (id: string) => Promise<void>; onDelete: (id: string) => Promise<void>; completedIds: Set<string>;
 }) {
   const visibleCount = tasks.filter((t) => !completedIds.has(t.id)).length;
   if (visibleCount === 0) return null;
@@ -176,7 +187,7 @@ function TaskSection({ title, tasks, onComplete, completedIds }: {
       </div>
       <div className="grid grid-cols-2 gap-2.5 px-3">
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} onComplete={onComplete} isCompleted={completedIds.has(task.id)} />
+          <TaskCard key={task.id} task={task} onComplete={onComplete} onDelete={onDelete} isCompleted={completedIds.has(task.id)} />
         ))}
       </div>
     </section>
@@ -187,7 +198,7 @@ function TaskSection({ title, tasks, onComplete, completedIds }: {
 
 export default function TasksPage() {
   const { profile } = useAuthStore();
-  const { tasks, filters, loading, fetchTasks, completeTask, setFilters } = useTaskStore();
+  const { tasks, filters, loading, fetchTasks, completeTask, deleteTask, setFilters } = useTaskStore();
   const { members } = useHouseholdStore();
 
   const [sectionFilter, setSectionFilter] = useState<string>('all');
@@ -221,6 +232,10 @@ export default function TasksPage() {
     await Promise.all([completionPromise, timerPromise]);
     setCompletedIds((prev) => new Set(prev).add(taskId));
   }, [completeTask]);
+
+  const handleDelete = useCallback(async (taskId: string) => {
+    await deleteTask(taskId);
+  }, [deleteTask]);
 
   // Sections à afficher selon le filtre
   const visibleSections = useMemo(() => {
@@ -379,7 +394,7 @@ export default function TasksPage() {
       ) : (
         <div className="pt-2">
           {visibleSections.map((s) => (
-            <TaskSection key={s.key} title={s.title} tasks={s.tasks} onComplete={handleComplete} completedIds={completedIds} />
+            <TaskSection key={s.key} title={s.title} tasks={s.tasks} onComplete={handleComplete} onDelete={handleDelete} completedIds={completedIds} />
           ))}
 
           <div className="px-4 pt-2 pb-4">
