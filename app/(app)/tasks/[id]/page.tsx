@@ -59,8 +59,8 @@ export default function TaskDetailPage() {
 
   const handleArchive = async () => {
     if (!confirm('Archiver cette tâche ?')) return;
-    const result = await archiveTask(task.id);
-    if (result.ok) router.push('/tasks');
+    await archiveTask(task.id);
+    router.push('/tasks');
   };
 
   const catColor = task.category?.color_hex ?? '#8e8e93';
