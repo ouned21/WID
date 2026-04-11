@@ -258,6 +258,32 @@ export default function TasksPage() {
         </div>
       </div>
 
+      {/* Mode vacances actif */}
+      {profile?.vacation_mode && (() => {
+        const daysSinceVacation = profile.vacation_started_at
+          ? Math.floor((Date.now() - new Date(profile.vacation_started_at).getTime()) / (1000 * 60 * 60 * 24))
+          : 0;
+        const isLongVacation = daysSinceVacation >= 7;
+        return (
+          <div className="mx-4 mb-4 rounded-2xl p-5 text-center" style={{ background: isLongVacation ? '#fff2f2' : '#fff8e1' }}>
+            <p className="text-[28px] mb-1">{isLongVacation ? '⚠️' : '🏖️'}</p>
+            <p className="text-[17px] font-bold text-[#1c1c1e]">
+              {isLongVacation ? `Mode vacances actif depuis ${daysSinceVacation} jours` : 'Mode vacances actif'}
+            </p>
+            <p className="text-[14px] text-[#8e8e93] mt-1">
+              {isLongVacation
+                ? 'Êtes-vous toujours en vacances ? Vos tâches s\'accumulent.'
+                : 'Vos tâches sont en pause. Désactivez le mode vacances depuis votre profil pour les retrouver.'}
+            </p>
+            <Link href="/profile"
+              className="inline-block mt-3 rounded-xl px-5 py-2 text-[14px] font-semibold text-white"
+              style={{ background: isLongVacation ? '#ff3b30' : '#007aff' }}>
+              {isLongVacation ? 'Désactiver maintenant' : 'Gérer le mode vacances'}
+            </Link>
+          </div>
+        );
+      })()}
+
       {/* Contenu */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
