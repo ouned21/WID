@@ -17,15 +17,41 @@ export default function ProfilePage() {
   const handleSignOut = async () => { await signOut(); router.push('/login'); };
   const [togglingVacation, setTogglingVacation] = useState(false);
   const handleToggleVacation = async () => {
-    if (!profile?.id) return;
+    if (!profile?.id || !profile?.household_id) return;
     const newMode = !profile.vacation_mode;
-    if (newMode && !confirm('Activer le mode vacances ? Vos tâches seront masquées pour les autres membres.')) return;
+    if (newMode && !confirm('Activer le mode vacances ? Vos tâches seront masquées pour tous les membres.')) return;
+    if (!newMode && !confirm('Désactiver le mode vacances ? Vos tâches seront recalculées à partir d\'aujourd\'hui.')) return;
     setTogglingVacation(true);
     const supabase = createClient();
+
+    // Mettre à jour le profil
     await supabase.from('profiles').update({
       vacation_mode: newMode,
       vacation_started_at: newMode ? new Date().toISOString() : null,
     }).eq('id', profile.id);
+
+    // À la désactivation : recalculer les next_due_at des tâches assignées
+    if (!newMode) {
+      const { data: myTasks } = await supabase
+        .from('household_tasks')
+        .select('id, frequency, custom_interval_days')
+        .eq('household_id', profile.household_id)
+        .eq('assigned_to', profile.id)
+        .eq('is_active', true);
+
+      if (myTasks) {
+        const { computeNextDueAt } = await import('@/utils/taskDueDate');
+        const now = new Date();
+        for (const task of myTasks) {
+          const nextDueAt = computeNextDueAt(task.frequency, now, task.custom_interval_days);
+          await supabase
+            .from('household_tasks')
+            .update({ next_due_at: nextDueAt?.toISOString() ?? null })
+            .eq('id', task.id);
+        }
+      }
+    }
+
     await useAuthStore.getState().refreshProfile();
     setTogglingVacation(false);
   };
