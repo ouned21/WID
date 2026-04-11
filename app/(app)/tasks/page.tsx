@@ -89,7 +89,7 @@ function TaskCard({ task, onComplete, isCompleted }: {
                 <h3 className="text-[14px] font-bold text-[#1c1c1e] leading-tight line-clamp-2">{task.name}</h3>
               </div>
               {(() => {
-                const gs = task.global_score ?? (task.mental_load_score * 7);
+                const gs = Math.min(36, task.global_score ?? (task.mental_load_score * 7));
                 const gsColor = gs <= 8 ? '#34c759' : gs <= 16 ? '#007aff' : gs <= 24 ? '#ff9500' : '#ff3b30';
                 return (
                   <div className="flex flex-col items-end flex-shrink-0">
