@@ -117,7 +117,7 @@ export default function NewTaskPage() {
                   ? { background: cat.color_hex, color: 'white' }
                   : { background: 'white', color: '#3c3c43', boxShadow: '0 0.5px 2px rgba(0,0,0,0.08)' }
                 }>
-                {cat.icon} {cat.name}
+                {/\p{Emoji}/u.test(cat.icon) ? `${cat.icon} ` : ''}{cat.name}
               </button>
             ))}
           </div>
