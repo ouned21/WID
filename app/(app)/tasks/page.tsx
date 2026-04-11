@@ -127,7 +127,7 @@ function TaskCard({ task, onComplete, isCompleted }: {
           {/* 5. Bouton FAIT — toujours en bas */}
           <div className="px-3 pb-3 pt-1 flex justify-center">
             <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
-              className="rounded-lg px-5 py-[5px] text-[11px] font-bold tracking-widest border-2 transition-all"
+              className="rounded-lg px-3 py-[4px] text-[10px] font-bold tracking-widest border-[1.5px] transition-all"
               style={{ borderColor: '#34c759', color: '#34c759', background: 'transparent' }}>
               FAIT
             </button>
