@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { useTaskNotifications } from '@/utils/useTaskNotifications';
+import { initRealtime, stopRealtime } from '@/stores/realtimeStore';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Accueil', icon: (
@@ -47,6 +48,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Planifier les notifications pour les tâches du jour
   useTaskNotifications();
+
+  // Activer Supabase Realtime pour le foyer
+  useEffect(() => {
+    if (profile?.household_id) {
+      initRealtime(profile.household_id);
+    }
+    return () => stopRealtime();
+  }, [profile?.household_id]);
 
   if (!isInitialized) {
     return (
