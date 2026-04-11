@@ -28,6 +28,7 @@ export default function NewTaskPage() {
   const [dueDate, setDueDate] = useState<string>('');
   const [dueTime, setDueTime] = useState<string>('09:00');
   const [startsAt, setStartsAt] = useState<string>('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [loadingCatalog, setLoadingCatalog] = useState(true);
@@ -210,13 +211,6 @@ export default function NewTaskPage() {
             </div>
           </div>
 
-          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
-            <label className="text-[13px] text-[#8e8e93] block mb-1">Date de début — optionnel</label>
-            <input type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)}
-              className="w-full text-[15px] text-[#1c1c1e] bg-transparent outline-none" />
-            <p className="text-[11px] text-[#c7c7cc] mt-1">La tâche n&apos;apparaîtra qu&apos;à partir de cette date</p>
-          </div>
-
           <div className="px-4 py-4">
             <div className="flex items-center justify-between mb-2">
               <label className="text-[13px] text-[#8e8e93]">Charge mentale <span className="text-[11px]">(effort cognitif et émotionnel)</span></label>
@@ -234,7 +228,26 @@ export default function NewTaskPage() {
           </div>
         </div>
 
-        <div className="px-4 pb-8">
+        {/* Options avancées */}
+        <div className="px-4">
+          <button type="button" onClick={() => setShowAdvanced(!showAdvanced)}
+            className="text-[14px] font-medium" style={{ color: '#007aff' }}>
+            {showAdvanced ? '▾ Masquer les options avancées' : '▸ Options avancées'}
+          </button>
+        </div>
+
+        {showAdvanced && (
+          <div className="mx-4 mt-2 rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+            <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+              <label className="text-[13px] text-[#8e8e93] block mb-1">Date de début différée</label>
+              <input type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)}
+                className="w-full text-[15px] text-[#1c1c1e] bg-transparent outline-none" />
+              <p className="text-[11px] text-[#c7c7cc] mt-1">La tâche n&apos;apparaîtra qu&apos;à partir de cette date</p>
+            </div>
+          </div>
+        )}
+
+        <div className="px-4 pt-4 pb-8">
           <button type="submit" disabled={creating}
             className="w-full rounded-xl py-[14px] text-[17px] font-semibold text-white disabled:opacity-50"
             style={{ background: '#007aff' }}>
