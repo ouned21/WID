@@ -267,6 +267,15 @@ export default function TasksPage() {
           <TaskSection title="Demain" tasks={sections.tomorrow} onComplete={handleComplete} completedIds={completedIds} />
           <TaskSection title="Cette semaine" tasks={sections.week} onComplete={handleComplete} completedIds={completedIds} />
           <TaskSection title="Plus tard" tasks={sections.later} onComplete={handleComplete} completedIds={completedIds} />
+
+          {/* Lien archives */}
+          <div className="px-4 pt-2 pb-4">
+            <Link href="/tasks/archived"
+              className="block w-full rounded-xl bg-white py-3 text-center text-[15px] font-medium text-[#8e8e93]"
+              style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+              📁 Voir les tâches archivées
+            </Link>
+          </div>
         </div>
       )}
     </div>

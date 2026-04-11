@@ -2,12 +2,13 @@ import { addDays, addWeeks, addMonths, addYears } from 'date-fns';
 import type { Frequency } from '@/types/database';
 
 /**
- * Calcule la prochaine date d'echeance apres une completion.
- * Fonction pure, testable, utilisee partout (store, utils, jamais dans un composant).
+ * Calcule la prochaine date d'échéance après une complétion.
+ * Fonction pure, testable, utilisée partout.
  */
 export function computeNextDueAt(
   frequency: Frequency,
   completedAt: Date = new Date(),
+  customIntervalDays?: number | null,
 ): Date | null {
   switch (frequency) {
     case 'daily':
@@ -20,14 +21,18 @@ export function computeNextDueAt(
       return addMonths(completedAt, 1);
     case 'quarterly':
       return addMonths(completedAt, 3);
+    case 'semiannual':
+      return addMonths(completedAt, 6);
     case 'yearly':
       return addYears(completedAt, 1);
+    case 'custom':
+      if (customIntervalDays && customIntervalDays > 0) {
+        return addDays(completedAt, customIntervalDays);
+      }
+      return null;
     case 'once':
-      return null; // Tache ponctuelle : pas de prochaine echeance
-    default: {
-      // Exhaustive check : si on ajoute une frequence, le build casse ici
-      const _never: never = frequency;
-      throw new Error(`Frequence inconnue: ${_never}`);
-    }
+      return null;
+    default:
+      return null;
   }
 }

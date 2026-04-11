@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useHouseholdStore } from '@/stores/householdStore';
+import { useTaskNotifications } from '@/utils/useTaskNotifications';
 
 const NAV_ITEMS = [
   { href: '/tasks', label: 'Tâches', icon: (
@@ -12,7 +13,12 @@ const NAV_ITEMS = [
       <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
     </svg>
   )},
-  { href: '/distribution', label: 'Répartition', icon: (
+  { href: '/exchanges', label: 'Échanges', icon: (
+    <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+      <path d="M7 16l-4-4m0 0l4-4m-4 4h18M17 8l4 4m0 0l-4 4m4-4H3" />
+    </svg>
+  )},
+  { href: '/distribution', label: 'Stats', icon: (
     <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
       <path d="M18 20V10M12 20V4M6 20v-6" />
     </svg>
@@ -38,6 +44,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       fetchHousehold(profile.household_id);
     }
   }, [profile?.household_id, household, fetchHousehold]);
+
+  // Planifier les notifications pour les tâches du jour
+  useTaskNotifications();
 
   if (!isInitialized) {
     return (

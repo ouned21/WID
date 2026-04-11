@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useHouseholdStore } from '@/stores/householdStore';
+import { createClient } from '@/lib/supabase';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -14,6 +15,19 @@ export default function ProfilePage() {
   const [copied, setCopied] = useState(false);
 
   const handleSignOut = async () => { await signOut(); router.push('/login'); };
+  const [togglingVacation, setTogglingVacation] = useState(false);
+  const handleToggleVacation = async () => {
+    if (!profile?.id) return;
+    setTogglingVacation(true);
+    const supabase = createClient();
+    const newMode = !profile.vacation_mode;
+    await supabase.from('profiles').update({
+      vacation_mode: newMode,
+      vacation_started_at: newMode ? new Date().toISOString() : null,
+    }).eq('id', profile.id);
+    await useAuthStore.getState().refreshProfile();
+    setTogglingVacation(false);
+  };
   const handleRename = async () => { if (!newName.trim()) return; await renameHousehold(newName.trim()); setEditingName(false); };
   const handleCopyCode = () => {
     if (household?.invite_code) {
@@ -100,8 +114,32 @@ export default function ProfilePage() {
         </>
       )}
 
-      {/* Déconnexion */}
+      {/* Mode vacances */}
       <div className="mx-4">
+        <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Mode vacances</p>
+        <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          <div className="px-4 py-3 flex items-center justify-between">
+            <div>
+              <p className="text-[15px] text-[#1c1c1e]">
+                {profile?.vacation_mode ? '🏖️ En vacances' : 'Activer le mode vacances'}
+              </p>
+              <p className="text-[13px] text-[#8e8e93] mt-0.5">
+                {profile?.vacation_mode
+                  ? 'Vos tâches sont en pause'
+                  : 'Met en pause toutes vos tâches assignées'}
+              </p>
+            </div>
+            <button onClick={handleToggleVacation} disabled={togglingVacation}
+              className="rounded-full px-4 py-1.5 text-[13px] font-semibold text-white disabled:opacity-50"
+              style={{ background: profile?.vacation_mode ? '#ff9500' : '#34c759' }}>
+              {togglingVacation ? '...' : profile?.vacation_mode ? 'Désactiver' : 'Activer'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Déconnexion */}
+      <div className="mx-4 pb-8">
         <button onClick={handleSignOut}
           className="w-full rounded-xl bg-white py-3 text-[17px] font-medium"
           style={{ color: '#ff3b30', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>

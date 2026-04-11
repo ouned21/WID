@@ -24,8 +24,10 @@ export default function NewTaskPage() {
   const [frequency, setFrequency] = useState<Frequency>('weekly');
   const [mentalLoadScore, setMentalLoadScore] = useState(3);
   const [assignedTo, setAssignedTo] = useState<string>('');
+  const [customIntervalDays, setCustomIntervalDays] = useState<string>('');
   const [dueDate, setDueDate] = useState<string>('');
   const [dueTime, setDueTime] = useState<string>('09:00');
+  const [startsAt, setStartsAt] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -167,6 +169,16 @@ export default function NewTaskPage() {
             </select>
           </div>
 
+          {frequency === 'custom' && (
+            <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+              <label className="text-[13px] text-[#8e8e93] block mb-1">Intervalle en jours</label>
+              <input type="number" min={1} max={365} value={customIntervalDays}
+                onChange={(e) => setCustomIntervalDays(e.target.value)}
+                className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
+                placeholder="Ex : 10 (tous les 10 jours)" />
+            </div>
+          )}
+
           <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
             <label className="text-[13px] text-[#8e8e93] block mb-1">Assigner à</label>
             <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}
@@ -189,6 +201,13 @@ export default function NewTaskPage() {
               <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)}
                 className="w-full text-[15px] text-[#1c1c1e] bg-transparent outline-none" />
             </div>
+          </div>
+
+          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <label className="text-[13px] text-[#8e8e93] block mb-1">Date de début — optionnel</label>
+            <input type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)}
+              className="w-full text-[15px] text-[#1c1c1e] bg-transparent outline-none" />
+            <p className="text-[11px] text-[#c7c7cc] mt-1">La tâche n&apos;apparaîtra qu&apos;à partir de cette date</p>
           </div>
 
           <div className="px-4 py-4">

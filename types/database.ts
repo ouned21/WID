@@ -9,8 +9,10 @@ export type Frequency =
   | 'biweekly'
   | 'monthly'
   | 'quarterly'
+  | 'semiannual'
   | 'yearly'
-  | 'once';
+  | 'once'
+  | 'custom';
 
 /** Role d'un membre dans un foyer */
 export type HouseholdRole = 'admin' | 'member';
@@ -28,6 +30,8 @@ export type Profile = {
   joined_at: string | null;
   notification_token: string | null;
   left_at: string | null;
+  vacation_mode: boolean;
+  vacation_started_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -65,9 +69,11 @@ export type HouseholdTask = {
   name: string;
   category_id: string;
   frequency: Frequency;
+  custom_interval_days: number | null; // Pour frequency='custom'
   assigned_to: string | null;
   mental_load_score: number; // 0-10
   next_due_at: string | null;
+  starts_at: string | null; // Date de début future
   is_active: boolean;
   created_by: string;
   created_at: string;
@@ -109,6 +115,30 @@ export type TaskSections = {
 export type TaskFilters = {
   categoryId: string | 'all';
   assignment: 'all' | 'mine';
+};
+
+/** Statut d'un échange de tâches */
+export type TaskExchangeStatus = 'pending' | 'accepted' | 'rejected' | 'expired';
+
+/** Proposition d'échange de tâches entre membres */
+export type TaskExchange = {
+  id: string;
+  household_id: string;
+  from_user_id: string;
+  to_user_id: string;
+  offered_task_id: string;
+  requested_task_id: string;
+  status: TaskExchangeStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Échange enrichi pour l'UI */
+export type TaskExchangeWithDetails = TaskExchange & {
+  from_user: Pick<Profile, 'id' | 'display_name'>;
+  to_user: Pick<Profile, 'id' | 'display_name'>;
+  offered_task: Pick<HouseholdTask, 'id' | 'name'>;
+  requested_task: Pick<HouseholdTask, 'id' | 'name'>;
 };
 
 /** Resume analytics par membre */

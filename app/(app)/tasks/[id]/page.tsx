@@ -24,6 +24,11 @@ export default function TaskDetailPage() {
   const [editScore, setEditScore] = useState(3);
   const [editAssignedTo, setEditAssignedTo] = useState('');
 
+  // Completion avec duree optionnelle
+  const [showCompleteForm, setShowCompleteForm] = useState(false);
+  const [completeDuration, setCompleteDuration] = useState<string>('');
+  const [completeNote, setCompleteNote] = useState('');
+
   useEffect(() => {
     if (id) { setLoadingHistory(true); fetchTaskDetail(id).then((data) => { setCompletions(data); setLoadingHistory(false); }); }
   }, [id, fetchTaskDetail]);
@@ -45,7 +50,14 @@ export default function TaskDetailPage() {
 
   const handleComplete = async () => {
     if (completing) return;
-    await completeTask(task.id);
+    const duration = completeDuration ? parseInt(completeDuration, 10) : null;
+    await completeTask(task.id, {
+      duration_minutes: duration,
+      note: completeNote || null,
+    });
+    setShowCompleteForm(false);
+    setCompleteDuration('');
+    setCompleteNote('');
     const data = await fetchTaskDetail(task.id);
     setCompletions(data);
   };
@@ -115,11 +127,42 @@ export default function TaskDetailPage() {
               )}
             </div>
 
-            <button onClick={handleComplete} disabled={completing}
-              className="w-full mt-4 rounded-xl py-[12px] text-[17px] font-semibold text-white disabled:opacity-50"
-              style={{ background: '#34c759' }}>
-              {completing ? 'En cours...' : '✓ Marquer comme fait'}
-            </button>
+            {!showCompleteForm ? (
+              <button onClick={() => setShowCompleteForm(true)}
+                className="w-full mt-4 rounded-xl py-[12px] text-[17px] font-semibold text-white"
+                style={{ background: '#34c759' }}>
+                ✓ Marquer comme fait
+              </button>
+            ) : (
+              <div className="mt-4 rounded-xl p-4 space-y-3" style={{ background: '#f2f2f7' }}>
+                <p className="text-[15px] font-semibold text-[#1c1c1e]">Compléter la tâche</p>
+                <div>
+                  <label className="text-[13px] text-[#8e8e93] block mb-1">Temps passé (minutes) — optionnel</label>
+                  <input type="number" min={0} max={999} value={completeDuration}
+                    onChange={(e) => setCompleteDuration(e.target.value)}
+                    className="w-full rounded-lg bg-white px-3 py-2.5 text-[17px] text-[#1c1c1e] outline-none"
+                    placeholder="Ex : 30" />
+                </div>
+                <div>
+                  <label className="text-[13px] text-[#8e8e93] block mb-1">Note — optionnel</label>
+                  <input type="text" value={completeNote}
+                    onChange={(e) => setCompleteNote(e.target.value)}
+                    className="w-full rounded-lg bg-white px-3 py-2.5 text-[17px] text-[#1c1c1e] outline-none"
+                    placeholder="Ex : Fait avec Barbara" />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleComplete} disabled={completing}
+                    className="flex-1 rounded-xl py-[10px] text-[15px] font-semibold text-white disabled:opacity-50"
+                    style={{ background: '#34c759' }}>
+                    {completing ? 'En cours...' : '✓ Valider'}
+                  </button>
+                  <button onClick={() => setShowCompleteForm(false)}
+                    className="rounded-xl px-4 py-[10px] text-[15px] text-[#8e8e93] bg-white">
+                    Passer
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Historique */}
