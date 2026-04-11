@@ -74,7 +74,7 @@ type TaskState = {
 export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
   selectedTask: null,
-  filters: { categoryId: 'all', assignment: 'all' },
+  filters: { categoryId: 'all', assignment: 'mine' },
   loading: false,
   creating: false,
   completing: false,
@@ -313,7 +313,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   reset: () => set({
     tasks: [],
     selectedTask: null,
-    filters: { categoryId: 'all', assignment: 'all' },
+    filters: { categoryId: 'all', assignment: 'mine' },
     loading: false,
     creating: false,
     completing: false,

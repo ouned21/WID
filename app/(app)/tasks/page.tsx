@@ -337,16 +337,21 @@ export default function TasksPage() {
           style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }} />
       </div>
 
-      {/* Filtres — une seule ligne scrollable */}
-      <div className="px-4 pb-2 overflow-x-auto">
-        <div className="flex gap-1.5 whitespace-nowrap">
-          <Chip label="Toutes" active={sectionFilter === 'all' && filters.assignment === 'all'} onClick={() => { setSectionFilter('all'); setFilters({ assignment: 'all' }); }} />
-          <Chip label="Mes tâches" active={filters.assignment === 'mine'} onClick={() => setFilters({ assignment: filters.assignment === 'mine' ? 'all' : 'mine' })} />
-          <Chip label="En retard" active={sectionFilter === 'overdue'} onClick={() => setSectionFilter(sectionFilter === 'overdue' ? 'all' : 'overdue')} color="#ff3b30" />
-          <Chip label="Aujourd'hui" active={sectionFilter === 'today'} onClick={() => setSectionFilter(sectionFilter === 'today' ? 'all' : 'today')} color="#007aff" />
-          <Chip label="Demain" active={sectionFilter === 'tomorrow'} onClick={() => setSectionFilter(sectionFilter === 'tomorrow' ? 'all' : 'tomorrow')} color="#af52de" />
-          <Chip label="Semaine" active={sectionFilter === 'week'} onClick={() => setSectionFilter(sectionFilter === 'week' ? 'all' : 'week')} color="#5856d6" />
-          <Chip label="Plus tard" active={sectionFilter === 'later'} onClick={() => setSectionFilter(sectionFilter === 'later' ? 'all' : 'later')} />
+      {/* Filtres */}
+      <div className="px-4 pb-2 space-y-2">
+        {/* Ligne 1 : Mes tâches / Toutes */}
+        <div className="flex gap-1.5">
+          <Chip label="Mes tâches" active={filters.assignment === 'mine'} onClick={() => setFilters({ assignment: 'mine' })} />
+          <Chip label="Toutes" active={filters.assignment === 'all'} onClick={() => setFilters({ assignment: 'all' })} />
+        </div>
+        {/* Ligne 2 : filtres par section */}
+        <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap">
+          <Chip label="Toutes" active={sectionFilter === 'all'} onClick={() => setSectionFilter('all')} />
+          <Chip label="En retard" active={sectionFilter === 'overdue'} onClick={() => setSectionFilter('overdue')} color="#ff3b30" />
+          <Chip label="Aujourd'hui" active={sectionFilter === 'today'} onClick={() => setSectionFilter('today')} color="#007aff" />
+          <Chip label="Demain" active={sectionFilter === 'tomorrow'} onClick={() => setSectionFilter('tomorrow')} color="#af52de" />
+          <Chip label="Semaine" active={sectionFilter === 'week'} onClick={() => setSectionFilter('week')} color="#5856d6" />
+          <Chip label="Plus tard" active={sectionFilter === 'later'} onClick={() => setSectionFilter('later')} />
         </div>
       </div>
 
