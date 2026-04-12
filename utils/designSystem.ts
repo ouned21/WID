@@ -69,6 +69,25 @@ export function loadMessage(avgPerTask: number): string {
   return 'Surcharge — rééquilibrage urgent';
 }
 
+// Typographie — échelle limitée à 6 tailles
+export const typo = {
+  hero: 'text-[40px] font-black',        // Score principal, chiffre hero
+  title: 'text-[28px] font-bold',         // Titre de page
+  section: 'text-[18px] font-semibold',   // Titre de section
+  body: 'text-[15px]',                    // Texte courant
+  caption: 'text-[12px]',                 // Labels, sous-titres
+  micro: 'text-[10px]',                   // Tags, badges, metadata
+} as const;
+
+// Espacement — système 8px
+export const space = {
+  xs: '8px',   // 0.5rem — entre éléments très proches
+  sm: '12px',  // 0.75rem — entre éléments liés
+  md: '16px',  // 1rem — espacement standard
+  lg: '24px',  // 1.5rem — entre sections
+  xl: '32px',  // 2rem — entre blocs majeurs
+} as const;
+
 // Ombres
 export const shadows = {
   sm: '0 0.5px 3px rgba(0,0,0,0.04)',

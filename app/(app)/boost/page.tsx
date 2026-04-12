@@ -104,7 +104,7 @@ export default function BoostPage() {
     : { text: 'Challenge du jour complété !', reward: '+30 XP', done: true };
 
   return (
-    <div className="pt-4 space-y-5 pb-8">
+    <div className="pt-4 pb-8" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <div className="px-4">
         <h2 className="text-[28px] font-bold text-[#1c1c1e]">Progression</h2>
       </div>

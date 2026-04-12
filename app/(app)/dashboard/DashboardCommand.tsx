@@ -101,12 +101,12 @@ export default function DashboardCommand() {
   const fmtTime = (m: number) => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 > 0 ? String(m % 60).padStart(2, '0') : ''}` : `${m}min`;
 
   return (
-    <div className="pt-4 space-y-4 pb-8">
-      {/* Greeting compact */}
+    <div className="pt-4 pb-8" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* Greeting */}
       <div className="px-4 flex items-end justify-between">
         <div>
-          <p className="text-[13px] text-[#8e8e93]">{greeting}</p>
-          <h2 className="text-[24px] font-bold text-[#1c1c1e]">{profile?.display_name}</h2>
+          <p className="text-[12px] text-[#8e8e93]">{greeting}</p>
+          <h2 className="text-[28px] font-bold text-[#1c1c1e]">{profile?.display_name}</h2>
         </div>
         {streak > 0 && (
           <div className="flex items-center gap-1 rounded-full px-3 py-1" style={{ background: '#fff8e1' }}>

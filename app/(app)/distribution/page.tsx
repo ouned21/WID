@@ -98,7 +98,7 @@ export default function DistributionPage() {
   }, [dailyHistory, profile?.id]);
 
   return (
-    <div className="pt-4 space-y-5">
+    <div className="pt-4 pb-8" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <div className="flex items-center justify-between px-4">
         <h2 className="text-[28px] font-bold text-[#1c1c1e]">Statistiques</h2>
         {totalCompletions > 0 && (

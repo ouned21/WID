@@ -264,9 +264,9 @@ export default function TasksPage() {
   }, [sections, sectionFilter]);
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       {/* Header */}
-      <div className="flex items-end justify-between px-4 pt-4 pb-3">
+      <div className="flex items-end justify-between px-4 pt-4">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-[28px] font-bold text-[#1c1c1e]">Tâches</h2>

@@ -99,11 +99,11 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="pt-4 space-y-6">
+    <div className="pt-4 pb-8" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <h2 className="text-[28px] font-bold text-[#1c1c1e] px-4">Profil</h2>
 
       {/* Carte utilisateur */}
-      <div className="mx-4 rounded-2xl bg-white p-5 flex items-center gap-4" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+      <div className="mx-4 rounded-2xl bg-white p-5 flex items-center gap-4" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
         <div className="flex h-14 w-14 items-center justify-center rounded-full text-[22px] font-bold text-white" style={{ background: '#007aff' }}>
           {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
         </div>
