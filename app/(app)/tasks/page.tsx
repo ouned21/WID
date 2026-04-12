@@ -51,47 +51,33 @@ function GaugeBar({ label, value }: { label: string; value: number }) {
 
 // -- Carte tâche ---------------------------------------------------------------
 
-function TaskCard({ task, onComplete, onDelete, isCompleted }: {
+function TaskCard({ task, onComplete, onDelete, isCompleted, isAnimating }: {
   task: TaskListItem;
-  onComplete: (id: string) => Promise<void>;
+  onComplete: (id: string) => void;
   onDelete: (id: string) => Promise<void>;
   isCompleted: boolean;
+  isAnimating: boolean;
 }) {
-  const [phase, setPhase] = useState<'idle' | 'success' | 'exit'>('idle');
-
-  const handleClick = useCallback(async () => {
-    if (phase !== 'idle' || isCompleted) return;
-    setPhase('success');
-    // Attendre 2s pour que l'utilisateur voie le feedback, PUIS completer
-    setTimeout(async () => {
-      setPhase('exit');
-      setTimeout(() => {
-        onComplete(task.id);
-      }, 500);
-    }, 2000);
-  }, [task.id, onComplete, phase, isCompleted]);
-
   const catColor = task.category?.color_hex ?? '#8e8e93';
 
-  if (isCompleted) return null;
+  if (isCompleted && !isAnimating) return null;
 
   const sb = task.score_breakdown as Record<string, number> | null;
 
   return (
     <div
-      className={`rounded-2xl overflow-hidden flex flex-col transition-all ${
-        phase === 'idle' ? 'bg-white' :
-        phase === 'success' ? 'bg-[#34c759] scale-[0.94] duration-300' :
-        'bg-[#34c759] opacity-0 scale-[0.8] duration-500'
+      className={`rounded-2xl overflow-hidden flex flex-col transition-all duration-300 ${
+        isAnimating ? 'bg-[#34c759] scale-[0.94]' : 'bg-white'
       }`}
-      style={phase === 'idle' ? { boxShadow: '0 1px 6px rgba(0,0,0,0.08)' } : {}}
+      style={!isAnimating ? { boxShadow: '0 1px 6px rgba(0,0,0,0.08)' } : {}}
     >
-      {phase !== 'idle' ? (
-        <div className="flex flex-col items-center justify-center py-6 px-3">
-          <svg width="32" height="32" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" viewBox="0 0 24 24" className="mb-1">
+      {isAnimating ? (
+        <div className="flex flex-col items-center justify-center py-8 px-3">
+          <svg width="36" height="36" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" viewBox="0 0 24 24" className="mb-2">
             <path d="M5 13l4 4L19 7" />
           </svg>
-          <p className="text-[14px] font-bold text-white text-center">{task.name}</p>
+          <p className="text-[15px] font-bold text-white text-center">{task.name}</p>
+          <p className="text-[12px] text-white/70 mt-1">Validé !</p>
         </div>
       ) : (
         <>
@@ -155,7 +141,7 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
 
           {/* Actions */}
           <div className="px-4 pb-3 flex items-center justify-end gap-2">
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onComplete(task.id); }}
               className="rounded-lg px-3.5 py-[5px] text-[12px] font-bold tracking-wide transition-all"
               style={{ background: '#34c759', color: 'white' }}>
               FAIT
@@ -187,11 +173,11 @@ const SECTION_COLORS: Record<string, string> = {
   'Plus tard': '#8e8e93',
 };
 
-function TaskSection({ title, tasks, onComplete, onDelete, completedIds }: {
+function TaskSection({ title, tasks, onComplete, onDelete, completedIds, animatingIds }: {
   title: string; tasks: TaskListItem[];
-  onComplete: (id: string) => Promise<void>; onDelete: (id: string) => Promise<void>; completedIds: Set<string>;
+  onComplete: (id: string) => void; onDelete: (id: string) => Promise<void>; completedIds: Set<string>; animatingIds: Set<string>;
 }) {
-  const visibleCount = tasks.filter((t) => !completedIds.has(t.id)).length;
+  const visibleCount = tasks.filter((t) => !completedIds.has(t.id) || animatingIds.has(t.id)).length;
   if (visibleCount === 0) return null;
   const color = SECTION_COLORS[title] ?? '#8e8e93';
 
@@ -204,7 +190,7 @@ function TaskSection({ title, tasks, onComplete, onDelete, completedIds }: {
       </div>
       <div className="grid grid-cols-2 gap-2.5 px-3">
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} onComplete={onComplete} onDelete={onDelete} isCompleted={completedIds.has(task.id)} />
+          <TaskCard key={task.id} task={task} onComplete={onComplete} onDelete={onDelete} isCompleted={completedIds.has(task.id)} isAnimating={animatingIds.has(task.id)} />
         ))}
       </div>
     </section>
@@ -230,6 +216,7 @@ export default function TasksPage() {
   }, [members]);
 
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+  const [animatingIds, setAnimatingIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
 
   const sections = useMemo(() => {
@@ -243,9 +230,20 @@ export default function TasksPage() {
 
   const totalTasks = tasks.filter((t) => !completedIds.has(t.id)).length;
 
-  const handleComplete = useCallback(async (taskId: string) => {
+  const handleComplete = useCallback((taskId: string) => {
+    // 1. Montrer l'animation verte
+    setAnimatingIds((prev) => new Set(prev).add(taskId));
     setCompletedIds((prev) => new Set(prev).add(taskId));
-    await completeTask(taskId);
+
+    // 2. Apres 2s, retirer l'animation et completer en base
+    setTimeout(() => {
+      setAnimatingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+      completeTask(taskId);
+    }, 2000);
   }, [completeTask]);
 
   const handleDelete = useCallback(async (taskId: string) => {
@@ -400,7 +398,7 @@ export default function TasksPage() {
       ) : (
         <div className="pt-2">
           {visibleSections.map((s) => (
-            <TaskSection key={s.key} title={s.title} tasks={s.tasks} onComplete={handleComplete} onDelete={handleDelete} completedIds={completedIds} />
+            <TaskSection key={s.key} title={s.title} tasks={s.tasks} onComplete={handleComplete} onDelete={handleDelete} completedIds={completedIds} animatingIds={animatingIds} />
           ))}
 
           <div className="px-4 pt-2 pb-4">
