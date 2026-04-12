@@ -57,12 +57,18 @@ export const metadata: Metadata = {
     url: "https://wid-eight.vercel.app",
     siteName: "FairShare",
     locale: "fr_FR",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "FairShare — Mesurez, équilibrez, allégez" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "FairShare — Mesurez, équilibrez, allégez",
     description: "La première app qui mesure vraiment la charge mentale de votre foyer.",
     creator: "@fairshareapp",
+    images: ["/og-image.png"],
+  },
+  icons: {
+    icon: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }, { url: "/icon-512.png", sizes: "512x512", type: "image/png" }],
+    apple: [{ url: "/apple-touch-icon.png" }],
   },
   robots: {
     index: true,
