@@ -7,7 +7,7 @@ import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { useAnalyticsStore } from '@/stores/analyticsStore';
 import { createClient } from '@/lib/supabase';
-import { loadColor, loadMessage, taskLoad, loadTo10, scoreColor10 } from '@/utils/designSystem';
+import { loadColor, loadMessage, taskLoad, loadTo10, scoreColor10, taskScoreDisplay } from '@/utils/designSystem';
 
 export default function DashboardCommand() {
   const { profile } = useAuthStore();
@@ -233,7 +233,7 @@ export default function DashboardCommand() {
           <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-2 px-1">Priorités</p>
           <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
             {d.top3.map((t, i) => {
-              const sc = loadTo10(taskLoad(t));
+              const sc = taskScoreDisplay(t);
               const c = scoreColor10(sc);
               const sb = t.score_breakdown as Record<string, number> | null;
               const tags: string[] = [];
@@ -272,6 +272,18 @@ export default function DashboardCommand() {
         </div>
         <span className="text-[28px]">⚡</span>
       </Link>
+
+      {/* ═══════ RÉCAP DU SOIR (après 17h) ═══════ */}
+      {new Date().getHours() >= 17 && (
+        <Link href="/tasks/recap" className="mx-4 rounded-2xl px-5 py-4 flex items-center justify-between text-white transition-transform active:scale-[0.98]"
+          style={{ background: 'linear-gradient(135deg, #1c1c3e, #3a1c71)', boxShadow: '0 2px 8px rgba(28,28,62,0.3)' }}>
+          <div>
+            <p className="text-[15px] font-bold">🌙 Comment s&apos;est passée ta journée ?</p>
+            <p className="text-[12px] text-white/70 mt-0.5">Coche en rafale, en 15 secondes</p>
+          </div>
+          <svg width="7" height="12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
+        </Link>
+      )}
 
       {/* ═══════ ACTIONS ═══════ */}
       <div className="px-4 flex gap-2">

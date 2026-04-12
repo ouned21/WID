@@ -1,6 +1,6 @@
 'use client';
 
-import { taskLoad } from '@/utils/designSystem';
+import { taskScoreDisplay, taskLoad, scoreColor10 } from '@/utils/designSystem';
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
@@ -86,9 +86,8 @@ function TaskCard({ task, onComplete, onDelete, isCompleted, isAnimating }: {
             <div className="flex items-start justify-between gap-2 mb-3">
               <h3 className="text-[17px] font-bold text-[#1c1c1e] leading-snug line-clamp-2 flex-1">{task.name}</h3>
               {(() => {
-                const gs = taskLoad(task);
-                const score10 = Math.round((gs / 36) * 10);
-                const c = score10 <= 3 ? '#34c759' : score10 <= 5 ? '#ff9500' : score10 <= 7 ? '#ff6b00' : '#ff3b30';
+                const score10 = taskScoreDisplay(task);
+                const c = scoreColor10(score10);
                 return (
                   <div className="flex flex-col items-end flex-shrink-0">
                     <span className="text-[22px] font-black leading-none" style={{ color: c }}>{score10}</span>
@@ -400,6 +399,21 @@ export default function TasksPage() {
           {visibleSections.map((s) => (
             <TaskSection key={s.key} title={s.title} tasks={s.tasks} onComplete={handleComplete} onDelete={handleDelete} completedIds={completedIds} animatingIds={animatingIds} />
           ))}
+
+          {/* Récap du soir */}
+          <div className="px-4 pt-2">
+            <Link href="/tasks/recap"
+              className="block w-full rounded-2xl px-5 py-4 text-white"
+              style={{ background: 'linear-gradient(135deg, #1c1c3e, #3a1c71)', boxShadow: '0 2px 8px rgba(28,28,62,0.3)' }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[16px] font-bold">🌙 Ma journée</p>
+                  <p className="text-[13px] text-white/70 mt-0.5">Coche en rafale ce que tu as fait</p>
+                </div>
+                <svg width="7" height="12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
+              </div>
+            </Link>
+          </div>
 
           <div className="px-4 pt-2 pb-4">
             <Link href="/tasks/archived"

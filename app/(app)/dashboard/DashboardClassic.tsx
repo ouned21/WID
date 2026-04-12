@@ -1,6 +1,6 @@
 'use client';
 
-import { taskLoad } from '@/utils/designSystem';
+import { taskLoad, taskScoreDisplay, scoreColor10 } from '@/utils/designSystem';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -200,10 +200,11 @@ export default function DashboardClassic() {
           <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider mb-2 px-1">Priorités</p>
           <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
             {data.heaviest.map((t, i) => {
-              const score = taskLoad(t);
-              const sc = score <= 8 ? '#34c759' : score <= 16 ? '#007aff' : score <= 24 ? '#ff9500' : '#ff3b30';
+              const score10 = taskScoreDisplay(t);
+              const scCompare = taskLoad(t);
+              const sc = scoreColor10(score10);
               const tags: string[] = [];
-              if (score >= 25) tags.push('🔥');
+              if (scCompare >= 25) tags.push('🔥');
               const sb = t.score_breakdown as Record<string, number> | null;
               if (sb && sb.mental_load_score >= 12) tags.push('🧠');
               if (sb && sb.physical_score >= 4) tags.push('💪');
@@ -211,7 +212,7 @@ export default function DashboardClassic() {
                 <Link key={t.id} href={`/tasks/${t.id}`}
                   className="flex items-center gap-3 px-4 py-3"
                   style={i < data.heaviest.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
-                  <span className="text-[22px] font-black w-8 text-center" style={{ color: sc }}>{score}</span>
+                  <span className="text-[22px] font-black w-8 text-center" style={{ color: sc }}>{score10}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-[14px] font-semibold text-[#1c1c1e] truncate">{t.name}</p>
                     <p className="text-[11px] text-[#8e8e93]">{t.category?.name} {tags.join(' ')}</p>

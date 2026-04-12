@@ -1,6 +1,6 @@
 'use client';
 
-import { taskLoad, loadTo10, scoreColor10 } from '@/utils/designSystem';
+import { taskLoad, loadTo10, scoreColor10, taskScoreDisplay } from '@/utils/designSystem';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -174,9 +174,10 @@ export default function DashboardPremium() {
             </div>
             <div className="mt-4 space-y-3">
               {d.top3.map((t) => {
-                const sc = taskLoad(t);
+                const sc = taskScoreDisplay(t);
+                const scCompare = taskLoad(t);
                 const sb = t.score_breakdown as Record<string, number> | null;
-                const badge = sc >= 25 ? 'Urgent' : (sb && sb.mental_load_score >= 12) ? 'Mental' : (sb && sb.physical_score >= 4) ? 'Physique' : 'Standard';
+                const badge = scCompare >= 25 ? 'Urgent' : (sb && sb.mental_load_score >= 12) ? 'Mental' : (sb && sb.physical_score >= 4) ? 'Physique' : 'Standard';
                 return (
                   <Link key={t.id} href={`/tasks/${t.id}`}
                     className="flex items-center justify-between rounded-2xl border px-4 py-4"
@@ -191,7 +192,7 @@ export default function DashboardPremium() {
                     </div>
                     <div className="ml-4 rounded-2xl bg-white px-3 py-2 text-right shadow-sm ring-1 ring-slate-200">
                       <div className="text-[11px] uppercase tracking-wide text-slate-400">Load</div>
-                      <div className="text-lg font-semibold text-slate-900">{sc}</div>
+                      <div className="text-lg font-semibold" style={{ color: scoreColor10(sc) }}>{sc}<span className="text-xs text-slate-400">/10</span></div>
                     </div>
                   </Link>
                 );

@@ -21,6 +21,7 @@ import {
   type TaskCategory as ScoringCategory,
   type ScoreBreakdown,
 } from '@/utils/taskScoring';
+import { loadTo10, scoreColor10 } from '@/utils/designSystem';
 import type { Frequency, TaskCategory } from '@/types/database';
 import { createClient } from '@/lib/supabase';
 
@@ -78,6 +79,10 @@ export default function NewTaskPage() {
   const [startsAt, setStartsAt] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // Score utilisateur : pré-rempli par l'algo, ajustable via slider
+  const [userScore, setUserScore] = useState<number | null>(null);
+  const [userHasAdjusted, setUserHasAdjusted] = useState(false);
+
   // Auto-détection de catégorie quand le nom change
   useEffect(() => {
     if (name.trim().length >= 3) {
@@ -91,10 +96,20 @@ export default function NewTaskPage() {
     }
   }, [name]);
 
-  // Score en temps réel
+  // Score en temps réel (algo)
   const score: ScoreBreakdown = useMemo(() => {
     return computeTaskScore({ title: name, category: scoringCategory, duration, physical, frequency });
   }, [name, scoringCategory, duration, physical, frequency]);
+
+  // Score algo converti en /10 pour le slider
+  const algoScore10 = useMemo(() => loadTo10(score.global_score), [score.global_score]);
+
+  // Pré-remplir le slider avec le score algo (tant que l'utilisateur n'a pas touché)
+  useEffect(() => {
+    if (!userHasAdjusted) {
+      setUserScore(algoScore10);
+    }
+  }, [algoScore10, userHasAdjusted]);
 
   // Mapper scoring category vers DB category
   const findDbCategoryId = (): string => {
@@ -139,11 +154,18 @@ export default function NewTaskPage() {
       name: name.trim(),
       category_id: categoryId,
       frequency,
-      mental_load_score: Math.round(score.global_score / 7),
+      mental_load_score: Math.round(score.global_score / 7), // legacy 0-5
       assigned_to: assignedTo || null,
       next_due_at: nextDueAt,
       custom_interval_days: frequency === 'custom' && customIntervalDays ? parseInt(customIntervalDays, 10) : null,
       starts_at: startsAt ? new Date(`${startsAt}T00:00:00`).toISOString() : null,
+      // Scoring V2 — dual score
+      user_score: userScore, // ce que l'utilisateur a choisi (0-10)
+      global_score: score.global_score, // ce que l'algo a calculé (2-36)
+      score_breakdown: score as unknown as Record<string, unknown>,
+      duration_estimate: duration,
+      physical_effort: physical,
+      scoring_category: scoringCategory,
     });
     if (result.ok) router.push('/tasks');
     else setError(result.error ?? 'Erreur inconnue.');
@@ -273,24 +295,86 @@ export default function NewTaskPage() {
           </div>
         </div>
 
-        {/* Score en temps réel */}
+        {/* Charge mentale — slider utilisateur */}
         {name.trim() && (
-          <div className="mx-4 rounded-2xl p-4" style={{ background: 'white', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide">Score estimé</p>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px]">{dominantEmoji(score.dominant)}</span>
-                <span className="text-[22px] font-bold" style={{ color: globalColor }}>{score.global_score}</span>
-                <span className="text-[13px] text-[#8e8e93]">/ 36</span>
+          <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: 'white', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+            {/* Slider principal */}
+            <div className="p-4 pb-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide">Charge mentale</p>
+                <span className="text-[28px] font-bold" style={{ color: scoreColor10(userScore ?? algoScore10) }}>
+                  {userScore ?? algoScore10}<span className="text-[14px] text-[#8e8e93] font-normal">/10</span>
+                </span>
               </div>
+              <p className="text-[12px] text-[#8e8e93] mb-3">
+                Pré-rempli par notre algo. Ajustez si vous ressentez différemment.
+              </p>
+
+              {/* Slider */}
+              <div className="relative">
+                <input
+                  type="range"
+                  min={0}
+                  max={10}
+                  step={1}
+                  value={userScore ?? algoScore10}
+                  onChange={(e) => {
+                    setUserScore(parseInt(e.target.value, 10));
+                    setUserHasAdjusted(true);
+                  }}
+                  className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                  style={{
+                    background: `linear-gradient(to right, #34c759 0%, #ff9500 50%, #ff3b30 100%)`,
+                    accentColor: scoreColor10(userScore ?? algoScore10),
+                  }}
+                />
+                <div className="flex justify-between mt-1 px-0.5">
+                  <span className="text-[10px] text-[#c7c7cc]">Légère</span>
+                  <span className="text-[10px] text-[#c7c7cc]">Lourde</span>
+                </div>
+              </div>
+
+              {/* Indicateur si l'utilisateur a modifié vs algo */}
+              {userHasAdjusted && userScore !== algoScore10 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-[11px] text-[#8e8e93]">
+                    Algo suggère {algoScore10}/10
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => { setUserScore(algoScore10); setUserHasAdjusted(false); }}
+                    className="text-[11px] font-medium"
+                    style={{ color: '#007aff' }}
+                  >
+                    Restaurer
+                  </button>
+                </div>
+              )}
             </div>
-            <p className="text-[14px] font-semibold mb-3" style={{ color: globalColor }}>{score.global_label}</p>
-            <div className="space-y-2">
-              <ScoreBar label="⏱ Temps" value={score.time_score} max={8} sublabel={timeLabel(score.time_score)} />
-              <ScoreBar label="💪 Physique" value={score.physical_score} max={5} sublabel={physicalLabel(score.physical_score)} />
-              <ScoreBar label="🧠 Mental" value={score.mental_load_score} max={18} sublabel={mentalLabel(score.mental_load_score)} />
-              <ScoreBar label="👨‍👩‍👧 Impact" value={score.household_impact_score} max={4} sublabel={impactLabel(score.household_impact_score)} />
-            </div>
+
+            {/* Détail algo (repliable) */}
+            <details className="group">
+              <summary className="px-4 py-2 text-[12px] font-medium cursor-pointer select-none" style={{ color: '#007aff', borderTop: '0.5px solid var(--ios-separator)' }}>
+                Voir le détail du calcul
+              </summary>
+              <div className="px-4 pb-4 pt-1">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[12px] text-[#8e8e93]">Score algo</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px]">{dominantEmoji(score.dominant)}</span>
+                    <span className="text-[15px] font-bold" style={{ color: globalColor }}>{score.global_score}</span>
+                    <span className="text-[11px] text-[#8e8e93]">/ 36</span>
+                  </div>
+                </div>
+                <p className="text-[12px] font-medium mb-2" style={{ color: globalColor }}>{score.global_label}</p>
+                <div className="space-y-1.5">
+                  <ScoreBar label="⏱ Temps" value={score.time_score} max={8} sublabel={timeLabel(score.time_score)} />
+                  <ScoreBar label="💪 Physique" value={score.physical_score} max={5} sublabel={physicalLabel(score.physical_score)} />
+                  <ScoreBar label="🧠 Mental" value={score.mental_load_score} max={18} sublabel={mentalLabel(score.mental_load_score)} />
+                  <ScoreBar label="👨‍👩‍👧 Impact" value={score.household_impact_score} max={4} sublabel={impactLabel(score.household_impact_score)} />
+                </div>
+              </div>
+            </details>
           </div>
         )}
 

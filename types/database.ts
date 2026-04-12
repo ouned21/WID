@@ -61,6 +61,13 @@ export type TaskTemplate = {
   name: string;
   default_frequency: Frequency;
   default_mental_load_score: number;
+  // Colonnes enrichies (scoring V2 + récap du soir)
+  scoring_category: string | null;
+  default_duration: string | null;
+  default_physical: string | null;
+  typical_time: string | null; // 'matin' | 'midi' | 'soir' | 'flexible'
+  description: string | null;
+  sort_order: number | null;
 };
 
 export type HouseholdTask = {
@@ -77,7 +84,8 @@ export type HouseholdTask = {
   physical_effort: string | null; // none, light, medium, high
   scoring_category: string | null; // catégorie de scoring (children, meals, etc.)
   score_breakdown: Record<string, unknown> | null; // ScoreBreakdown JSON
-  global_score: number | null; // score global calculé (2-36)
+  global_score: number | null; // score global calculé par l'algo (2-36)
+  user_score: number | null; // score choisi par l'utilisateur (0-10), pré-rempli par l'algo
   next_due_at: string | null;
   starts_at: string | null;
   is_active: boolean;

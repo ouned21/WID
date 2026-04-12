@@ -26,6 +26,13 @@ type CreateTaskPayload = {
   template_id?: string | null;
   custom_interval_days?: number | null;
   starts_at?: string | null;
+  // Scoring V2 — dual score
+  user_score?: number | null; // score choisi par l'utilisateur (0-10)
+  global_score?: number | null; // score calculé par l'algo (2-36)
+  score_breakdown?: Record<string, unknown> | null; // ScoreBreakdown JSON
+  duration_estimate?: string | null;
+  physical_effort?: string | null;
+  scoring_category?: string | null;
 };
 
 type CompleteTaskPayload = {
@@ -38,6 +45,9 @@ type UpdateTaskPayload = {
   name?: string;
   frequency?: Frequency;
   mental_load_score?: number;
+  user_score?: number | null;
+  global_score?: number | null;
+  score_breakdown?: Record<string, unknown> | null;
   assigned_to?: string | null;
   category_id?: string;
   next_due_at?: string | null;
@@ -152,8 +162,11 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     if (!payload.name.trim()) return { ok: false, error: 'Le nom est obligatoire.' };
     if (payload.name.trim().length > 100) return { ok: false, error: 'Le nom ne doit pas dépasser 100 caractères.' };
     if (!payload.category_id) return { ok: false, error: 'La catégorie est obligatoire.' };
-    if (payload.mental_load_score < 0 || payload.mental_load_score > 5) {
-      return { ok: false, error: 'La charge mentale doit être entre 0 et 5.' };
+    if (payload.mental_load_score < 0 || payload.mental_load_score > 10) {
+      return { ok: false, error: 'La charge mentale doit être entre 0 et 10.' };
+    }
+    if (payload.user_score != null && (payload.user_score < 0 || payload.user_score > 10)) {
+      return { ok: false, error: 'Le score utilisateur doit être entre 0 et 10.' };
     }
 
     set({ creating: true, error: null });
@@ -173,6 +186,13 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       custom_interval_days: payload.custom_interval_days ?? null,
       starts_at: payload.starts_at ?? null,
       created_by: userId,
+      // Scoring V2
+      user_score: payload.user_score ?? null,
+      global_score: payload.global_score ?? null,
+      score_breakdown: payload.score_breakdown ?? null,
+      duration_estimate: payload.duration_estimate ?? null,
+      physical_effort: payload.physical_effort ?? null,
+      scoring_category: payload.scoring_category ?? null,
     });
 
     set({ creating: false });
