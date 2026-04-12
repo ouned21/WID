@@ -62,11 +62,11 @@ export function loadColor(score: number): string {
 
 // Message du Load selon la valeur moyenne
 export function loadMessage(avgPerTask: number): string {
-  if (avgPerTask === 0) return 'Aucune charge';
-  if (avgPerTask <= 10) return 'Charge légère — ça roule';
-  if (avgPerTask <= 20) return 'Charge modérée — sous contrôle';
-  if (avgPerTask <= 28) return 'Charge élevée — attention';
-  return 'Surcharge — rééquilibrage urgent';
+  if (avgPerTask === 0) return 'Rien en vue. Profite.';
+  if (avgPerTask <= 10) return 'Tu gères. Continue comme ça.';
+  if (avgPerTask <= 20) return 'Sous contrôle. Quelques priorités à suivre.';
+  if (avgPerTask <= 28) return 'Forte pression cette semaine. Reste vigilant.';
+  return 'Surcharge détectée. Pense à rééquilibrer.';
 }
 
 // Typographie — échelle limitée à 6 tailles

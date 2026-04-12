@@ -71,7 +71,7 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
 
   return (
     <div
-      className={`rounded-2xl overflow-hidden flex flex-col transition-all h-[280px] ${
+      className={`rounded-2xl overflow-hidden flex flex-col transition-all h-[230px] ${
         phase === 'idle' ? 'bg-white' :
         phase === 'success' ? 'bg-[#34c759] scale-[0.94] duration-300' :
         'bg-[#34c759] opacity-0 scale-[0.8] duration-500'
@@ -88,74 +88,61 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
       ) : (
         <>
           <Link href={`/tasks/${task.id}`} className="flex-1 p-3 flex flex-col">
-            {/* 1. Nom */}
-            <div className="h-[36px] mb-1.5">
-              <h3 className="text-[15px] font-bold text-[#1c1c1e] leading-tight line-clamp-2">{task.name}</h3>
-            </div>
-
-            {/* 2. Score The Load + 4 jauges */}
-            <div className="space-y-1 mb-2">
+            {/* Nom + Score */}
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <h3 className="text-[15px] font-bold text-[#1c1c1e] leading-tight line-clamp-2 flex-1">{task.name}</h3>
               {(() => {
                 const gs = taskLoad(task);
                 const gsColor = gs <= 8 ? '#34c759' : gs <= 16 ? '#007aff' : gs <= 24 ? '#ff9500' : '#ff3b30';
-                return (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] w-[56px] flex-shrink-0 font-bold text-[#1c1c1e]">The Load</span>
-                    <div className="flex-1 h-3 rounded-full" style={{ background: '#f2f2f7' }}>
-                      <div className="h-3 rounded-full transition-all" style={{ width: `${Math.min(100, (gs / 36) * 100)}%`, background: gsColor }} />
-                    </div>
-                    <span className="text-[14px] font-black flex-shrink-0" style={{ color: gsColor }}>{gs}</span>
-                  </div>
-                );
-              })()}
-              {(() => {
-                // Proportionner les sous-jauges depuis le score global quand pas de breakdown
-                const gs = taskLoad(task);
-                const ratio = gs / 36; // 0 à 1
-                return (
-                  <>
-                    <MiniGauge label="Durée" value={sb?.time_score ?? Math.round(ratio * 8)} max={36} scale={8} />
-                    <MiniGauge label="Physique" value={sb?.physical_score ?? Math.round(ratio * 5)} max={36} scale={5} />
-                    <MiniGauge label="Mental" value={sb?.mental_load_score ?? Math.round(ratio * 18)} max={36} scale={18} />
-                    <MiniGauge label="Impact" value={sb?.household_impact_score ?? Math.round(ratio * 4)} max={36} scale={4} />
-                  </>
-                );
+                return <span className="text-[20px] font-black flex-shrink-0" style={{ color: gsColor }}>{gs}</span>;
               })()}
             </div>
 
-            {/* 4. Assignée + date */}
+            {/* 2 jauges : Mental + Temps */}
+            {(() => {
+              const gs = taskLoad(task);
+              const ratio = gs / 36;
+              const mentalVal = sb?.mental_load_score ?? Math.round(ratio * 18);
+              const timeVal = sb?.time_score ?? Math.round(ratio * 8);
+              return (
+                <div className="space-y-1.5 mb-3">
+                  <MiniGauge label="🧠 Mental" value={mentalVal} max={36} scale={18} />
+                  <MiniGauge label="⏱ Temps" value={timeVal} max={36} scale={8} />
+                </div>
+              );
+            })()}
+
+            {/* Assignée + date */}
             <div className="flex items-center gap-2 mt-auto">
               {task.assignee ? (
-                <span className="flex items-center gap-0.5">
-                  <span className="h-3.5 w-3.5 rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ background: '#007aff' }}>
+                <span className="flex items-center gap-1">
+                  <span className="h-4 w-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{ background: '#007aff' }}>
                     {task.assignee.display_name.charAt(0).toUpperCase()}
                   </span>
-                  <span className="text-[10px] text-[#3c3c43]">{task.assignee.display_name}</span>
+                  <span className="text-[11px] text-[#3c3c43]">{task.assignee.display_name}</span>
                 </span>
               ) : (
-                <span className="text-[10px] text-[#c7c7cc]">Non assigné</span>
+                <span className="text-[11px] text-[#b0b0b8]">Non assigné</span>
               )}
-              <span className="text-[10px] text-[#8e8e93]">
-                {task.next_due_at ? new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : ''}
-              </span>
+              {task.next_due_at && (
+                <span className="text-[11px] text-[#8e8e93]">
+                  {new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                </span>
+              )}
             </div>
           </Link>
 
-          {/* 5. Catégorie + fréquence */}
-          <div className="px-3 flex items-center gap-1.5">
+          {/* Actions */}
+          <div className="px-3 pb-2.5 flex items-center justify-between">
             <span className="rounded-full px-2 py-0.5 text-[9px] font-semibold text-white" style={{ background: catColor }}>
               {task.category?.name}
             </span>
-            <span className="text-[9px] text-[#8e8e93]">{frequencyLabel(task.frequency)}</span>
-          </div>
-
-          {/* 6. Boutons FAIT + Supprimer */}
-          <div className="px-3 pb-2 pt-1.5 flex justify-center gap-3">
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
-              className="rounded-md px-3 py-[4px] text-[10px] font-bold tracking-widest border-[1.5px] transition-all"
-              style={{ borderColor: '#34c759', color: '#34c759', background: 'transparent' }}>
-              FAIT
-            </button>
+            <div className="flex gap-2">
+              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
+                className="rounded-lg px-3 py-[5px] text-[11px] font-bold transition-all"
+                style={{ background: '#34c759', color: 'white' }}>
+                Fait ✓
+              </button>
             <button onClick={(e) => {
               e.preventDefault(); e.stopPropagation();
               if (confirm('Supprimer définitivement cette tâche ?')) {
@@ -166,6 +153,7 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
               style={{ borderColor: '#ff3b30', color: '#ff3b30', background: 'transparent' }}>
               🗑
             </button>
+            </div>
           </div>
         </>
       )}

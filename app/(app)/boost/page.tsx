@@ -19,14 +19,21 @@ const LEVELS = [
   { level: 7, name: 'Légende', minXP: 2000 },
 ];
 
-// Badges
-const BADGES = [
-  { id: 'first_task', name: 'Première tâche', icon: '⭐', desc: 'Compléter sa première tâche', check: (completions: number) => completions >= 1 },
-  { id: 'ten_tasks', name: 'Décollage', icon: '🚀', desc: '10 tâches complétées', check: (completions: number) => completions >= 10 },
-  { id: 'fifty_tasks', name: 'Machine', icon: '⚡', desc: '50 tâches complétées', check: (completions: number) => completions >= 50 },
-  { id: 'hundred_tasks', name: 'Centurion', icon: '🏆', desc: '100 tâches complétées', check: (completions: number) => completions >= 100 },
-  { id: 'week_streak', name: '7 jours', icon: '🔥', desc: 'Actif 7 jours de suite', check: (_: number, streak: number) => streak >= 7 },
-  { id: 'month_streak', name: '30 jours', icon: '💎', desc: 'Actif 30 jours de suite', check: (_: number, streak: number) => streak >= 30 },
+// Badges avec rareté
+type Rarity = 'common' | 'rare' | 'legendary';
+const RARITY_STYLES: Record<Rarity, { bg: string; border: string; glow: string }> = {
+  common: { bg: '#f8fafc', border: '#e2e8f0', glow: '' },
+  rare: { bg: '#eff6ff', border: '#93c5fd', glow: '0 0 12px rgba(59,130,246,0.15)' },
+  legendary: { bg: 'linear-gradient(135deg, #fef3c7, #fde68a)', border: '#f59e0b', glow: '0 0 16px rgba(245,158,11,0.25)' },
+};
+
+const BADGES: { id: string; name: string; icon: string; desc: string; rarity: Rarity; check: (c: number, s: number) => boolean }[] = [
+  { id: 'first_task', name: 'Première tâche', icon: '⭐', desc: 'Compléter sa première tâche', rarity: 'common', check: (c) => c >= 1 },
+  { id: 'ten_tasks', name: 'Décollage', icon: '🚀', desc: '10 tâches complétées', rarity: 'common', check: (c) => c >= 10 },
+  { id: 'fifty_tasks', name: 'Machine', icon: '⚡', desc: '50 tâches complétées', rarity: 'rare', check: (c) => c >= 50 },
+  { id: 'hundred_tasks', name: 'Centurion', icon: '🏆', desc: '100 tâches complétées', rarity: 'legendary', check: (c) => c >= 100 },
+  { id: 'week_streak', name: '7 jours', icon: '🔥', desc: 'Actif 7 jours de suite', rarity: 'rare', check: (_: number, s: number) => s >= 7 },
+  { id: 'month_streak', name: '30 jours', icon: '💎', desc: 'Actif 30 jours de suite', rarity: 'legendary', check: (_: number, s: number) => s >= 30 },
 ];
 
 export default function BoostPage() {
@@ -166,18 +173,27 @@ export default function BoostPage() {
       <div className="mx-4">
         <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider mb-2 px-1">Badges</p>
         <div className="grid grid-cols-3 gap-2">
-          {earnedBadges.map((b) => (
-            <div key={b.id} className="rounded-2xl bg-white p-3 text-center" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-              <p className="text-[28px]">{b.icon}</p>
-              <p className="text-[11px] font-bold text-[#1c1c1e] mt-1">{b.name}</p>
-              <p className="text-[9px] text-[#8e8e93]">{b.desc}</p>
-            </div>
-          ))}
+          {earnedBadges.map((b) => {
+            const rs = RARITY_STYLES[b.rarity];
+            return (
+              <div key={b.id} className="rounded-2xl p-3 text-center border" style={{
+                background: rs.bg,
+                borderColor: rs.border,
+                boxShadow: rs.glow || '0 0.5px 3px rgba(0,0,0,0.04)',
+              }}>
+                <p className="text-[28px]">{b.icon}</p>
+                <p className="text-[11px] font-bold text-[#1c1c1e] mt-1">{b.name}</p>
+                <p className="text-[8px] font-semibold uppercase mt-0.5" style={{
+                  color: b.rarity === 'legendary' ? '#d97706' : b.rarity === 'rare' ? '#3b82f6' : '#8e8e93'
+                }}>{b.rarity}</p>
+              </div>
+            );
+          })}
           {lockedBadges.map((b) => (
-            <div key={b.id} className="rounded-2xl p-3 text-center opacity-40" style={{ background: '#f2f2f7' }}>
-              <p className="text-[28px]">🔒</p>
+            <div key={b.id} className="rounded-2xl p-3 text-center opacity-30" style={{ background: '#f0f0f5' }}>
+              <p className="text-[28px]" style={{ filter: 'grayscale(1)' }}>{b.icon}</p>
               <p className="text-[11px] font-bold text-[#8e8e93] mt-1">{b.name}</p>
-              <p className="text-[9px] text-[#c7c7cc]">{b.desc}</p>
+              <p className="text-[8px] text-[#c7c7cc] uppercase">{b.rarity}</p>
             </div>
           ))}
         </div>
