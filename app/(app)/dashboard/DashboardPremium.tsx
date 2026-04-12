@@ -1,5 +1,7 @@
 'use client';
 
+import { taskLoad } from '@/utils/designSystem';
+
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
@@ -45,8 +47,8 @@ export default function DashboardPremium() {
 
   const d = useMemo(() => {
     const my = tasks.filter((t) => t.assigned_to === profile?.id);
-    const myLoad = my.reduce((s, t) => s + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0);
-    const total = tasks.reduce((s, t) => s + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0);
+    const myLoad = my.reduce((s, t) => s + taskLoad(t), 0);
+    const total = tasks.reduce((s, t) => s + taskLoad(t), 0);
     const myPct = total > 0 ? Math.round((myLoad / total) * 100) : 0;
     const target = profile?.target_share_percent ?? 50;
     const gap = myPct - target;
@@ -54,10 +56,10 @@ export default function DashboardPremium() {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const overdue = tasks.filter((t) => t.next_due_at && new Date(t.next_due_at) < todayStart).length;
     const today = tasks.filter((t) => { if (!t.next_due_at) return false; const x = new Date(t.next_due_at); return x >= todayStart && x < new Date(todayStart.getTime() + 86400000); }).length;
-    const top3 = [...my].sort((a, b) => (b.global_score ?? b.mental_load_score * 7) - (a.global_score ?? a.mental_load_score * 7)).slice(0, 3);
+    const top3 = [...my].sort((a, b) => taskLoad(b) - taskLoad(a)).slice(0, 3);
     const byMember = members.map((m) => {
       const mt = tasks.filter((t) => t.assigned_to === m.id);
-      return { id: m.id, name: m.display_name, load: mt.reduce((s, t) => s + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0), isMe: m.id === profile?.id };
+      return { id: m.id, name: m.display_name, load: mt.reduce((s, t) => s + taskLoad(t), 0), isMe: m.id === profile?.id };
     }).sort((a, b) => b.load - a.load);
     const maxLoad = Math.max(...byMember.map((m) => m.load), 1);
     const avg = my.length > 0 ? Math.round(myLoad / my.length) : 0;
@@ -172,7 +174,7 @@ export default function DashboardPremium() {
             </div>
             <div className="mt-4 space-y-3">
               {d.top3.map((t) => {
-                const sc = Math.min(36, t.global_score ?? (t.mental_load_score * 7));
+                const sc = taskLoad(t);
                 const sb = t.score_breakdown as Record<string, number> | null;
                 const badge = sc >= 25 ? 'Urgent' : (sb && sb.mental_load_score >= 12) ? 'Mental' : (sb && sb.physical_score >= 4) ? 'Physique' : 'Standard';
                 return (

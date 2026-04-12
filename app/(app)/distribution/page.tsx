@@ -1,5 +1,7 @@
 'use client';
 
+import { taskLoad } from '@/utils/designSystem';
+
 import { useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnalyticsStore } from '@/stores/analyticsStore';
@@ -239,10 +241,10 @@ export default function DistributionPage() {
                 {members.map((m, i) => {
                   const color = MEMBER_COLORS[i % MEMBER_COLORS.length];
                   const myTasks = tasks.filter((t) => t.assigned_to === m.id);
-                  const totalLoad = myTasks.reduce((sum, t) => sum + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0);
+                  const totalLoad = myTasks.reduce((sum, t) => sum + taskLoad(t), 0);
                   const maxLoad = Math.max(...members.map((mb) => {
                     const ts = tasks.filter((t) => t.assigned_to === mb.id);
-                    return ts.reduce((s, t) => s + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0);
+                    return ts.reduce((s, t) => s + taskLoad(t), 0);
                   }), 1);
                   const pct = Math.round((totalLoad / maxLoad) * 100);
                   return (

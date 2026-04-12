@@ -1,5 +1,7 @@
 'use client';
 
+import { taskLoad } from '@/utils/designSystem';
+
 import { useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
@@ -91,7 +93,7 @@ export default function BoostPage() {
   const leaderboard = useMemo(() => {
     return members.map((m) => {
       const mTasks = tasks.filter((t) => t.assigned_to === m.id);
-      const load = mTasks.reduce((s, t) => s + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0);
+      const load = mTasks.reduce((s, t) => s + taskLoad(t), 0);
       return { id: m.id, name: m.display_name, load, isMe: m.id === profile?.id };
     }).sort((a, b) => b.load - a.load);
   }, [tasks, members, profile?.id]);

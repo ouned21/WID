@@ -1,5 +1,7 @@
 'use client';
 
+import { taskLoad } from '@/utils/designSystem';
+
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
@@ -94,7 +96,7 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
             {/* 2. Score The Load + 4 jauges */}
             <div className="space-y-1 mb-2">
               {(() => {
-                const gs = Math.min(36, task.global_score ?? (task.mental_load_score * 7));
+                const gs = taskLoad(task);
                 const gsColor = gs <= 8 ? '#34c759' : gs <= 16 ? '#007aff' : gs <= 24 ? '#ff9500' : '#ff3b30';
                 return (
                   <div className="flex items-center gap-1.5">
@@ -108,7 +110,7 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
               })()}
               {(() => {
                 // Proportionner les sous-jauges depuis le score global quand pas de breakdown
-                const gs = Math.min(36, task.global_score ?? (task.mental_load_score * 7));
+                const gs = taskLoad(task);
                 const ratio = gs / 36; // 0 à 1
                 return (
                   <>

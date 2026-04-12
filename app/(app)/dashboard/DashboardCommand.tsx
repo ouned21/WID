@@ -7,7 +7,7 @@ import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { useAnalyticsStore } from '@/stores/analyticsStore';
 import { createClient } from '@/lib/supabase';
-import { loadColor, loadMessage } from '@/utils/designSystem';
+import { loadColor, loadMessage, taskLoad } from '@/utils/designSystem';
 
 export default function DashboardCommand() {
   const { profile } = useAuthStore();
@@ -63,8 +63,8 @@ export default function DashboardCommand() {
   const d = useMemo(() => {
     const dMap: Record<string, number> = { very_short: 3, short: 10, medium: 22, long: 45, very_long: 75 };
     const my = tasks.filter((t) => t.assigned_to === profile?.id);
-    const myLoad = my.reduce((s, t) => s + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0);
-    const total = tasks.reduce((s, t) => s + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0);
+    const myLoad = my.reduce((s, t) => s + taskLoad(t), 0);
+    const total = tasks.reduce((s, t) => s + taskLoad(t), 0);
     const myPct = total > 0 ? Math.round((myLoad / total) * 100) : 0;
     const target = profile?.target_share_percent ?? 50;
     const gap = myPct - target;
@@ -74,13 +74,13 @@ export default function DashboardCommand() {
     const overdue = tasks.filter((t) => t.next_due_at && new Date(t.next_due_at) < todayStart).length;
     const today = tasks.filter((t) => { if (!t.next_due_at) return false; const x = new Date(t.next_due_at); return x >= todayStart && x < new Date(todayStart.getTime() + 86400000); }).length;
 
-    const top3 = [...my].sort((a, b) => (b.global_score ?? b.mental_load_score * 7) - (a.global_score ?? a.mental_load_score * 7)).slice(0, 3);
+    const top3 = [...my].sort((a, b) => taskLoad(b) - taskLoad(a)).slice(0, 3);
 
     const byMember = members.map((m) => {
       const mt = tasks.filter((t) => t.assigned_to === m.id);
       return {
         id: m.id, name: m.display_name, isMe: m.id === profile?.id,
-        load: mt.reduce((s, t) => s + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0),
+        load: mt.reduce((s, t) => s + taskLoad(t), 0),
         time: mt.reduce((s, t) => s + (dMap[t.duration_estimate ?? 'medium'] ?? 15), 0),
         count: mt.length,
       };
@@ -233,7 +233,7 @@ export default function DashboardCommand() {
           <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-2 px-1">Priorités</p>
           <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
             {d.top3.map((t, i) => {
-              const sc = Math.min(36, t.global_score ?? (t.mental_load_score * 7));
+              const sc = taskLoad(t);
               const c = loadColor(sc);
               const sb = t.score_breakdown as Record<string, number> | null;
               const tags: string[] = [];

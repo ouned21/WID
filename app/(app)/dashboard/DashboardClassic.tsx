@@ -1,5 +1,7 @@
 'use client';
 
+import { taskLoad } from '@/utils/designSystem';
+
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
@@ -51,8 +53,8 @@ export default function DashboardClassic() {
   const data = useMemo(() => {
     const durationMap: Record<string, number> = { very_short: 3, short: 10, medium: 22, long: 45, very_long: 75 };
     const myTasks = tasks.filter((t) => t.assigned_to === profile?.id);
-    const myLoad = myTasks.reduce((sum, t) => sum + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0);
-    const totalLoad = tasks.reduce((sum, t) => sum + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0);
+    const myLoad = myTasks.reduce((sum, t) => sum + taskLoad(t), 0);
+    const totalLoad = tasks.reduce((sum, t) => sum + taskLoad(t), 0);
 
     const myPercent = totalLoad > 0 ? Math.round((myLoad / totalLoad) * 100) : 0;
     const targetPercent = profile?.target_share_percent ?? 50;
@@ -69,12 +71,12 @@ export default function DashboardClassic() {
     }).length;
 
     const heaviest = [...myTasks]
-      .sort((a, b) => (b.global_score ?? b.mental_load_score * 7) - (a.global_score ?? a.mental_load_score * 7))
+      .sort((a, b) => taskLoad(b) - taskLoad(a))
       .slice(0, 3);
 
     const loadByMember = members.map((m) => {
       const mTasks = tasks.filter((t) => t.assigned_to === m.id);
-      const load = mTasks.reduce((s, t) => s + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0);
+      const load = mTasks.reduce((s, t) => s + taskLoad(t), 0);
       const time = mTasks.reduce((s, t) => s + (durationMap[t.duration_estimate ?? 'medium'] ?? 15), 0);
       return { id: m.id, name: m.display_name, load, time, isMe: m.id === profile?.id };
     }).sort((a, b) => b.load - a.load);
@@ -198,7 +200,7 @@ export default function DashboardClassic() {
           <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider mb-2 px-1">Priorités</p>
           <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
             {data.heaviest.map((t, i) => {
-              const score = Math.min(36, t.global_score ?? (t.mental_load_score * 7));
+              const score = taskLoad(t);
               const sc = score <= 8 ? '#34c759' : score <= 16 ? '#007aff' : score <= 24 ? '#ff9500' : '#ff3b30';
               const tags: string[] = [];
               if (score >= 25) tags.push('🔥');

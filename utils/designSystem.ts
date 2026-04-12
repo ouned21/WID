@@ -39,6 +39,19 @@ export const gradients = {
   success: 'linear-gradient(135deg, #34c759, #30d158)',
 } as const;
 
+/**
+ * Calcule le Load d'une tâche.
+ * Si global_score existe (V2), l'utilise. Sinon, estime depuis mental_load_score.
+ * L'ancien mental_load_score (0-5 ou 0-10) est converti sur l'échelle 0-36.
+ */
+export function taskLoad(task: { global_score?: number | null; mental_load_score: number }): number {
+  if (task.global_score != null) return Math.min(36, task.global_score);
+  // Ancien score : 0-5 → convertir proportionnellement sur 36
+  // (un score de 5/5 = charge max ≈ 36, score de 3/5 ≈ 22)
+  const normalized = Math.min(5, task.mental_load_score); // plafonner à 5
+  return Math.round((normalized / 5) * 36);
+}
+
 // Couleur du score Load selon la valeur
 export function loadColor(score: number): string {
   if (score <= 8) return colors.green;
