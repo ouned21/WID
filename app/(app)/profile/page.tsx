@@ -38,7 +38,11 @@ export default function ProfilePage() {
   const [newName, setNewName] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const handleSignOut = async () => { await signOut(); router.push('/login'); };
+  const handleSignOut = async () => {
+    if (!confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) return;
+    await signOut();
+    router.push('/login');
+  };
   const [togglingVacation, setTogglingVacation] = useState(false);
   const handleToggleVacation = async () => {
     if (!profile?.id || !profile?.household_id) return;

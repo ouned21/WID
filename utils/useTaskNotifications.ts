@@ -19,9 +19,14 @@ export function useTaskNotifications() {
   const household = useHouseholdStore((s) => s.household);
   const timerIds = useRef<number[]>([]);
 
-  // Demander la permission au premier rendu
+  // Demander la permission une seule fois (pas à chaque reconnexion)
   useEffect(() => {
-    requestNotificationPermission();
+    if (typeof window === 'undefined') return;
+    const alreadyAsked = localStorage.getItem('theload-notif-asked');
+    if (!alreadyAsked) {
+      requestNotificationPermission();
+      localStorage.setItem('theload-notif-asked', '1');
+    }
   }, []);
 
   // Planifier les notifications pour les tâches avec next_due_at dans les 24h
