@@ -235,7 +235,7 @@ export default function TasksPage() {
     setAnimatingIds((prev) => new Set(prev).add(taskId));
     setCompletedIds((prev) => new Set(prev).add(taskId));
 
-    // 2. Apres 2s, retirer l'animation et completer en base
+    // 2. Apres 1s, retirer l'animation et completer en base
     setTimeout(() => {
       setAnimatingIds((prev) => {
         const next = new Set(prev);
@@ -243,7 +243,7 @@ export default function TasksPage() {
         return next;
       });
       completeTask(taskId);
-    }, 2000);
+    }, 1000);
   }, [completeTask]);
 
   const handleDelete = useCallback(async (taskId: string) => {
