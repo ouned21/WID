@@ -20,22 +20,44 @@ export const metadata: Metadata = {
   },
   description: "Application de suivi et rééquilibrage des tâches domestiques. Mesurez la charge mentale, visualisez la répartition, proposez des échanges entre membres du foyer.",
   keywords: [
-    // Francais — termes principaux
+    // FR — Termes principaux
     "charge mentale", "tâches domestiques", "répartition tâches", "foyer",
     "couple", "famille", "ménage", "organisation maison", "gestion foyer",
-    "équilibre couple", "partage tâches", "qui fait quoi",
-    // Francais — problème/douleur
+    "équilibre couple", "partage tâches", "qui fait quoi", "tâches ménagères",
+    "corvées maison", "planning ménage", "organisation familiale",
+    // FR — Problème / douleur
     "charge mentale couple", "inégalité tâches ménagères", "burn out domestique",
     "charge invisible", "répartition inégale", "conflit ménage couple",
-    // Francais — solution
+    "épuisement parental", "surcharge mentale", "fatigue domestique",
+    "charge mentale femme", "charge mentale mère", "travail invisible",
+    "frustration ménage", "dispute tâches couple", "injustice domestique",
+    // FR — Solution
     "application tâches ménagères", "app charge mentale", "suivi tâches maison",
     "to-do list foyer", "productivité domestique", "gamification ménage",
     "scoring tâches", "échange de tâches", "rééquilibrage foyer",
-    // Anglais — SEO international
+    "gestion tâches couple", "planification domestique", "tableau de bord foyer",
+    "suivi charge mentale", "mesurer charge mentale", "calculer charge mentale",
+    // FR — Catégories de tâches
+    "nettoyage maison", "rangement", "courses", "linge", "cuisine",
+    "bricolage maison", "jardin entretien", "tâches administratives",
+    "enfants organisation", "animaux domestiques", "voiture entretien",
+    // FR — Features
+    "objectif répartition", "suggestion échange tâches", "mode vacances app",
+    "notification rappel tâche", "dashboard charge mentale", "statistiques foyer",
+    "leaderboard famille", "badges gamification", "XP tâches maison",
+    // FR — Longue traîne
+    "comment répartir les tâches en couple", "app pour équilibrer le ménage",
+    "outil charge mentale gratuit", "application gratuite tâches maison",
+    "alternative nipto", "alternative sweepy", "alternative maydée",
+    "meilleure app ménage", "app organisation foyer couple",
+    // EN — International
     "mental load", "household tasks", "chore tracking", "family task manager",
-    "mental load app", "household management", "chore sharing",
+    "mental load app", "household management", "chore sharing", "fair division",
+    "household chore app", "family chores", "task sharing app", "home management",
+    "mental load tracker", "household equity", "chore balance", "domestic labor",
+    "invisible labor", "emotional labor", "cognitive load household",
     // Marque
-    "fairshare", "fairshare app", "fair share", "fair share app",
+    "fairshare", "fairshare app", "fair share", "fair share app", "fair share ménage",
   ],
   authors: [{ name: "FairShare" }],
   creator: "FairShare",
