@@ -296,43 +296,34 @@ export default function TasksPage() {
             <button onClick={() => setShowScoreInfo(false)} className="text-[17px] text-[#8e8e93]">✕</button>
           </div>
           <p className="text-[13px] text-[#8e8e93] mb-3">
-            Chaque tâche est évaluée sur <strong className="text-[#1c1c1e]">36 points</strong> répartis sur 4 critères.
-            Plus le score est élevé, plus la tâche pèse dans votre quotidien.
+            Chaque tâche est évaluée sur <strong className="text-[#1c1c1e]">10</strong>. Plus le score est élevé, plus la tâche pèse dans votre quotidien.
           </p>
           <div className="space-y-2 mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-[13px] w-16">Durée</span>
-              <span className="text-[12px] text-[#8e8e93]">Temps nécessaire pour effectuer la tâche (max 8)</span>
+              <span className="text-[13px] font-semibold w-[110px]">Charge mentale</span>
+              <span className="text-[12px] text-[#8e8e93]">Anticipation, décisions, stress, responsabilité</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[13px] w-16">Physique</span>
-              <span className="text-[12px] text-[#8e8e93]">Effort corporel requis (max 5)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[13px] w-16">Mental</span>
-              <span className="text-[12px] text-[#8e8e93]">Anticipation, décisions, stress, responsabilité (max 18)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[13px] w-16">Impact</span>
-              <span className="text-[12px] text-[#8e8e93]">Combien de personnes du foyer en bénéficient (max 4)</span>
+              <span className="text-[13px] font-semibold w-[110px]">Temps</span>
+              <span className="text-[12px] text-[#8e8e93]">Durée nécessaire (10 = 60 minutes)</span>
             </div>
           </div>
           <div className="space-y-1.5 text-[12px]">
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: '#34c759' }} />
-              <span className="text-[#1c1c1e]"><strong>0–8</strong> — Légère</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: '#007aff' }} />
-              <span className="text-[#1c1c1e]"><strong>9–16</strong> — Modérée</span>
+              <span className="text-[#1c1c1e]"><strong>0–3</strong> — Léger</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: '#ff9500' }} />
-              <span className="text-[#1c1c1e]"><strong>17–24</strong> — Significative</span>
+              <span className="text-[#1c1c1e]"><strong>4–5</strong> — Modéré</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: '#ff6b00' }} />
+              <span className="text-[#1c1c1e]"><strong>6–7</strong> — Élevé</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: '#ff3b30' }} />
-              <span className="text-[#1c1c1e]"><strong>25–36</strong> — Lourde à très lourde</span>
+              <span className="text-[#1c1c1e]"><strong>8–10</strong> — Critique</span>
             </div>
           </div>
         </div>

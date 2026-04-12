@@ -106,7 +106,7 @@ export default function TaskDetailPage() {
               className="text-[17px] font-bold bg-transparent outline-none"
               style={{ color: task.mental_load_score >= 4 ? '#ff3b30' : task.mental_load_score >= 3 ? '#ff9500' : '#34c759' }}
             >
-              {[0,1,2,3,4,5].map((v) => <option key={v} value={v}>{v}/5</option>)}
+              {[0,1,2,3,4,5].map((v) => <option key={v} value={v}>{v * 2}/10</option>)}
             </select>
           </div>
         </div>
@@ -172,7 +172,7 @@ export default function TaskDetailPage() {
             ✓ Marquer comme fait
           </button>
         ) : (
-          <div className="rounded-xl p-4 space-y-3" style={{ background: '#f2f2f7' }}>
+          <div className="rounded-xl p-4 space-y-3" style={{ background: '#f0f2f8' }}>
             <p className="text-[15px] font-semibold text-[#1c1c1e]">Compléter la tâche</p>
             <div>
               <label className="text-[13px] text-[#8e8e93] block mb-1">Temps passé (minutes) — optionnel</label>

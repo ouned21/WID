@@ -203,7 +203,7 @@ export default function DistributionPage() {
                       </div>
                       <span className="text-[15px] font-bold" style={{ color }}>{m.taskPercentage}%</span>
                     </div>
-                    <div className="h-2 w-full rounded-full" style={{ background: '#f2f2f7' }}>
+                    <div className="h-2 w-full rounded-full" style={{ background: '#f0f2f8' }}>
                       <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${m.taskPercentage}%`, background: color }} />
                     </div>
                     <p className="text-[12px] text-[#8e8e93]">{m.taskCount} tâche{m.taskCount > 1 ? 's' : ''} complétée{m.taskCount > 1 ? 's' : ''}</p>
@@ -253,7 +253,7 @@ export default function DistributionPage() {
                         <span className="font-medium text-[#1c1c1e]">{m.display_name}</span>
                         <span className="font-bold" style={{ color }}>{totalLoad} pts</span>
                       </div>
-                      <div className="h-2 rounded-full" style={{ background: '#f2f2f7' }}>
+                      <div className="h-2 rounded-full" style={{ background: '#f0f2f8' }}>
                         <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
                       </div>
                     </div>

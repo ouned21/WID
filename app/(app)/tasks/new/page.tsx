@@ -191,7 +191,7 @@ export default function NewTaskPage() {
                   className="rounded-full px-2.5 py-1 text-[12px] font-medium transition-all"
                   style={scoringCategory === opt.value
                     ? { background: '#007aff', color: 'white' }
-                    : { background: '#f2f2f7', color: '#3c3c43' }
+                    : { background: '#f0f2f8', color: '#3c3c43' }
                   }>
                   {opt.emoji} {opt.label}
                 </button>
@@ -206,7 +206,7 @@ export default function NewTaskPage() {
               {DURATION_OPTIONS.map((opt) => (
                 <button key={opt.value} type="button" onClick={() => setDuration(opt.value)}
                   className="flex-1 rounded-lg py-2 text-[12px] font-medium text-center transition-all"
-                  style={duration === opt.value ? { background: '#007aff', color: 'white' } : { background: '#f2f2f7', color: '#3c3c43' }}>
+                  style={duration === opt.value ? { background: '#007aff', color: 'white' } : { background: '#f0f2f8', color: '#3c3c43' }}>
                   {opt.label}
                 </button>
               ))}
@@ -220,7 +220,7 @@ export default function NewTaskPage() {
               {PHYSICAL_OPTIONS.map((opt) => (
                 <button key={opt.value} type="button" onClick={() => setPhysical(opt.value)}
                   className="flex-1 rounded-lg py-2 text-[12px] font-medium text-center transition-all"
-                  style={physical === opt.value ? { background: '#007aff', color: 'white' } : { background: '#f2f2f7', color: '#3c3c43' }}>
+                  style={physical === opt.value ? { background: '#007aff', color: 'white' } : { background: '#f0f2f8', color: '#3c3c43' }}>
                   {opt.label}
                 </button>
               ))}
@@ -332,7 +332,7 @@ function ScoreBar({ label, value, max, sublabel }: { label: string; value: numbe
   return (
     <div className="flex items-center gap-3">
       <span className="text-[12px] w-20 flex-shrink-0">{label}</span>
-      <div className="flex-1 h-2 rounded-full" style={{ background: '#f2f2f7' }}>
+      <div className="flex-1 h-2 rounded-full" style={{ background: '#f0f2f8' }}>
         <div className="h-2 rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
       </div>
       <span className="text-[11px] text-[#8e8e93] w-16 text-right flex-shrink-0">{sublabel}</span>

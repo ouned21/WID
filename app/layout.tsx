@@ -15,13 +15,25 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "The Load — Mesurez, équilibrez, allégez",
-  description: "Application de suivi et rééquilibrage des tâches domestiques",
+  description: "Application de suivi et rééquilibrage des tâches domestiques. Mesurez la charge mentale, visualisez la répartition, proposez des échanges.",
   manifest: "/manifest.json",
   themeColor: "#007aff",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "The Load",
+  },
+  openGraph: {
+    title: "The Load — Mesurez, équilibrez, allégez",
+    description: "La première app qui mesure vraiment la charge mentale de votre foyer.",
+    type: "website",
+    url: "https://wid-eight.vercel.app",
+    siteName: "The Load",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "The Load",
+    description: "Mesurez, équilibrez, allégez la charge de votre foyer.",
   },
 };
 

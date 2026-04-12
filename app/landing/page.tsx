@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function LandingPage() {
   return (
-    <div style={{ background: '#f2f2f7' }}>
+    <div style={{ background: '#f0f2f8' }}>
       {/* Hero */}
       <section className="min-h-screen flex flex-col items-center justify-center px-6 text-center" style={{ background: 'linear-gradient(135deg, #007aff 0%, #5856d6 50%, #af52de 100%)' }}>
         <div className="max-w-lg">

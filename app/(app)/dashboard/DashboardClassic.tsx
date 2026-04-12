@@ -185,7 +185,7 @@ export default function DashboardClassic() {
                   </span>
                   <span className="text-[#8e8e93]">{m.load} pts · {timeStr}</span>
                 </div>
-                <div className="h-2 rounded-full" style={{ background: '#f2f2f7' }}>
+                <div className="h-2 rounded-full" style={{ background: '#f0f2f8' }}>
                   <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
                 </div>
               </div>

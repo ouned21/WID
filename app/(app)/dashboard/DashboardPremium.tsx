@@ -1,6 +1,6 @@
 'use client';
 
-import { taskLoad } from '@/utils/designSystem';
+import { taskLoad, loadTo10, scoreColor10 } from '@/utils/designSystem';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -85,7 +85,7 @@ export default function DashboardPremium() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-300">Command Center</p>
-              <h1 className="mt-2 text-[42px] font-semibold tracking-tight">{d.myLoad}</h1>
+              <h1 className="mt-2 text-[42px] font-semibold tracking-tight">{loadTo10(d.myLoad)}<span className="text-[18px] text-slate-400">/10</span></h1>
               {weekTrend !== null && weekTrend !== 0 && (
                 <div className="mt-3 inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ring-1" style={{
                   background: weekTrend > 0 ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',

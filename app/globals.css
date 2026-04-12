@@ -10,7 +10,7 @@
   --accent: #007aff;
   --accent-gradient: linear-gradient(135deg, #007aff, #5856d6);
   --ios-separator: rgba(60, 60, 67, 0.12);
-  --input-bg: #f2f2f7;
+  --input-bg: #f0f2f8;
   --nav-bg: rgba(255,255,255,0.8);
   --header-bg: rgba(255,255,255,0.8);
 }

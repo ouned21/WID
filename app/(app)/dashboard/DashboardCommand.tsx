@@ -7,7 +7,7 @@ import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { useAnalyticsStore } from '@/stores/analyticsStore';
 import { createClient } from '@/lib/supabase';
-import { loadColor, loadMessage, taskLoad } from '@/utils/designSystem';
+import { loadColor, loadMessage, taskLoad, loadTo10, scoreColor10 } from '@/utils/designSystem';
 
 export default function DashboardCommand() {
   const { profile } = useAuthStore();
@@ -132,8 +132,8 @@ export default function DashboardCommand() {
             <div>
               <p className="text-[11px] text-white/60 uppercase font-bold tracking-[0.2em]">My Load</p>
               <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-[64px] font-black text-white leading-none" style={{ textShadow: '0 2px 12px rgba(0,0,0,0.2)' }}>{d.myLoad}</span>
-                <span className="text-[16px] text-white/40 font-medium">pts</span>
+                <span className="text-[64px] font-black text-white leading-none" style={{ textShadow: '0 2px 12px rgba(0,0,0,0.2)' }}>{loadTo10(d.myLoad)}</span>
+                <span className="text-[16px] text-white/40 font-medium">/10</span>
               </div>
             </div>
             {weekTrend !== null && weekTrend !== 0 && (
@@ -218,7 +218,7 @@ export default function DashboardCommand() {
                   </span>
                   <span className="text-[#8e8e93]">{m.load} pts · {fmtTime(m.time)}</span>
                 </div>
-                <div className="h-2.5 rounded-full" style={{ background: '#f2f2f7' }}>
+                <div className="h-2.5 rounded-full" style={{ background: '#f0f2f8' }}>
                   <div className="h-2.5 rounded-full transition-all duration-1000" style={{ width: `${pct}%`, background: c }} />
                 </div>
               </div>
@@ -233,8 +233,8 @@ export default function DashboardCommand() {
           <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-2 px-1">Priorités</p>
           <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
             {d.top3.map((t, i) => {
-              const sc = taskLoad(t);
-              const c = loadColor(sc);
+              const sc = loadTo10(taskLoad(t));
+              const c = scoreColor10(sc);
               const sb = t.score_breakdown as Record<string, number> | null;
               const tags: string[] = [];
               if (sc >= 25) tags.push('🔥');
@@ -245,7 +245,7 @@ export default function DashboardCommand() {
                   className="flex items-center gap-3 px-4 py-3.5 transition-colors active:bg-[#f8f8f8]"
                   style={i < d.top3.length - 1 ? { borderBottom: '0.5px solid rgba(60,60,67,0.12)' } : {}}>
                   <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: `${c}18` }}>
-                    <span className="text-[18px] font-black" style={{ color: c }}>{sc}</span>
+                    <span className="text-[18px] font-black" style={{ color: c }}>{sc}<span className="text-[10px] text-[#8e8e93]">/10</span></span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[14px] font-semibold text-[#1c1c1e] truncate">{t.name}</p>

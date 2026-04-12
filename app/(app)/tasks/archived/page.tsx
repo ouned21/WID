@@ -85,7 +85,7 @@ export default function ArchivedTasksPage() {
                 onClick={() => handleRestore(task.id)}
                 disabled={restoringId === task.id}
                 className="rounded-lg px-3 py-1.5 text-[13px] font-medium disabled:opacity-50"
-                style={{ color: '#007aff', background: '#f2f2f7' }}>
+                style={{ color: '#007aff', background: '#f0f2f8' }}>
                 Restaurer
               </button>
             </div>

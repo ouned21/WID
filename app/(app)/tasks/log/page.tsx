@@ -165,7 +165,7 @@ export default function QuickLogPage() {
               {/* Suggestions de tâches existantes */}
               {suggestions.length > 0 && !matchedTask && (
                 <div className="mt-2 rounded-lg overflow-hidden border" style={{ borderColor: 'var(--ios-separator)' }}>
-                  <p className="px-3 py-1.5 text-[11px] font-semibold text-[#8e8e93] uppercase" style={{ background: '#f2f2f7' }}>
+                  <p className="px-3 py-1.5 text-[11px] font-semibold text-[#8e8e93] uppercase" style={{ background: '#f0f2f8' }}>
                     Tâches existantes
                   </p>
                   {suggestions.map((t, i) => (
@@ -193,7 +193,7 @@ export default function QuickLogPage() {
                     className="rounded-full px-2.5 py-1 text-[12px] font-medium transition-all"
                     style={scoringCategory === opt.value
                       ? { background: '#007aff', color: 'white' }
-                      : { background: '#f2f2f7', color: '#3c3c43' }
+                      : { background: '#f0f2f8', color: '#3c3c43' }
                     }>
                     {opt.emoji} {opt.label}
                   </button>
@@ -207,7 +207,7 @@ export default function QuickLogPage() {
                 {DURATION_OPTIONS.map((opt) => (
                   <button key={opt.value} type="button" onClick={() => setDuration(opt.value)}
                     className="flex-1 rounded-lg py-2 text-[12px] font-medium text-center transition-all"
-                    style={duration === opt.value ? { background: '#007aff', color: 'white' } : { background: '#f2f2f7', color: '#3c3c43' }}>
+                    style={duration === opt.value ? { background: '#007aff', color: 'white' } : { background: '#f0f2f8', color: '#3c3c43' }}>
                     {opt.label}
                   </button>
                 ))}
@@ -220,7 +220,7 @@ export default function QuickLogPage() {
                 {PHYSICAL_OPTIONS.map((opt) => (
                   <button key={opt.value} type="button" onClick={() => setPhysical(opt.value)}
                     className="flex-1 rounded-lg py-2 text-[12px] font-medium text-center transition-all"
-                    style={physical === opt.value ? { background: '#007aff', color: 'white' } : { background: '#f2f2f7', color: '#3c3c43' }}>
+                    style={physical === opt.value ? { background: '#007aff', color: 'white' } : { background: '#f0f2f8', color: '#3c3c43' }}>
                     {opt.label}
                   </button>
                 ))}
@@ -241,7 +241,7 @@ export default function QuickLogPage() {
 
       {/* Score (seulement si nouvelle tâche) */}
       {name.trim() && !matchedTask && (
-        <div className="mx-4 mt-4 rounded-xl p-3 flex items-center justify-between" style={{ background: '#f2f2f7' }}>
+        <div className="mx-4 mt-4 rounded-xl p-3 flex items-center justify-between" style={{ background: '#f0f2f8' }}>
           <span className="text-[14px] text-[#1c1c1e]">Score : <strong>{score.global_label}</strong></span>
           <span className="text-[17px] font-bold" style={{
             color: score.global_score <= 8 ? '#34c759' : score.global_score <= 16 ? '#007aff' : score.global_score <= 24 ? '#ff9500' : '#ff3b30'

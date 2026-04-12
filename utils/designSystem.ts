@@ -29,7 +29,7 @@ export const colors = {
   separator: 'rgba(60, 60, 67, 0.12)',
 
   // Inputs
-  inputBg: '#f2f2f7',
+  inputBg: '#f0f2f8',
 } as const;
 
 // Gradients
@@ -50,6 +50,19 @@ export function taskLoad(task: { global_score?: number | null; mental_load_score
   // (un score de 5/5 = charge max ≈ 36, score de 3/5 ≈ 22)
   const normalized = Math.min(5, task.mental_load_score); // plafonner à 5
   return Math.round((normalized / 5) * 36);
+}
+
+/** Convertir un score Load /36 en base 10 */
+export function loadTo10(score36: number): number {
+  return Math.min(10, Math.round((score36 / 36) * 10));
+}
+
+/** Couleur cohérente base 10 : 0-3 vert, 4-5 orange, 6-7 orange foncé, 8-10 rouge */
+export function scoreColor10(score10: number): string {
+  if (score10 <= 3) return '#34c759';
+  if (score10 <= 5) return '#ff9500';
+  if (score10 <= 7) return '#ff6b00';
+  return '#ff3b30';
 }
 
 // Couleur du score Load selon la valeur

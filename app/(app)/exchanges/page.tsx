@@ -78,7 +78,7 @@ export default function ExchangesPage() {
           <div>
             <label className="text-[13px] text-[#8e8e93] block mb-1">Échanger avec</label>
             <select value={toUserId} onChange={(e) => { setToUserId(e.target.value); setRequestedTaskId(''); }}
-              className="w-full rounded-lg bg-[#f2f2f7] px-3 py-2.5 text-[15px] text-[#1c1c1e] outline-none">
+              className="w-full rounded-lg bg-[#f0f2f8] px-3 py-2.5 text-[15px] text-[#1c1c1e] outline-none">
               <option value="">Choisir un membre</option>
               {otherMembers.map((m) => <option key={m.id} value={m.id}>{m.display_name}</option>)}
             </select>
@@ -93,7 +93,7 @@ export default function ExchangesPage() {
               </div>
             ) : (
               <select value={offeredTaskId} onChange={(e) => setOfferedTaskId(e.target.value)}
-                className="w-full rounded-lg bg-[#f2f2f7] px-3 py-2.5 text-[15px] text-[#1c1c1e] outline-none">
+                className="w-full rounded-lg bg-[#f0f2f8] px-3 py-2.5 text-[15px] text-[#1c1c1e] outline-none">
                 <option value="">Choisir une de mes tâches</option>
                 {myTasks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
@@ -103,7 +103,7 @@ export default function ExchangesPage() {
           <div>
             <label className="text-[13px] text-[#8e8e93] block mb-1">Je veux</label>
             <select value={requestedTaskId} onChange={(e) => setRequestedTaskId(e.target.value)}
-              className="w-full rounded-lg bg-[#f2f2f7] px-3 py-2.5 text-[15px] text-[#1c1c1e] outline-none"
+              className="w-full rounded-lg bg-[#f0f2f8] px-3 py-2.5 text-[15px] text-[#1c1c1e] outline-none"
               disabled={!toUserId}>
               <option value="">Choisir une tâche de l&apos;autre</option>
               {otherTasks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -117,7 +117,7 @@ export default function ExchangesPage() {
               {submitting ? 'Envoi...' : 'Envoyer la proposition'}
             </button>
             <button onClick={() => setShowForm(false)}
-              className="rounded-xl px-4 py-[10px] text-[15px] text-[#8e8e93] bg-[#f2f2f7]">
+              className="rounded-xl px-4 py-[10px] text-[15px] text-[#8e8e93] bg-[#f0f2f8]">
               Annuler
             </button>
           </div>
