@@ -59,14 +59,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (!isInitialized) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: '#f2f2f7' }}>
+      <div className="flex min-h-screen items-center justify-center" style={{ background: '#f6f8ff' }}>
         <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[#e5e5ea] border-t-[#007aff]" />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col" style={{ background: '#f2f2f7' }}>
+    <div className="flex min-h-screen flex-col" style={{ background: '#f6f8ff' }}>
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b" style={{ borderColor: 'rgba(60,60,67,0.12)' }}>
         <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
@@ -92,20 +92,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="mx-auto max-w-lg">{children}</div>
       </main>
 
-      {/* Tab bar iOS */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-t" style={{ borderColor: 'rgba(60,60,67,0.12)' }}>
-        <div className="mx-auto max-w-lg flex">
+      {/* Floating tab bar */}
+      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-32px)] max-w-lg rounded-[22px] bg-white/92 backdrop-blur-xl" style={{
+        boxShadow: '0 8px 32px rgba(15,23,42,0.12), 0 2px 8px rgba(15,23,42,0.06)',
+      }}>
+        <div className="flex">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex flex-1 flex-col items-center gap-1 py-3 pb-5 text-[11px] font-medium transition-colors"
-                style={{ color: isActive ? '#007aff' : '#8e8e93' }}
+                className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-semibold transition-all"
+                style={{ color: isActive ? '#007aff' : '#b0b0b8' }}
               >
-                {item.icon}
+                <div style={{ transform: isActive ? 'scale(1.15)' : 'scale(1)', transition: 'transform 0.2s' }}>
+                  {item.icon}
+                </div>
                 <span>{item.label}</span>
+                {isActive && <span className="h-1 w-1 rounded-full" style={{ background: '#007aff' }} />}
               </Link>
             );
           })}

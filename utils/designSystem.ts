@@ -16,7 +16,7 @@ export const colors = {
   indigo: '#5856d6',
 
   // Fond
-  bg: '#f2f2f7',
+  bg: '#f6f8ff',
   card: '#ffffff',
 
   // Texte
