@@ -7,14 +7,15 @@ import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { useAnalyticsStore } from '@/stores/analyticsStore';
 import { createClient } from '@/lib/supabase';
+import { loadColor, loadMessage } from '@/utils/designSystem';
 
 export default function DashboardPage() {
   const { profile } = useAuthStore();
   const { tasks, fetchTasks } = useTaskStore();
   const { household, members } = useHouseholdStore();
   const { fetchAnalytics } = useAnalyticsStore();
-
   const [weekTrend, setWeekTrend] = useState<number | null>(null);
+  const [streak, setStreak] = useState(0);
 
   useEffect(() => {
     if (profile?.household_id) {
@@ -23,168 +24,202 @@ export default function DashboardPage() {
     }
   }, [profile?.household_id, fetchTasks, fetchAnalytics]);
 
-  // Charger la tendance semaine
+  // Tendance + streak
   useEffect(() => {
     if (!profile?.household_id || !profile?.id) return;
-    async function loadTrend() {
+    async function load() {
       const supabase = createClient();
       const now = new Date();
       const weekAgo = new Date(now.getTime() - 7 * 86400000);
       const twoWeeksAgo = new Date(now.getTime() - 14 * 86400000);
 
-      const [thisWeek, lastWeek] = await Promise.all([
+      const [tw, lw, recent] = await Promise.all([
         supabase.from('task_completions').select('id', { count: 'exact', head: true })
           .eq('household_id', profile!.household_id!).eq('completed_by', profile!.id)
           .gte('completed_at', weekAgo.toISOString()),
         supabase.from('task_completions').select('id', { count: 'exact', head: true })
           .eq('household_id', profile!.household_id!).eq('completed_by', profile!.id)
           .gte('completed_at', twoWeeksAgo.toISOString()).lt('completed_at', weekAgo.toISOString()),
+        supabase.from('task_completions').select('completed_at')
+          .eq('completed_by', profile!.id).order('completed_at', { ascending: false }).limit(200),
       ]);
 
-      const tw = thisWeek.count ?? 0;
-      const lw = lastWeek.count ?? 0;
-      setWeekTrend(tw - lw);
+      setWeekTrend((tw.count ?? 0) - (lw.count ?? 0));
+
+      if (recent.data) {
+        const days = new Set(recent.data.map((c) => c.completed_at.split('T')[0]));
+        let s = 0;
+        for (let i = 0; i < 365; i++) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          if (days.has(d.toISOString().split('T')[0])) s++;
+          else if (i > 0) break;
+        }
+        setStreak(s);
+      }
     }
-    loadTrend();
+    load();
   }, [profile?.household_id, profile?.id]);
 
-  const data = useMemo(() => {
-    const durationMap: Record<string, number> = { very_short: 3, short: 10, medium: 22, long: 45, very_long: 75 };
-    const myTasks = tasks.filter((t) => t.assigned_to === profile?.id);
-    const myLoad = myTasks.reduce((sum, t) => sum + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0);
-    const totalLoad = tasks.reduce((sum, t) => sum + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0);
-
-    const myPercent = totalLoad > 0 ? Math.round((myLoad / totalLoad) * 100) : 0;
-    const targetPercent = profile?.target_share_percent ?? 50;
-    const gap = myPercent - targetPercent;
-    const progressToTarget = Math.min(100, Math.max(0, 100 - Math.abs(gap) * 2));
+  const d = useMemo(() => {
+    const dMap: Record<string, number> = { very_short: 3, short: 10, medium: 22, long: 45, very_long: 75 };
+    const my = tasks.filter((t) => t.assigned_to === profile?.id);
+    const myLoad = my.reduce((s, t) => s + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0);
+    const total = tasks.reduce((s, t) => s + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0);
+    const myPct = total > 0 ? Math.round((myLoad / total) * 100) : 0;
+    const target = profile?.target_share_percent ?? 50;
+    const gap = myPct - target;
 
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const overdue = tasks.filter((t) => t.next_due_at && new Date(t.next_due_at) < todayStart).length;
-    const todayCount = tasks.filter((t) => {
-      if (!t.next_due_at) return false;
-      const d = new Date(t.next_due_at);
-      return d >= todayStart && d < new Date(todayStart.getTime() + 86400000);
-    }).length;
+    const today = tasks.filter((t) => { if (!t.next_due_at) return false; const x = new Date(t.next_due_at); return x >= todayStart && x < new Date(todayStart.getTime() + 86400000); }).length;
 
-    const heaviest = [...myTasks]
-      .sort((a, b) => (b.global_score ?? b.mental_load_score * 7) - (a.global_score ?? a.mental_load_score * 7))
-      .slice(0, 3);
+    const top3 = [...my].sort((a, b) => (b.global_score ?? b.mental_load_score * 7) - (a.global_score ?? a.mental_load_score * 7)).slice(0, 3);
 
-    const loadByMember = members.map((m) => {
-      const mTasks = tasks.filter((t) => t.assigned_to === m.id);
-      const load = mTasks.reduce((s, t) => s + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0);
-      const time = mTasks.reduce((s, t) => s + (durationMap[t.duration_estimate ?? 'medium'] ?? 15), 0);
-      return { id: m.id, name: m.display_name, load, time, isMe: m.id === profile?.id };
+    const byMember = members.map((m) => {
+      const mt = tasks.filter((t) => t.assigned_to === m.id);
+      return {
+        id: m.id, name: m.display_name, isMe: m.id === profile?.id,
+        load: mt.reduce((s, t) => s + Math.min(36, t.global_score ?? (t.mental_load_score * 7)), 0),
+        time: mt.reduce((s, t) => s + (dMap[t.duration_estimate ?? 'medium'] ?? 15), 0),
+        count: mt.length,
+      };
     }).sort((a, b) => b.load - a.load);
 
-    const maxLoad = Math.max(...loadByMember.map((m) => m.load), 1);
-    const myTimeMin = loadByMember.find((m) => m.isMe)?.time ?? 0;
+    const maxLoad = Math.max(...byMember.map((m) => m.load), 1);
+    const myTime = byMember.find((m) => m.isMe)?.time ?? 0;
+    const avg = my.length > 0 ? Math.round(myLoad / my.length) : 0;
 
-    const avgLoadPerTask = myTasks.length > 0 ? Math.round(myLoad / myTasks.length) : 0;
-    const loadColor = myLoad === 0 ? '#8e8e93' : avgLoadPerTask <= 10 ? '#34c759' : avgLoadPerTask <= 20 ? '#007aff' : avgLoadPerTask <= 28 ? '#ff9500' : '#ff3b30';
-    const loadMsg = myLoad === 0 ? 'Aucune charge' : avgLoadPerTask <= 10 ? 'Charge légère — ça roule' : avgLoadPerTask <= 20 ? 'Charge modérée — sous contrôle' : avgLoadPerTask <= 28 ? 'Charge élevée — attention' : 'Surcharge — rééquilibrage urgent';
-
-    return { myLoad, myPercent, targetPercent, gap, progressToTarget, overdue, todayCount, heaviest, loadByMember, maxLoad, myTimeMin, loadColor, loadMsg, myTasks };
+    return { myLoad, myPct, target, gap, overdue, today, top3, byMember, maxLoad, myTime, avg, myCount: my.length };
   }, [tasks, profile?.id, profile?.target_share_percent, members]);
 
-  const greeting = (() => {
-    const h = new Date().getHours();
-    return h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
-  })();
-
-  const trendText = weekTrend === null ? '' : weekTrend > 0 ? `+${weekTrend} cette semaine` : weekTrend < 0 ? `${weekTrend} cette semaine` : 'Stable cette semaine';
-  const trendColor = weekTrend === null ? '#8e8e93' : weekTrend > 2 ? '#34c759' : weekTrend < -2 ? '#ff9500' : '#8e8e93';
+  const greeting = (() => { const h = new Date().getHours(); return h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir'; })();
+  const color = loadColor(d.avg);
+  const msg = loadMessage(d.avg);
+  const trendArrow = weekTrend === null ? '' : weekTrend > 0 ? '↑' : weekTrend < 0 ? '↓' : '→';
+  const trendTxt = weekTrend === null ? '' : weekTrend > 0 ? `+${weekTrend} cette semaine` : weekTrend < 0 ? `${weekTrend} cette semaine` : 'Stable';
+  const fmtTime = (m: number) => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 > 0 ? String(m % 60).padStart(2, '0') : ''}` : `${m}min`;
 
   return (
     <div className="pt-4 space-y-4 pb-8">
-      {/* Greeting */}
-      <div className="px-4">
-        <p className="text-[14px] text-[#8e8e93]">{greeting}</p>
-        <h2 className="text-[26px] font-bold text-[#1c1c1e]">{profile?.display_name}</h2>
+      {/* Greeting compact */}
+      <div className="px-4 flex items-end justify-between">
+        <div>
+          <p className="text-[13px] text-[#8e8e93]">{greeting}</p>
+          <h2 className="text-[24px] font-bold text-[#1c1c1e]">{profile?.display_name}</h2>
+        </div>
+        {streak > 0 && (
+          <div className="flex items-center gap-1 rounded-full px-3 py-1" style={{ background: '#fff8e1' }}>
+            <span className="text-[14px]">🔥</span>
+            <span className="text-[13px] font-bold text-[#ff9500]">{streak}j</span>
+          </div>
+        )}
       </div>
 
-      {/* HERO — Mon Load */}
-      <div className="mx-4 rounded-3xl p-6 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${data.loadColor}ee, ${data.loadColor}88)` }}>
-        {/* Cercle decoratif */}
-        <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }} />
-        <div className="absolute -right-4 -bottom-12 w-24 h-24 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
+      {/* ═══════ HERO CARD ═══════ */}
+      <div className="mx-4 rounded-3xl p-6 relative overflow-hidden" style={{
+        background: `linear-gradient(145deg, ${color}ee 0%, ${color}99 50%, ${color}66 100%)`,
+        boxShadow: `0 8px 32px ${color}40`,
+      }}>
+        {/* Cercles decoratifs */}
+        <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
+        <div className="absolute right-8 -bottom-16 w-32 h-32 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
+        <div className="absolute -left-6 bottom-4 w-20 h-20 rounded-full" style={{ background: 'rgba(255,255,255,0.04)' }} />
 
         <div className="relative z-10">
+          {/* Score */}
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-[12px] text-white/70 uppercase font-bold tracking-wider">Mon Load</p>
-              <p className="text-[52px] font-black text-white leading-none mt-1">{data.myLoad}</p>
+              <p className="text-[11px] text-white/60 uppercase font-bold tracking-[0.2em]">My Load</p>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-[64px] font-black text-white leading-none" style={{ textShadow: '0 2px 12px rgba(0,0,0,0.2)' }}>{d.myLoad}</span>
+                <span className="text-[16px] text-white/40 font-medium">pts</span>
+              </div>
             </div>
-            {weekTrend !== null && (
-              <div className="text-right">
-                <span className="text-[13px] font-semibold" style={{ color: trendColor === '#8e8e93' ? 'rgba(255,255,255,0.7)' : 'white' }}>
-                  {weekTrend > 0 ? '↑' : weekTrend < 0 ? '↓' : '→'}
-                </span>
-                <p className="text-[11px] text-white/60 mt-0.5">{trendText}</p>
+            {weekTrend !== null && weekTrend !== 0 && (
+              <div className="rounded-xl px-3 py-1.5 mt-2" style={{ background: 'rgba(255,255,255,0.15)' }}>
+                <p className="text-[14px] font-bold text-white">{trendArrow}</p>
+                <p className="text-[9px] text-white/70">{trendTxt}</p>
               </div>
             )}
           </div>
 
-          <p className="text-[14px] text-white/90 font-medium mt-2">{data.loadMsg}</p>
+          {/* Message */}
+          <p className="text-[15px] text-white/90 font-semibold mt-3">{msg}</p>
 
-          <div className="flex gap-4 mt-3 text-[11px] text-white/60">
-            <span>{data.myTasks.length} tâche{data.myTasks.length > 1 ? 's' : ''}</span>
-            <span>~{data.myTimeMin >= 60 ? `${Math.floor(data.myTimeMin / 60)}h${data.myTimeMin % 60 > 0 ? String(data.myTimeMin % 60).padStart(2, '0') : ''}` : `${data.myTimeMin}min`}</span>
+          {/* Stats row */}
+          <div className="flex gap-6 mt-3">
+            <div>
+              <p className="text-[20px] font-bold text-white">{d.myCount}</p>
+              <p className="text-[10px] text-white/50">tâches</p>
+            </div>
+            <div>
+              <p className="text-[20px] font-bold text-white">~{fmtTime(d.myTime)}</p>
+              <p className="text-[10px] text-white/50">estimées</p>
+            </div>
+            <div>
+              <p className="text-[20px] font-bold text-white">{d.myPct}%</p>
+              <p className="text-[10px] text-white/50">du foyer</p>
+            </div>
           </div>
 
           {/* Barre objectif */}
           <div className="mt-4">
-            <div className="flex justify-between text-[10px] text-white/50 mb-1">
-              <span>Objectif {data.targetPercent}%</span>
-              <span>Réalité {data.myPercent}%</span>
-            </div>
             <div className="h-1.5 rounded-full bg-white/20">
-              <div className="h-1.5 rounded-full bg-white transition-all duration-700" style={{ width: `${data.progressToTarget}%` }} />
+              <div className="h-1.5 rounded-full bg-white transition-all duration-1000" style={{
+                width: `${Math.min(100, Math.max(5, 100 - Math.abs(d.gap) * 2))}%`
+              }} />
             </div>
-            <p className="text-[10px] text-white/50 mt-1">
-              {Math.abs(data.gap) <= 5 ? '✓ Dans l\'objectif' : data.gap > 0 ? `${data.gap}% au-dessus` : `${Math.abs(data.gap)}% en dessous`}
-            </p>
+            <div className="flex justify-between mt-1 text-[9px] text-white/40">
+              <span>Objectif {d.target}%</span>
+              <span>{Math.abs(d.gap) <= 5 ? '✓ Dans l\'objectif' : d.gap > 0 ? `+${d.gap}% au-dessus` : `${d.gap}%`}</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Alertes */}
-      {(data.overdue > 0 || data.todayCount > 0) && (
+      {/* ═══════ ALERTES ═══════ */}
+      {(d.overdue > 0 || d.today > 0) && (
         <div className="px-4 flex gap-2">
-          {data.overdue > 0 && (
-            <Link href="/tasks" className="flex-1 rounded-2xl px-4 py-3 flex items-center gap-3" style={{ background: '#ff3b30', color: 'white' }}>
-              <span className="text-[24px] font-black">{data.overdue}</span>
-              <span className="text-[13px] font-medium opacity-90">en retard</span>
+          {d.overdue > 0 && (
+            <Link href="/tasks" className="flex-1 rounded-2xl px-4 py-3.5 flex items-center gap-3 transition-transform active:scale-[0.97]" style={{
+              background: 'linear-gradient(135deg, #ff3b30, #ff6b6b)',
+              boxShadow: '0 4px 12px rgba(255,59,48,0.3)',
+            }}>
+              <span className="text-[26px] font-black text-white">{d.overdue}</span>
+              <div>
+                <p className="text-[13px] font-semibold text-white">en retard</p>
+                <p className="text-[10px] text-white/60">à traiter</p>
+              </div>
             </Link>
           )}
-          <Link href="/tasks" className="flex-1 rounded-2xl bg-white px-4 py-3 flex items-center gap-3" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            <span className="text-[24px] font-black" style={{ color: '#007aff' }}>{data.todayCount}</span>
-            <span className="text-[13px] font-medium text-[#8e8e93]">aujourd&apos;hui</span>
+          <Link href="/tasks" className="flex-1 rounded-2xl bg-white px-4 py-3.5 flex items-center gap-3 transition-transform active:scale-[0.97]" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <span className="text-[26px] font-black" style={{ color: '#007aff' }}>{d.today}</span>
+            <div>
+              <p className="text-[13px] font-semibold text-[#1c1c1e]">aujourd&apos;hui</p>
+              <p className="text-[10px] text-[#8e8e93]">prévues</p>
+            </div>
           </Link>
         </div>
       )}
 
-      {/* Équilibre foyer */}
-      {data.loadByMember.length > 1 && (
-        <div className="mx-4 rounded-2xl bg-white p-4" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-          <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider mb-3">Équilibre du foyer</p>
-          {data.loadByMember.map((m, i) => {
-            const colors = ['#007aff', '#af52de', '#ff9500', '#34c759'];
-            const color = colors[i % colors.length];
-            const pct = Math.round((m.load / data.maxLoad) * 100);
-            const timeStr = m.time >= 60 ? `${Math.floor(m.time / 60)}h${m.time % 60 > 0 ? String(m.time % 60).padStart(2, '0') : ''}` : `${m.time}min`;
+      {/* ═══════ ÉQUILIBRE FOYER ═══════ */}
+      {d.byMember.length > 1 && (
+        <div className="mx-4 rounded-2xl bg-white p-4" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
+          <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-3">Équilibre du foyer</p>
+          {d.byMember.map((m, i) => {
+            const c = ['#007aff', '#af52de', '#ff9500', '#34c759'][i % 4];
+            const pct = Math.round((m.load / d.maxLoad) * 100);
             return (
               <div key={m.id} className="mb-3 last:mb-0">
                 <div className="flex justify-between text-[12px] mb-1">
-                  <span className={`font-semibold ${m.isMe ? '' : 'text-[#1c1c1e]'}`} style={m.isMe ? { color } : {}}>
-                    {m.name} {m.isMe && '(moi)'}
+                  <span className="font-semibold" style={{ color: m.isMe ? c : '#1c1c1e' }}>
+                    {m.name} {m.isMe && <span className="text-[10px] text-[#8e8e93]">(moi)</span>}
                   </span>
-                  <span className="text-[#8e8e93]">{m.load} pts · {timeStr}</span>
+                  <span className="text-[#8e8e93]">{m.load} pts · {fmtTime(m.time)}</span>
                 </div>
-                <div className="h-2 rounded-full" style={{ background: '#f2f2f7' }}>
-                  <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
+                <div className="h-2.5 rounded-full" style={{ background: '#f2f2f7' }}>
+                  <div className="h-2.5 rounded-full transition-all duration-1000" style={{ width: `${pct}%`, background: c }} />
                 </div>
               </div>
             );
@@ -192,24 +227,26 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Top 3 priorités */}
-      {data.heaviest.length > 0 && (
+      {/* ═══════ PRIORITÉS ═══════ */}
+      {d.top3.length > 0 && (
         <div className="mx-4">
-          <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider mb-2 px-1">Priorités</p>
-          <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-            {data.heaviest.map((t, i) => {
-              const score = Math.min(36, t.global_score ?? (t.mental_load_score * 7));
-              const sc = score <= 8 ? '#34c759' : score <= 16 ? '#007aff' : score <= 24 ? '#ff9500' : '#ff3b30';
-              const tags: string[] = [];
-              if (score >= 25) tags.push('🔥');
+          <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-2 px-1">Priorités</p>
+          <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
+            {d.top3.map((t, i) => {
+              const sc = Math.min(36, t.global_score ?? (t.mental_load_score * 7));
+              const c = loadColor(sc);
               const sb = t.score_breakdown as Record<string, number> | null;
+              const tags: string[] = [];
+              if (sc >= 25) tags.push('🔥');
               if (sb && sb.mental_load_score >= 12) tags.push('🧠');
               if (sb && sb.physical_score >= 4) tags.push('💪');
               return (
                 <Link key={t.id} href={`/tasks/${t.id}`}
-                  className="flex items-center gap-3 px-4 py-3"
-                  style={i < data.heaviest.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
-                  <span className="text-[22px] font-black w-8 text-center" style={{ color: sc }}>{score}</span>
+                  className="flex items-center gap-3 px-4 py-3.5 transition-colors active:bg-[#f8f8f8]"
+                  style={i < d.top3.length - 1 ? { borderBottom: '0.5px solid rgba(60,60,67,0.12)' } : {}}>
+                  <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: `${c}18` }}>
+                    <span className="text-[18px] font-black" style={{ color: c }}>{sc}</span>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[14px] font-semibold text-[#1c1c1e] truncate">{t.name}</p>
                     <p className="text-[11px] text-[#8e8e93]">{t.category?.name} {tags.join(' ')}</p>
@@ -222,26 +259,31 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Teaser gamification */}
-      <Link href="/boost" className="mx-4 rounded-2xl p-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #ff9500, #ff3b30)', boxShadow: '0 2px 8px rgba(255,59,48,0.2)' }}>
+      {/* ═══════ TEASER BOOST ═══════ */}
+      <Link href="/boost" className="mx-4 rounded-2xl p-4 flex items-center justify-between transition-transform active:scale-[0.98]" style={{
+        background: 'linear-gradient(135deg, #ff9500, #ff3b30)',
+        boxShadow: '0 4px 16px rgba(255,149,0,0.3)',
+      }}>
         <div>
-          <p className="text-[14px] font-bold text-white">Progression</p>
-          <p className="text-[11px] text-white/70">Niveaux, badges, challenges →</p>
+          <p className="text-[15px] font-bold text-white">Progression</p>
+          <p className="text-[12px] text-white/70">
+            {streak > 0 ? `🔥 Série ${streak} jours · ` : ''}Niveaux, badges, challenges →
+          </p>
         </div>
-        <span className="text-[24px]">🔥</span>
+        <span className="text-[28px]">⚡</span>
       </Link>
 
-      {/* Quick actions */}
-      <div className="px-4 grid grid-cols-2 gap-2">
+      {/* ═══════ ACTIONS ═══════ */}
+      <div className="px-4 flex gap-2">
         <Link href="/tasks/new"
-          className="rounded-2xl p-3.5 text-center text-[14px] font-bold text-white"
-          style={{ background: '#007aff' }}>
-          + Nouvelle tâche
+          className="flex-1 rounded-2xl p-3.5 text-center text-[14px] font-bold text-white transition-transform active:scale-[0.97]"
+          style={{ background: '#007aff', boxShadow: '0 4px 12px rgba(0,122,255,0.3)' }}>
+          + Ajouter
         </Link>
         <Link href="/tasks/log"
-          className="rounded-2xl p-3.5 text-center text-[14px] font-bold"
-          style={{ color: '#007aff', background: 'white', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-          J&apos;ai fait une tâche
+          className="flex-1 rounded-2xl p-3.5 text-center text-[14px] font-bold transition-transform active:scale-[0.97]"
+          style={{ color: '#007aff', background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+          J&apos;ai fait ✓
         </Link>
       </div>
     </div>
