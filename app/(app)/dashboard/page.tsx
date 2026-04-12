@@ -255,7 +255,7 @@ export default function DashboardPage() {
                   style={i < arr.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{
-                      background: task.next_due_at && new Date(task.next_due_at) < new Date(new Date().setHours(0,0,0,0)) ? '#ff3b30' : '#007aff'
+                      background: (() => { const t = new Date(); t.setHours(0,0,0,0); return task.next_due_at && new Date(task.next_due_at) < t; })() ? '#ff3b30' : '#007aff'
                     }} />
                     <span className="text-[15px] text-[#1c1c1e] truncate">{task.name}</span>
                   </div>

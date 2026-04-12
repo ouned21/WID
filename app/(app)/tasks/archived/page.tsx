@@ -34,10 +34,15 @@ export default function ArchivedTasksPage() {
     load();
   }, [profile?.household_id]);
 
+  const [restoringId, setRestoringId] = useState<string | null>(null);
   const handleRestore = async (taskId: string) => {
+    setRestoringId(taskId);
     const supabase = createClient();
-    await supabase.from('household_tasks').update({ is_active: true }).eq('id', taskId);
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    const { error } = await supabase.from('household_tasks').update({ is_active: true }).eq('id', taskId);
+    if (!error) {
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    }
+    setRestoringId(null);
   };
 
   return (
@@ -78,7 +83,8 @@ export default function ArchivedTasksPage() {
               </div>
               <button
                 onClick={() => handleRestore(task.id)}
-                className="rounded-lg px-3 py-1.5 text-[13px] font-medium"
+                disabled={restoringId === task.id}
+                className="rounded-lg px-3 py-1.5 text-[13px] font-medium disabled:opacity-50"
                 style={{ color: '#007aff', background: '#f2f2f7' }}>
                 Restaurer
               </button>

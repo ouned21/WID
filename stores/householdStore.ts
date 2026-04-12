@@ -166,6 +166,8 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
     const supabase = createClient();
     const householdId = get().household?.id;
     if (!householdId) return { ok: false, error: 'Aucun foyer.' };
+    const profile = useAuthStore.getState().profile;
+    if (profile?.role !== 'admin') return { ok: false, error: 'Seul l\'administrateur peut renommer le foyer.' };
 
     const { error } = await supabase
       .from('households')

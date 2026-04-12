@@ -53,7 +53,8 @@ export default function ExchangesPage() {
   };
 
   const handleRespond = async (exchangeId: string, action: 'accepted' | 'rejected') => {
-    await respondToExchange(exchangeId, action);
+    const result = await respondToExchange(exchangeId, action);
+    if (!result.ok) setError(result.error ?? 'Erreur lors de la réponse.');
   };
 
   return (

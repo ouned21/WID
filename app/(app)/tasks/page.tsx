@@ -7,7 +7,6 @@ import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { filterTasks, splitTasksIntoSections } from '@/utils/taskSelectors';
 import { frequencyLabel } from '@/utils/frequency';
-import { timeLabel, physicalLabel, mentalLabel, impactLabel } from '@/utils/taskScoring';
 import type { TaskListItem } from '@/types/database';
 
 // -- Chip ----------------------------------------------------------------------
