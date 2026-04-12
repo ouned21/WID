@@ -62,8 +62,13 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
   const handleClick = useCallback(async () => {
     if (phase !== 'idle' || isCompleted) return;
     setPhase('success');
-    onComplete(task.id);
-    setTimeout(() => setPhase('exit'), 10000);
+    // Attendre 2s pour que l'utilisateur voie le feedback, PUIS completer
+    setTimeout(async () => {
+      setPhase('exit');
+      setTimeout(() => {
+        onComplete(task.id);
+      }, 500);
+    }, 2000);
   }, [task.id, onComplete, phase, isCompleted]);
 
   const catColor = task.category?.color_hex ?? '#8e8e93';
@@ -239,10 +244,8 @@ export default function TasksPage() {
   const totalTasks = tasks.filter((t) => !completedIds.has(t.id)).length;
 
   const handleComplete = useCallback(async (taskId: string) => {
-    const completionPromise = completeTask(taskId);
-    const timerPromise = new Promise<void>((resolve) => setTimeout(resolve, 10000));
-    await Promise.all([completionPromise, timerPromise]);
     setCompletedIds((prev) => new Set(prev).add(taskId));
+    await completeTask(taskId);
   }, [completeTask]);
 
   const handleDelete = useCallback(async (taskId: string) => {
