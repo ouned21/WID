@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /tasks
+Disallow: /boost
+Disallow: /profile
+Disallow: /exchanges
+Disallow: /distribution
+
+Sitemap: https://wid-eight.vercel.app/sitemap.xml
