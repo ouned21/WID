@@ -71,7 +71,7 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
 
   return (
     <div
-      className={`rounded-2xl overflow-hidden flex flex-col transition-all h-[230px] ${
+      className={`rounded-2xl overflow-hidden flex flex-col transition-all ${
         phase === 'idle' ? 'bg-white' :
         phase === 'success' ? 'bg-[#34c759] scale-[0.94] duration-300' :
         'bg-[#34c759] opacity-0 scale-[0.8] duration-500'
@@ -105,9 +105,9 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
               const mentalVal = sb?.mental_load_score ?? Math.round(ratio * 18);
               const timeVal = sb?.time_score ?? Math.round(ratio * 8);
               return (
-                <div className="space-y-1.5 mb-3">
-                  <MiniGauge label="🧠 Mental" value={mentalVal} max={36} scale={18} />
-                  <MiniGauge label="⏱ Temps" value={timeVal} max={36} scale={8} />
+                <div className="space-y-1 mb-2">
+                  <MiniGauge label="Mental" value={mentalVal} max={36} scale={18} />
+                  <MiniGauge label="Temps" value={timeVal} max={36} scale={8} />
                 </div>
               );
             })()}
@@ -133,26 +133,24 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
           </Link>
 
           {/* Actions */}
-          <div className="px-3 pb-2.5 flex items-center justify-between">
+          <div className="px-3 pb-2 flex items-center justify-between">
             <span className="rounded-full px-2 py-0.5 text-[9px] font-semibold text-white" style={{ background: catColor }}>
               {task.category?.name}
             </span>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-1.5">
               <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
-                className="rounded-lg px-3 py-[5px] text-[11px] font-bold transition-all"
+                className="rounded-md px-2.5 py-[3px] text-[10px] font-bold tracking-wide transition-all"
                 style={{ background: '#34c759', color: 'white' }}>
-                Fait ✓
+                FAIT
               </button>
-            <button onClick={(e) => {
-              e.preventDefault(); e.stopPropagation();
-              if (confirm('Supprimer définitivement cette tâche ?')) {
-                onDelete(task.id);
-              }
-            }}
-              className="rounded-md px-2 py-[4px] text-[10px] font-bold border-[1.5px] transition-all"
-              style={{ borderColor: '#ff3b30', color: '#ff3b30', background: 'transparent' }}>
-              🗑
-            </button>
+              <button onClick={(e) => {
+                e.preventDefault(); e.stopPropagation();
+                if (confirm('Supprimer ?')) onDelete(task.id);
+              }}
+                className="rounded-md px-1.5 py-[3px] text-[10px] transition-all"
+                style={{ color: '#c7c7cc' }}>
+                ✕
+              </button>
             </div>
           </div>
         </>
