@@ -209,10 +209,10 @@ export default function ProfilePage() {
       {/* Style du dashboard */}
       <div className="mx-4">
         <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Apparence</p>
-        <div className="grid grid-cols-3 gap-2">
-          <DashboardStyleButton value="command" label="Command" desc="Coloré & impactant" emoji="🚀" />
-          <DashboardStyleButton value="premium" label="Premium" desc="Dark & élégant" emoji="💎" />
-          <DashboardStyleButton value="classic" label="Classique" desc="Simple & épuré" emoji="⬜" />
+        <div className="grid grid-cols-3 gap-1.5">
+          <DashboardStyleButton value="command" label="Vivid" desc="Coloré" emoji="🚀" />
+          <DashboardStyleButton value="premium" label="Dark" desc="Élégant" emoji="💎" />
+          <DashboardStyleButton value="classic" label="Clean" desc="Épuré" emoji="⬜" />
         </div>
       </div>
 
