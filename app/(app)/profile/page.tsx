@@ -6,6 +6,27 @@ import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { createClient } from '@/lib/supabase';
+import { useDashboardStyle, type DashboardStyle } from '@/app/(app)/dashboard/page';
+
+function DashboardStyleButton({ value, label, desc, emoji }: { value: DashboardStyle; label: string; desc: string; emoji: string }) {
+  const { style, setStyle } = useDashboardStyle();
+  const active = style === value;
+  return (
+    <button onClick={() => setStyle(value)}
+      className="rounded-xl p-3 text-left transition-all"
+      style={{
+        background: 'white',
+        border: active ? '2px solid #007aff' : '2px solid transparent',
+        boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)',
+      }}>
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-[18px]">{emoji}</span>
+        <span className="text-[13px] font-bold" style={{ color: active ? '#007aff' : '#1c1c1e' }}>{label}</span>
+      </div>
+      <p className="text-[11px] text-[#8e8e93]">{desc}</p>
+    </button>
+  );
+}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -154,6 +175,15 @@ export default function ProfilePage() {
           </div>
         </>
       )}
+
+      {/* Style du dashboard */}
+      <div className="mx-4">
+        <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Apparence</p>
+        <div className="grid grid-cols-2 gap-2">
+          <DashboardStyleButton value="command" label="Command Center" desc="Premium & impactant" emoji="🚀" />
+          <DashboardStyleButton value="classic" label="Classique" desc="Simple & épuré" emoji="⬜" />
+        </div>
+      </div>
 
       {/* Liens rapides */}
       <div className="mx-4">
