@@ -15,6 +15,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "The Load — Mesurez, équilibrez, allégez",
   description: "Application de suivi et rééquilibrage des tâches domestiques",
+  manifest: "/manifest.json",
+  themeColor: "#007aff",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "The Load",
+  },
 };
 
 export default function RootLayout({

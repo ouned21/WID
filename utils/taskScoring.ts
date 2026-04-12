@@ -169,8 +169,10 @@ export function computeTaskScore(input: TaskScoringInput): ScoreBreakdown {
   // 6. Calcul du score mental
   const mental_load_score = anticipation + consequence + interruption + decision + rigidity + responsibility;
 
-  // 7. Score global
-  const global_score = clamp(time_score + physical_score + mental_load_score + impact, 2, 36);
+  // 7. Score global — pondéré (mental pèse plus, physique pèse moins)
+  const weighted_score = (time_score * 1.0) + (physical_score * 0.8) + (mental_load_score * 1.5) + (impact * 1.0);
+  // Normaliser sur 36 (max théorique pondéré = 8 + 4 + 27 + 4 = 43)
+  const global_score = clamp(Math.round((weighted_score / 43) * 36), 2, 36);
 
   // 8. Label
   const global_label =

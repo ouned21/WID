@@ -18,6 +18,21 @@
   --ios-separator: rgba(60, 60, 67, 0.12);
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --foreground: #f2f2f7;
+    --card: #1c1c1e;
+    --ios-gray: #98989d;
+    --ios-gray2: #636366;
+    --ios-gray3: #48484a;
+    --ios-gray4: #3a3a3c;
+    --ios-gray5: #2c2c2e;
+    --ios-gray6: #1c1c1e;
+    --ios-separator: rgba(84, 84, 88, 0.65);
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -48,7 +63,7 @@ input[type="range"]::-webkit-slider-thumb {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: white;
+  background: var(--card);
   box-shadow: 0 0.5px 4px rgba(0,0,0,0.12), 0 0.5px 1px rgba(0,0,0,0.08);
   border: 0.5px solid rgba(0,0,0,0.04);
   cursor: pointer;
