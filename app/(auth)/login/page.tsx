@@ -9,16 +9,32 @@ export default function LoginPage() {
   const { signIn, loading, error, clearError, initialize, isInitialized } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [failCount, setFailCount] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isInitialized) initialize();
   }, [isInitialized, initialize]);
 
+  const isLocked = lockedUntil !== null && Date.now() < lockedUntil;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLocked) return;
     clearError();
     const result = await signIn(email, password);
-    if (result.ok) router.push('/dashboard');
+    if (result.ok) {
+      setFailCount(0);
+      router.push('/dashboard');
+    } else {
+      const newCount = failCount + 1;
+      setFailCount(newCount);
+      if (newCount >= 5) {
+        setLockedUntil(Date.now() + 30000); // Bloquer 30 secondes
+        setTimeout(() => setLockedUntil(null), 30000);
+      }
+    }
   };
 
   return (
@@ -32,7 +48,12 @@ export default function LoginPage() {
       </div>
 
       <form onSubmit={handleSubmit}>
-        {error && (
+        {isLocked && (
+          <div className="rounded-xl px-4 py-3 text-[14px] mb-4" style={{ background: '#fff8e1', color: '#ff9500' }}>
+            Trop de tentatives. Réessayez dans 30 secondes.
+          </div>
+        )}
+        {error && !isLocked && (
           <div className="rounded-xl px-4 py-3 text-[14px] mb-4" style={{ background: '#fff2f2', color: '#ff3b30' }}>
             {error}
           </div>
@@ -51,9 +72,14 @@ export default function LoginPage() {
             />
           </div>
           <div className="px-4 py-3">
-            <label className="text-[13px] text-[#8e8e93] block mb-1">Mot de passe</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[13px] text-[#8e8e93]">Mot de passe</label>
+              <button type="button" onClick={() => setShowPw(!showPw)} className="text-[12px] font-medium" style={{ color: '#007aff' }}>
+                {showPw ? 'Masquer' : 'Afficher'}
+              </button>
+            </div>
             <input
-              type="password"
+              type={showPw ? 'text' : 'password'}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -65,7 +91,7 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || isLocked}
           className="w-full mt-4 rounded-xl py-[14px] text-[17px] font-semibold text-white disabled:opacity-50"
           style={{ background: '#007aff' }}
         >

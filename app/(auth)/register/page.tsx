@@ -11,15 +11,19 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [success, setSuccess] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   useEffect(() => {
     if (!isInitialized) initialize();
   }, [isInitialized, initialize]);
 
+  const isPasswordStrong = password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
     if (displayName.trim().length < 2) return;
+    if (!isPasswordStrong) return;
     const result = await signUp(email, password, displayName.trim());
     if (result.ok) setSuccess(true);
   };
@@ -75,13 +79,46 @@ export default function RegisterPage() {
               className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]" placeholder="votre@email.com" />
           </div>
           <div className="px-4 py-3">
-            <label className="text-[13px] text-[#8e8e93] block mb-1">Mot de passe</label>
-            <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)}
-              className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]" placeholder="6 caractères minimum" />
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[13px] text-[#8e8e93]">Mot de passe</label>
+              <button type="button" onClick={() => setShowPw(!showPw)} className="text-[12px] font-medium" style={{ color: '#007aff' }}>
+                {showPw ? 'Masquer' : 'Afficher'}
+              </button>
+            </div>
+            <input type={showPw ? 'text' : 'password'} required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)}
+              className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]" placeholder="8 caractères minimum" />
+            {password.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <div className="flex gap-1">
+                  {[
+                    password.length >= 8,
+                    /[A-Z]/.test(password),
+                    /[0-9]/.test(password),
+                    /[^A-Za-z0-9]/.test(password),
+                  ].map((ok, i) => (
+                    <div key={i} className="flex-1 h-1 rounded-full" style={{ background: ok ? '#34c759' : '#e5e5ea' }} />
+                  ))}
+                </div>
+                <div className="text-[11px] text-[#8e8e93] space-y-0.5">
+                  <p style={{ color: password.length >= 8 ? '#34c759' : '#8e8e93' }}>
+                    {password.length >= 8 ? '✓' : '○'} 8 caractères minimum
+                  </p>
+                  <p style={{ color: /[A-Z]/.test(password) ? '#34c759' : '#8e8e93' }}>
+                    {/[A-Z]/.test(password) ? '✓' : '○'} Une majuscule
+                  </p>
+                  <p style={{ color: /[0-9]/.test(password) ? '#34c759' : '#8e8e93' }}>
+                    {/[0-9]/.test(password) ? '✓' : '○'} Un chiffre
+                  </p>
+                  <p style={{ color: /[^A-Za-z0-9]/.test(password) ? '#34c759' : '#8e8e93' }}>
+                    {/[^A-Za-z0-9]/.test(password) ? '✓' : '○'} Un caractère spécial
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        <button type="submit" disabled={loading}
+        <button type="submit" disabled={loading || !isPasswordStrong}
           className="w-full mt-4 rounded-xl py-[14px] text-[17px] font-semibold text-white disabled:opacity-50" style={{ background: '#007aff' }}>
           {loading ? 'Création...' : 'Créer mon compte'}
         </button>
