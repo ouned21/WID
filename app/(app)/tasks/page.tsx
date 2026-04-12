@@ -39,12 +39,12 @@ function GaugeBar({ label, value }: { label: string; value: number }) {
   const pct = (v / 10) * 100;
   const c = v <= 3 ? '#34c759' : v <= 5 ? '#ff9500' : v <= 7 ? '#ff6b00' : '#ff3b30';
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-[12px] flex-shrink-0 text-[#8e8e93] font-medium" style={{ width: '95px' }}>{label}</span>
-      <div className="flex-1 h-2.5 rounded-full" style={{ background: '#e8ecf2' }}>
-        <div className="h-2.5 rounded-full transition-all" style={{ width: `${pct}%`, background: c }} />
+    <div className="flex items-center gap-1.5">
+      <span className="text-[11px] flex-shrink-0 text-[#8e8e93] w-[50px]">{label}</span>
+      <div className="flex-1 h-2 rounded-full" style={{ background: '#e8ecf2' }}>
+        <div className="h-2 rounded-full" style={{ width: `${pct}%`, background: c }} />
       </div>
-      <span className="text-[11px] font-bold flex-shrink-0 w-[18px] text-right" style={{ color: c }}>{v}</span>
+      <span className="text-[11px] font-bold flex-shrink-0 w-[16px] text-right" style={{ color: c }}>{v}</span>
     </div>
   );
 }
@@ -122,7 +122,7 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
 
               return (
                 <div className="space-y-1.5 mb-3">
-                  <GaugeBar label="Charge mentale" value={mental10} />
+                  <GaugeBar label="Mental" value={mental10} />
                   <GaugeBar label="Temps" value={time10} />
                 </div>
               );
@@ -159,9 +159,11 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
               e.preventDefault(); e.stopPropagation();
               if (confirm('Supprimer cette tâche ?')) onDelete(task.id);
             }}
-              className="rounded-lg px-2.5 py-[5px] text-[14px] font-bold transition-all"
-              style={{ color: '#ff3b30', background: '#fff2f2' }}>
-              ✕
+              className="rounded-lg p-[5px] transition-all"
+              style={{ color: '#ff3b30' }}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+              </svg>
             </button>
           </div>
         </>
