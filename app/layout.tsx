@@ -20,10 +20,22 @@ export const metadata: Metadata = {
   },
   description: "Application de suivi et rééquilibrage des tâches domestiques. Mesurez la charge mentale, visualisez la répartition, proposez des échanges entre membres du foyer.",
   keywords: [
+    // Francais — termes principaux
     "charge mentale", "tâches domestiques", "répartition tâches", "foyer",
-    "couple", "famille", "ménage", "organisation", "to-do", "productivité",
-    "équilibre", "mental load", "household", "gamification",
-    "the load", "scoring tâches", "échange de tâches",
+    "couple", "famille", "ménage", "organisation maison", "gestion foyer",
+    "équilibre couple", "partage tâches", "qui fait quoi",
+    // Francais — problème/douleur
+    "charge mentale couple", "inégalité tâches ménagères", "burn out domestique",
+    "charge invisible", "répartition inégale", "conflit ménage couple",
+    // Francais — solution
+    "application tâches ménagères", "app charge mentale", "suivi tâches maison",
+    "to-do list foyer", "productivité domestique", "gamification ménage",
+    "scoring tâches", "échange de tâches", "rééquilibrage foyer",
+    // Anglais — SEO international
+    "mental load", "household tasks", "chore tracking", "family task manager",
+    "mental load app", "household management", "chore sharing",
+    // Marque
+    "the load", "the load app", "theload",
   ],
   authors: [{ name: "The Load" }],
   creator: "The Load",
