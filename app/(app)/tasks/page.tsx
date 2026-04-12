@@ -29,14 +29,17 @@ function Chip({ label, active, onClick, color }: {
 
 // -- Jauge mini ----------------------------------------------------------------
 
-function MiniGauge({ label, value, max }: { label: string; value: number; max: number }) {
-  const pct = Math.min(100, (value / max) * 100);
-  const c = pct <= 33 ? '#34c759' : pct <= 66 ? '#ff9500' : '#ff3b30';
+function MiniGauge({ label, value, max, scale }: { label: string; value: number; max: number; scale?: number }) {
+  // scale = le vrai max du critère (ex: 8 pour Durée), max = le max visuel (36)
+  const realMax = scale ?? max;
+  const pctOfReal = Math.min(100, (value / realMax) * 100); // pour la couleur
+  const pctOfVisual = Math.min(100, (value / max) * 100); // pour la largeur de la barre
+  const c = pctOfReal <= 33 ? '#34c759' : pctOfReal <= 66 ? '#ff9500' : '#ff3b30';
   return (
     <div className="flex items-center gap-1.5">
       <span className="text-[10px] w-[56px] flex-shrink-0 text-[#8e8e93]">{label}</span>
       <div className="flex-1 h-2 rounded-full" style={{ background: '#f2f2f7' }}>
-        <div className="h-2 rounded-full" style={{ width: `${pct}%`, background: c }} />
+        <div className="h-2 rounded-full" style={{ width: `${pctOfVisual}%`, background: c }} />
       </div>
     </div>
   );
@@ -110,10 +113,10 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
                 const ratio = gs / 36; // 0 à 1
                 return (
                   <>
-                    <MiniGauge label="Durée" value={sb?.time_score ?? Math.round(ratio * 8)} max={8} />
-                    <MiniGauge label="Physique" value={sb?.physical_score ?? Math.round(ratio * 5)} max={5} />
-                    <MiniGauge label="Mental" value={sb?.mental_load_score ?? Math.round(ratio * 18)} max={18} />
-                    <MiniGauge label="Impact" value={sb?.household_impact_score ?? Math.round(ratio * 4)} max={4} />
+                    <MiniGauge label="Durée" value={sb?.time_score ?? Math.round(ratio * 8)} max={36} scale={8} />
+                    <MiniGauge label="Physique" value={sb?.physical_score ?? Math.round(ratio * 5)} max={36} scale={5} />
+                    <MiniGauge label="Mental" value={sb?.mental_load_score ?? Math.round(ratio * 18)} max={36} scale={18} />
+                    <MiniGauge label="Impact" value={sb?.household_impact_score ?? Math.round(ratio * 4)} max={36} scale={4} />
                   </>
                 );
               })()}
