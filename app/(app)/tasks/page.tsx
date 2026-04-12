@@ -112,9 +112,14 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
               const gs = taskLoad(task);
               const ratio = gs / 36;
               const mentalRaw = sb?.mental_load_score ?? Math.round(ratio * 18);
-              const timeRaw = sb?.time_score ?? Math.round(ratio * 8);
               const mental10 = Math.round((mentalRaw / 18) * 10);
-              const time10 = Math.round((timeRaw / 8) * 10);
+
+              // Temps : convertir time_score en minutes puis en base 10 (10 = 60 min)
+              const timeScoreToMin: Record<number, number> = { 1: 3, 2: 10, 3: 15, 4: 22, 5: 30, 6: 45, 7: 60, 8: 75 };
+              const timeRaw = sb?.time_score ?? Math.round(ratio * 8);
+              const minutes = timeScoreToMin[timeRaw] ?? Math.round((timeRaw / 8) * 60);
+              const time10 = Math.min(10, Math.round((minutes / 60) * 10));
+
               return (
                 <div className="space-y-1.5 mb-3">
                   <GaugeBar label="Charge mentale" value={mental10} />
