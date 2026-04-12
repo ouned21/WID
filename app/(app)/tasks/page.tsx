@@ -240,7 +240,7 @@ export default function TasksPage() {
 
   const handleComplete = useCallback(async (taskId: string) => {
     const completionPromise = completeTask(taskId);
-    const timerPromise = new Promise<void>((resolve) => setTimeout(resolve, 1200));
+    const timerPromise = new Promise<void>((resolve) => setTimeout(resolve, 10000));
     await Promise.all([completionPromise, timerPromise]);
     setCompletedIds((prev) => new Set(prev).add(taskId));
   }, [completeTask]);
