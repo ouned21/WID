@@ -30,17 +30,21 @@ function Chip({ label, active, onClick, color }: {
 
 // -- Jauge mini ----------------------------------------------------------------
 
-function MiniGauge({ label, value, max, scale }: { label: string; value: number; max: number; scale?: number }) {
-  const realMax = scale ?? max;
-  const pctOfReal = Math.min(100, (value / realMax) * 100);
-  const pctOfVisual = Math.min(100, (value / max) * 100);
-  const c = pctOfReal <= 33 ? '#34c759' : pctOfReal <= 66 ? '#ff9500' : '#ff3b30';
+/**
+ * Jauge en base 10 avec couleurs cohérentes :
+ * 0-3 vert, 4-5 orange, 6-7 orange foncé, 8-10 rouge
+ */
+function GaugeBar({ label, value }: { label: string; value: number }) {
+  const v = Math.min(10, Math.max(0, value));
+  const pct = (v / 10) * 100;
+  const c = v <= 3 ? '#34c759' : v <= 5 ? '#ff9500' : v <= 7 ? '#ff6b00' : '#ff3b30';
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[13px] w-[52px] flex-shrink-0 text-[#8e8e93] font-medium">{label}</span>
+      <span className="text-[12px] flex-shrink-0 text-[#8e8e93] font-medium" style={{ width: '95px' }}>{label}</span>
       <div className="flex-1 h-2.5 rounded-full" style={{ background: '#e8ecf2' }}>
-        <div className="h-2.5 rounded-full transition-all" style={{ width: `${pctOfVisual}%`, background: c }} />
+        <div className="h-2.5 rounded-full transition-all" style={{ width: `${pct}%`, background: c }} />
       </div>
+      <span className="text-[11px] font-bold flex-shrink-0 w-[18px] text-right" style={{ color: c }}>{v}</span>
     </div>
   );
 }
@@ -87,26 +91,34 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
       ) : (
         <>
           <Link href={`/tasks/${task.id}`} className="flex-1 p-4 flex flex-col">
-            {/* Nom + Score */}
+            {/* Nom + Score /10 */}
             <div className="flex items-start justify-between gap-2 mb-3">
               <h3 className="text-[17px] font-bold text-[#1c1c1e] leading-snug line-clamp-2 flex-1">{task.name}</h3>
               {(() => {
                 const gs = taskLoad(task);
-                const gsColor = gs <= 8 ? '#34c759' : gs <= 16 ? '#007aff' : gs <= 24 ? '#ff9500' : '#ff3b30';
-                return <span className="text-[22px] font-black flex-shrink-0" style={{ color: gsColor }}>{gs}</span>;
+                const score10 = Math.round((gs / 36) * 10);
+                const c = score10 <= 3 ? '#34c759' : score10 <= 5 ? '#ff9500' : score10 <= 7 ? '#ff6b00' : '#ff3b30';
+                return (
+                  <div className="flex flex-col items-end flex-shrink-0">
+                    <span className="text-[22px] font-black leading-none" style={{ color: c }}>{score10}</span>
+                    <span className="text-[10px] text-[#c7c7cc]">/10</span>
+                  </div>
+                );
               })()}
             </div>
 
-            {/* 2 jauges */}
+            {/* 2 jauges /10 */}
             {(() => {
               const gs = taskLoad(task);
               const ratio = gs / 36;
-              const mentalVal = sb?.mental_load_score ?? Math.round(ratio * 18);
-              const timeVal = sb?.time_score ?? Math.round(ratio * 8);
+              const mentalRaw = sb?.mental_load_score ?? Math.round(ratio * 18);
+              const timeRaw = sb?.time_score ?? Math.round(ratio * 8);
+              const mental10 = Math.round((mentalRaw / 18) * 10);
+              const time10 = Math.round((timeRaw / 8) * 10);
               return (
                 <div className="space-y-1.5 mb-3">
-                  <MiniGauge label="Mental" value={mentalVal} max={36} scale={18} />
-                  <MiniGauge label="Temps" value={timeVal} max={36} scale={8} />
+                  <GaugeBar label="Charge mentale" value={mental10} />
+                  <GaugeBar label="Temps" value={time10} />
                 </div>
               );
             })()}
@@ -131,7 +143,7 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
             </div>
           </Link>
 
-          {/* Actions — FAIT + supprimer */}
+          {/* Actions */}
           <div className="px-4 pb-3 flex items-center justify-end gap-2">
             <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
               className="rounded-lg px-3.5 py-[5px] text-[12px] font-bold tracking-wide transition-all"
@@ -142,8 +154,8 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
               e.preventDefault(); e.stopPropagation();
               if (confirm('Supprimer cette tâche ?')) onDelete(task.id);
             }}
-              className="rounded-lg px-2 py-[5px] text-[12px] transition-all"
-              style={{ color: '#ff3b30' }}>
+              className="rounded-lg px-2.5 py-[5px] text-[14px] font-bold transition-all"
+              style={{ color: '#ff3b30', background: '#fff2f2' }}>
               ✕
             </button>
           </div>
