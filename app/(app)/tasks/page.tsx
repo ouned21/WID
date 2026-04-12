@@ -31,16 +31,15 @@ function Chip({ label, active, onClick, color }: {
 // -- Jauge mini ----------------------------------------------------------------
 
 function MiniGauge({ label, value, max, scale }: { label: string; value: number; max: number; scale?: number }) {
-  // scale = le vrai max du critère (ex: 8 pour Durée), max = le max visuel (36)
   const realMax = scale ?? max;
-  const pctOfReal = Math.min(100, (value / realMax) * 100); // pour la couleur
-  const pctOfVisual = Math.min(100, (value / max) * 100); // pour la largeur de la barre
+  const pctOfReal = Math.min(100, (value / realMax) * 100);
+  const pctOfVisual = Math.min(100, (value / max) * 100);
   const c = pctOfReal <= 33 ? '#34c759' : pctOfReal <= 66 ? '#ff9500' : '#ff3b30';
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-[10px] w-[56px] flex-shrink-0 text-[#8e8e93]">{label}</span>
-      <div className="flex-1 h-2 rounded-full" style={{ background: '#f2f2f7' }}>
-        <div className="h-2 rounded-full" style={{ width: `${pctOfVisual}%`, background: c }} />
+    <div className="flex items-center gap-2">
+      <span className="text-[13px] w-[52px] flex-shrink-0 text-[#8e8e93] font-medium">{label}</span>
+      <div className="flex-1 h-2.5 rounded-full" style={{ background: '#e8ecf2' }}>
+        <div className="h-2.5 rounded-full transition-all" style={{ width: `${pctOfVisual}%`, background: c }} />
       </div>
     </div>
   );
@@ -87,25 +86,25 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
         </div>
       ) : (
         <>
-          <Link href={`/tasks/${task.id}`} className="flex-1 p-3 flex flex-col">
+          <Link href={`/tasks/${task.id}`} className="flex-1 p-4 flex flex-col">
             {/* Nom + Score */}
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <h3 className="text-[15px] font-bold text-[#1c1c1e] leading-tight line-clamp-2 flex-1">{task.name}</h3>
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <h3 className="text-[17px] font-bold text-[#1c1c1e] leading-snug line-clamp-2 flex-1">{task.name}</h3>
               {(() => {
                 const gs = taskLoad(task);
                 const gsColor = gs <= 8 ? '#34c759' : gs <= 16 ? '#007aff' : gs <= 24 ? '#ff9500' : '#ff3b30';
-                return <span className="text-[20px] font-black flex-shrink-0" style={{ color: gsColor }}>{gs}</span>;
+                return <span className="text-[22px] font-black flex-shrink-0" style={{ color: gsColor }}>{gs}</span>;
               })()}
             </div>
 
-            {/* 2 jauges : Mental + Temps */}
+            {/* 2 jauges */}
             {(() => {
               const gs = taskLoad(task);
               const ratio = gs / 36;
               const mentalVal = sb?.mental_load_score ?? Math.round(ratio * 18);
               const timeVal = sb?.time_score ?? Math.round(ratio * 8);
               return (
-                <div className="space-y-1 mb-2">
+                <div className="space-y-1.5 mb-3">
                   <MiniGauge label="Mental" value={mentalVal} max={36} scale={18} />
                   <MiniGauge label="Temps" value={timeVal} max={36} scale={8} />
                 </div>
@@ -116,42 +115,37 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
             <div className="flex items-center gap-2 mt-auto">
               {task.assignee ? (
                 <span className="flex items-center gap-1">
-                  <span className="h-4 w-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{ background: '#007aff' }}>
+                  <span className="h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: '#007aff' }}>
                     {task.assignee.display_name.charAt(0).toUpperCase()}
                   </span>
-                  <span className="text-[11px] text-[#3c3c43]">{task.assignee.display_name}</span>
+                  <span className="text-[13px] text-[#3c3c43]">{task.assignee.display_name}</span>
                 </span>
               ) : (
-                <span className="text-[11px] text-[#b0b0b8]">Non assigné</span>
+                <span className="text-[13px] text-[#b0b0b8]">Non assigné</span>
               )}
               {task.next_due_at && (
-                <span className="text-[11px] text-[#8e8e93]">
+                <span className="text-[13px] text-[#8e8e93]">
                   {new Date(task.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                 </span>
               )}
             </div>
           </Link>
 
-          {/* Actions */}
-          <div className="px-3 pb-2 flex items-center justify-between">
-            <span className="rounded-full px-2 py-0.5 text-[9px] font-semibold text-white" style={{ background: catColor }}>
-              {task.category?.name}
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
-                className="rounded-md px-2.5 py-[3px] text-[10px] font-bold tracking-wide transition-all"
-                style={{ background: '#34c759', color: 'white' }}>
-                FAIT
-              </button>
-              <button onClick={(e) => {
-                e.preventDefault(); e.stopPropagation();
-                if (confirm('Supprimer ?')) onDelete(task.id);
-              }}
-                className="rounded-md px-1.5 py-[3px] text-[10px] transition-all"
-                style={{ color: '#c7c7cc' }}>
-                ✕
-              </button>
-            </div>
+          {/* Actions — FAIT + supprimer */}
+          <div className="px-4 pb-3 flex items-center justify-end gap-2">
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
+              className="rounded-lg px-3.5 py-[5px] text-[12px] font-bold tracking-wide transition-all"
+              style={{ background: '#34c759', color: 'white' }}>
+              FAIT
+            </button>
+            <button onClick={(e) => {
+              e.preventDefault(); e.stopPropagation();
+              if (confirm('Supprimer cette tâche ?')) onDelete(task.id);
+            }}
+              className="rounded-lg px-2 py-[5px] text-[12px] transition-all"
+              style={{ color: '#ff3b30' }}>
+              ✕
+            </button>
           </div>
         </>
       )}
