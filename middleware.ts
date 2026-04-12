@@ -38,14 +38,15 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/register');
   const isHouseholdPage = pathname.startsWith('/household');
+  const isLandingPage = pathname === '/landing';
 
   // Mode preview : pas de redirections (pour le preview local)
   if (request.nextUrl.searchParams.has('preview')) {
     return response;
   }
 
-  // Pas connecte : redirect vers /login (sauf si deja sur une page auth)
-  if (!user && !isAuthPage) {
+  // Pas connecte : redirect vers /login (sauf si deja sur une page auth ou landing)
+  if (!user && !isAuthPage && !isLandingPage) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
