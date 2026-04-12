@@ -7,6 +7,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { useTaskNotifications } from '@/utils/useTaskNotifications';
 import { initRealtime, stopRealtime } from '@/stores/realtimeStore';
+import { useApplyTheme } from '@/utils/useTheme';
+import { useThemeStore } from '@/stores/themeStore';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Accueil', icon: (
@@ -46,6 +48,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [profile?.household_id, household, fetchHousehold]);
 
+  // Appliquer le thème
+  useApplyTheme();
+  const theme = useThemeStore((s) => s.getTheme());
+
   // Planifier les notifications pour les tâches du jour
   useTaskNotifications();
 
@@ -66,19 +72,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col" style={{ background: '#f2f2f7' }}>
-      {/* Header iOS-style */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b" style={{ borderColor: 'var(--ios-separator)' }}>
+    <div className="flex min-h-screen flex-col" style={{ background: 'var(--background)', transition: 'background 0.3s' }}>
+      {/* Header */}
+      <header className="sticky top-0 z-50 backdrop-blur-xl border-b" style={{ borderColor: 'var(--ios-separator)', background: 'var(--header-bg)' }}>
         <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-[17px] font-semibold" style={{ color: '#1c1c1e' }}>The Load</h1>
+            <h1 className="text-[17px] font-semibold" style={{ color: 'var(--foreground)' }}>The Load</h1>
             {household && (
-              <p className="text-[13px]" style={{ color: '#8e8e93' }}>{household.name}</p>
+              <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{household.name}</p>
             )}
           </div>
           <div
             className="flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-semibold text-white"
-            style={{ background: '#007aff' }}
+            style={{ background: 'var(--accent)' }}
             role="img"
             aria-label={`Avatar de ${profile?.display_name ?? 'utilisateur'}`}
           >
@@ -93,7 +99,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Tab bar iOS */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-t" style={{ borderColor: 'var(--ios-separator)' }}>
+      <nav className="fixed bottom-0 left-0 right-0 z-50 backdrop-blur-xl border-t" style={{ borderColor: 'var(--ios-separator)', background: 'var(--nav-bg)' }}>
         <div className="mx-auto max-w-lg flex">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname.startsWith(item.href);
@@ -102,7 +108,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 href={item.href}
                 className="flex flex-1 flex-col items-center gap-1 py-3 pb-5 text-[11px] font-medium transition-colors"
-                style={{ color: isActive ? '#007aff' : '#8e8e93' }}
+                style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)' }}
               >
                 {item.icon}
                 <span>{item.label}</span>

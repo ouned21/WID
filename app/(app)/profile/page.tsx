@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useHouseholdStore } from '@/stores/householdStore';
+import { useThemeStore, THEMES, type ThemeSkin } from '@/stores/themeStore';
 import { createClient } from '@/lib/supabase';
 
 export default function ProfilePage() {
@@ -154,6 +155,36 @@ export default function ProfilePage() {
           </div>
         </>
       )}
+
+      {/* Apparence */}
+      <div className="mx-4">
+        <p className="text-[13px] font-semibold uppercase tracking-wide mb-2 px-1" style={{ color: 'var(--text-muted)' }}>Apparence</p>
+        <div className="grid grid-cols-2 gap-2">
+          {(Object.entries(THEMES) as [ThemeSkin, typeof THEMES.ios][]).map(([key, t]) => {
+            const isActive = useThemeStore.getState().skin === key;
+            return (
+              <button key={key} onClick={() => useThemeStore.getState().setSkin(key)}
+                className="rounded-xl p-3 text-left transition-all"
+                style={{
+                  background: isActive ? t.card : 'var(--card)',
+                  border: isActive ? `2px solid ${t.accent}` : '2px solid transparent',
+                  boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)',
+                }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="h-6 w-6 rounded-lg" style={{ background: t.accentGradient }} />
+                  <span className="text-[13px] font-bold" style={{ color: isActive ? t.accent : 'var(--foreground)' }}>{t.name}</span>
+                </div>
+                <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{t.description}</p>
+                <div className="flex gap-1 mt-2">
+                  <span className="h-3 w-3 rounded-full" style={{ background: t.bg, border: '1px solid rgba(128,128,128,0.2)' }} />
+                  <span className="h-3 w-3 rounded-full" style={{ background: t.card, border: '1px solid rgba(128,128,128,0.2)' }} />
+                  <span className="h-3 w-3 rounded-full" style={{ background: t.accent }} />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Liens rapides */}
       <div className="mx-4">
