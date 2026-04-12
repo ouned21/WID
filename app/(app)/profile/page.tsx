@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { createClient } from '@/lib/supabase';
@@ -153,6 +154,36 @@ export default function ProfilePage() {
           </div>
         </>
       )}
+
+      {/* Liens rapides */}
+      <div className="mx-4">
+        <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Raccourcis</p>
+        <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          <Link href="/exchanges" className="flex items-center justify-between px-4 py-3"
+            style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <div className="flex items-center gap-3">
+              <span className="text-[18px]">🤝</span>
+              <span className="text-[15px] text-[#1c1c1e]">Échanges de tâches</span>
+            </div>
+            <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
+          </Link>
+          <Link href="/distribution" className="flex items-center justify-between px-4 py-3"
+            style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <div className="flex items-center gap-3">
+              <span className="text-[18px]">📊</span>
+              <span className="text-[15px] text-[#1c1c1e]">Statistiques détaillées</span>
+            </div>
+            <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
+          </Link>
+          <Link href="/tasks/archived" className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-3">
+              <span className="text-[18px]">📁</span>
+              <span className="text-[15px] text-[#1c1c1e]">Tâches archivées</span>
+            </div>
+            <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
+          </Link>
+        </div>
+      </div>
 
       {/* Objectif de répartition */}
       <div className="mx-4">
