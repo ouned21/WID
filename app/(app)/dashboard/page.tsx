@@ -46,6 +46,20 @@ export default function DashboardPage() {
       .sort((a, b) => (b.global_score ?? b.mental_load_score * 7) - (a.global_score ?? a.mental_load_score * 7))
       .slice(0, 3);
 
+    // Temps estimé par membre (en minutes)
+    const durationMap: Record<string, number> = { very_short: 3, short: 10, medium: 22, long: 45, very_long: 75 };
+    const timeByMember = members.map((m) => {
+      const mTasks = tasks.filter((t) => t.assigned_to === m.id);
+      const totalMin = mTasks.reduce((s, t) => {
+        const est = t.duration_estimate ? (durationMap[t.duration_estimate] ?? 15) : 15;
+        return s + est;
+      }, 0);
+      return { id: m.id, name: m.display_name, minutes: totalMin, isMe: m.id === profile?.id };
+    }).sort((a, b) => b.minutes - a.minutes);
+
+    const myTimeMin = timeByMember.find((m) => m.isMe)?.minutes ?? 0;
+    const maxTimeMin = Math.max(...timeByMember.map((m) => m.minutes), 1);
+
     // Load par membre pour la comparaison
     const loadByMember = members.map((m) => {
       const mTasks = tasks.filter((t) => t.assigned_to === m.id);
@@ -68,7 +82,7 @@ export default function DashboardPage() {
       avgLoadPerTask <= 28 ? '#ff9500' :
       '#ff3b30';
 
-    return { myLoad, totalLoad, myPercent, targetPercent, gap, overdue, todayTasks, heaviest, loadByMember, maxLoad, loadLevel, loadColor, myTasks };
+    return { myLoad, totalLoad, myPercent, targetPercent, gap, overdue, todayTasks, heaviest, loadByMember, maxLoad, loadLevel, loadColor, myTasks, timeByMember, myTimeMin, maxTimeMin };
   }, [tasks, profile?.id, profile?.target_share_percent, members]);
 
   const greeting = (() => {
@@ -91,7 +105,11 @@ export default function DashboardPage() {
         <p className="text-[13px] uppercase tracking-wide font-semibold opacity-80">Mon Load total</p>
         <p className="text-[56px] font-black leading-none mt-1">{data.myLoad}</p>
         <p className="text-[15px] font-medium mt-1 opacity-90">{data.loadLevel}</p>
-        <p className="text-[12px] mt-2 opacity-70">{data.myTasks.length} tâche{data.myTasks.length > 1 ? 's' : ''} assignée{data.myTasks.length > 1 ? 's' : ''}</p>
+        <div className="flex justify-center gap-4 mt-3 text-[12px] opacity-70">
+          <span>{data.myTasks.length} tâche{data.myTasks.length > 1 ? 's' : ''}</span>
+          <span>·</span>
+          <span>~{data.myTimeMin >= 60 ? `${Math.floor(data.myTimeMin / 60)}h${data.myTimeMin % 60 > 0 ? `${data.myTimeMin % 60}min` : ''}` : `${data.myTimeMin}min`} estimées</span>
+        </div>
       </div>
 
       {/* 2. OBJECTIF VS RÉALITÉ */}
@@ -151,6 +169,34 @@ export default function DashboardPage() {
                       {m.name} {m.isMe && '(moi)'}
                     </span>
                     <span className="font-bold" style={{ color }}>{m.load} pts</span>
+                  </div>
+                  <div className="h-2.5 rounded-full" style={{ background: '#f2f2f7' }}>
+                    <div className="h-2.5 rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 4b. TEMPS PAR MEMBRE */}
+      {data.timeByMember.length > 1 && (
+        <div className="mx-4">
+          <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Temps estimé par membre</p>
+          <div className="rounded-xl bg-white p-4 space-y-3" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+            {data.timeByMember.map((m, i) => {
+              const colors = ['#5856d6', '#007aff', '#ff9500', '#34c759'];
+              const color = colors[i % colors.length];
+              const pct = Math.round((m.minutes / data.maxTimeMin) * 100);
+              const timeStr = m.minutes >= 60 ? `${Math.floor(m.minutes / 60)}h${m.minutes % 60 > 0 ? `${m.minutes % 60}` : ''}` : `${m.minutes}min`;
+              return (
+                <div key={m.id} className="space-y-1">
+                  <div className="flex justify-between text-[13px]">
+                    <span className={`font-medium ${m.isMe ? 'text-[#5856d6]' : 'text-[#1c1c1e]'}`}>
+                      {m.name} {m.isMe && '(moi)'}
+                    </span>
+                    <span className="font-bold" style={{ color }}>{timeStr}</span>
                   </div>
                   <div className="h-2.5 rounded-full" style={{ background: '#f2f2f7' }}>
                     <div className="h-2.5 rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
