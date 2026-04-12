@@ -179,8 +179,9 @@ export default function ProfilePage() {
       {/* Style du dashboard */}
       <div className="mx-4">
         <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Apparence</p>
-        <div className="grid grid-cols-2 gap-2">
-          <DashboardStyleButton value="command" label="Command Center" desc="Premium & impactant" emoji="🚀" />
+        <div className="grid grid-cols-3 gap-2">
+          <DashboardStyleButton value="command" label="Command" desc="Coloré & impactant" emoji="🚀" />
+          <DashboardStyleButton value="premium" label="Premium" desc="Dark & élégant" emoji="💎" />
           <DashboardStyleButton value="classic" label="Classique" desc="Simple & épuré" emoji="⬜" />
         </div>
       </div>
