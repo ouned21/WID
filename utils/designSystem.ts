@@ -1,5 +1,5 @@
 /**
- * Design System — The Load
+ * Design System — FairShare
  *
  * Tokens centralisés pour couleurs, espacements, typographie.
  * Tous les composants doivent utiliser ces tokens au lieu de valeurs hardcodées.

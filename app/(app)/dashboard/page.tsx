@@ -17,7 +17,7 @@ export const useDashboardStyle = create<{
       style: 'command',
       setStyle: (style) => set({ style }),
     }),
-    { name: 'theload-dashboard-style' },
+    { name: 'fairshare-dashboard-style' },
   ),
 );
 

@@ -71,7 +71,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b" style={{ borderColor: 'rgba(60,60,67,0.12)' }}>
         <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-[17px] font-semibold text-[#1c1c1e]">The Load</h1>
+            <h1 className="text-[17px] font-semibold text-[#1c1c1e]">FairShare</h1>
             {household && (
               <p className="text-[13px] text-[#8e8e93]">{household.name}</p>
             )}

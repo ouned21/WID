@@ -22,10 +22,10 @@ export function useTaskNotifications() {
   // Demander la permission une seule fois (pas à chaque reconnexion)
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const alreadyAsked = localStorage.getItem('theload-notif-asked');
+    const alreadyAsked = localStorage.getItem('fairshare-notif-asked');
     if (!alreadyAsked) {
       requestNotificationPermission();
-      localStorage.setItem('theload-notif-asked', '1');
+      localStorage.setItem('fairshare-notif-asked', '1');
     }
   }, []);
 

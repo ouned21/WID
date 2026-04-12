@@ -1,6 +1,6 @@
 {
-  "name": "The Load",
-  "short_name": "The Load",
+  "name": "FairShare",
+  "short_name": "FairShare",
   "description": "Mesurez, équilibrez, allégez la charge mentale de votre foyer",
   "start_url": "/dashboard",
   "display": "standalone",

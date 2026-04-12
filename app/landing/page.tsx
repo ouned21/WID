@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'The Load — Mesurez, équilibrez, allégez la charge de votre foyer',
+  title: 'FairShare — Mesurez, équilibrez, allégez la charge de votre foyer',
   description: 'Application de suivi et rééquilibrage des tâches domestiques. Mesurez la charge mentale, visualisez la répartition, proposez des échanges.',
 };
 
@@ -13,10 +13,10 @@ export default function LandingPage() {
       <section className="min-h-screen flex flex-col items-center justify-center px-6 text-center" style={{ background: 'linear-gradient(135deg, #007aff 0%, #5856d6 50%, #af52de 100%)' }}>
         <div className="max-w-lg">
           <div className="inline-flex h-20 w-20 items-center justify-center rounded-[22px] text-[36px] font-black text-white mb-6" style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)' }}>
-            TL
+            FS
           </div>
           <h1 className="text-[40px] font-black text-white leading-tight mb-4">
-            The Load
+            FairShare
           </h1>
           <p className="text-[20px] text-white/90 font-medium mb-2">
             Mesurez. Équilibrez. Allégez.
@@ -72,7 +72,7 @@ export default function LandingPage() {
         <div className="max-w-lg mx-auto">
           <p className="text-[14px] font-semibold text-[#af52de] uppercase tracking-wide mb-3 text-center">La solution</p>
           <h2 className="text-[28px] font-bold text-[#1c1c1e] mb-10 text-center">
-            The Load mesure ce qui compte vraiment
+            FairShare mesure ce qui compte vraiment
           </h2>
 
           <div className="space-y-8">
@@ -157,7 +157,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="py-8 px-6 text-center">
         <p className="text-[13px] text-[#8e8e93]">
-          The Load © {new Date().getFullYear()} — Mesurez, équilibrez, allégez
+          FairShare © {new Date().getFullYear()} — Mesurez, équilibrez, allégez
         </p>
       </footer>
     </div>

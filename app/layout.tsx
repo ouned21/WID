@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "The Load — Mesurez, équilibrez, allégez la charge de votre foyer",
-    template: "%s | The Load",
+    default: "FairShare — Mesurez, équilibrez, allégez la charge de votre foyer",
+    template: "%s | FairShare",
   },
   description: "Application de suivi et rééquilibrage des tâches domestiques. Mesurez la charge mentale, visualisez la répartition, proposez des échanges entre membres du foyer.",
   keywords: [
@@ -35,10 +35,10 @@ export const metadata: Metadata = {
     "mental load", "household tasks", "chore tracking", "family task manager",
     "mental load app", "household management", "chore sharing",
     // Marque
-    "the load", "the load app", "theload",
+    "fairshare", "fairshare app", "fair share", "fair share app",
   ],
-  authors: [{ name: "The Load" }],
-  creator: "The Load",
+  authors: [{ name: "FairShare" }],
+  creator: "FairShare",
   manifest: "/manifest.json",
   themeColor: "#007aff",
   metadataBase: new URL("https://wid-eight.vercel.app"),
@@ -48,21 +48,21 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "The Load",
+    title: "FairShare",
   },
   openGraph: {
-    title: "The Load — Mesurez, équilibrez, allégez",
+    title: "FairShare — Mesurez, équilibrez, allégez",
     description: "La première app qui mesure vraiment la charge mentale de votre foyer. Scoring automatique, répartition, échanges de tâches, gamification.",
     type: "website",
     url: "https://wid-eight.vercel.app",
-    siteName: "The Load",
+    siteName: "FairShare",
     locale: "fr_FR",
   },
   twitter: {
     card: "summary_large_image",
-    title: "The Load — Mesurez, équilibrez, allégez",
+    title: "FairShare — Mesurez, équilibrez, allégez",
     description: "La première app qui mesure vraiment la charge mentale de votre foyer.",
-    creator: "@theloadapp",
+    creator: "@fairshareapp",
   },
   robots: {
     index: true,
@@ -94,7 +94,7 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebApplication",
-              "name": "The Load",
+              "name": "FairShare",
               "description": "Application de suivi et rééquilibrage des tâches domestiques. Mesurez la charge mentale, visualisez la répartition.",
               "url": "https://wid-eight.vercel.app",
               "applicationCategory": "ProductivityApplication",
