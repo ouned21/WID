@@ -63,7 +63,7 @@ function TaskCard({ task, onComplete, onDelete, isCompleted }: {
     if (phase !== 'idle' || isCompleted) return;
     setPhase('success');
     onComplete(task.id);
-    setTimeout(() => setPhase('exit'), 800);
+    setTimeout(() => setPhase('exit'), 10000);
   }, [task.id, onComplete, phase, isCompleted]);
 
   const catColor = task.category?.color_hex ?? '#8e8e93';
