@@ -260,7 +260,7 @@ export default function DashboardCommand() {
       )}
 
       {/* ═══════ TEASER BOOST ═══════ */}
-      <Link href="/boost" className="mx-4 rounded-2xl p-4 flex items-center justify-between transition-transform active:scale-[0.98]" style={{
+      <Link href="/planning" className="mx-4 rounded-2xl p-4 flex items-center justify-between transition-transform active:scale-[0.98]" style={{
         background: 'linear-gradient(135deg, #ff9500, #ff3b30)',
         boxShadow: '0 4px 16px rgba(255,149,0,0.3)',
       }}>

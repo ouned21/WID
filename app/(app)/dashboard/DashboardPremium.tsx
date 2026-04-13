@@ -145,7 +145,7 @@ export default function DashboardPremium() {
         </section>
 
         {/* TEASER BOOST */}
-        <Link href="/boost" className="block rounded-[26px] p-5 ring-1" style={{
+        <Link href="/planning" className="block rounded-[26px] p-5 ring-1" style={{
           background: 'linear-gradient(to right, #fffbeb, #fff7ed, #fff1f2)',
           boxShadow: '0 10px 30px rgba(251,146,60,0.12)',
           borderColor: 'rgba(251,191,36,0.2)',

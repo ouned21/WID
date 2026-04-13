@@ -51,6 +51,7 @@ export default function OnboardingPage() {
   const [swipeIndex, setSwipeIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const householdId = profile?.household_id;
   const userId = profile?.id;
@@ -103,7 +104,9 @@ export default function OnboardingPage() {
   const generateTasks = useCallback(async () => {
     if (!householdId || !userId) return;
     setGenerating(true);
+    setError(null);
 
+    try {
     const supabase = createClient();
 
     // 1. Récupérer les associations pour les équipements sélectionnés
@@ -172,7 +175,16 @@ export default function OnboardingPage() {
 
     setGeneratedTasks(created);
     setGenerating(false);
-    setStep('ready');
+    if (created.length === 0) {
+      setError('Aucune tâche générée. Sélectionne au moins un équipement.');
+    } else {
+      setStep('ready');
+    }
+    } catch (err) {
+      console.error('[onboarding] Erreur génération:', err);
+      setError('Une erreur est survenue. Réessaie.');
+      setGenerating(false);
+    }
   }, [householdId, userId, selectedEquipment, children]);
 
   // Swipe : assigner une tâche à un membre
@@ -321,6 +333,10 @@ export default function OnboardingPage() {
               {generating ? 'Génération...' : 'Générer les tâches →'}
             </button>
           </div>
+        )}
+
+        {error && (
+          <div className="mx-4 mb-4 rounded-xl px-4 py-3 text-[14px]" style={{ background: '#fff2f2', color: '#ff3b30' }}>{error}</div>
         )}
 
         {generating && (

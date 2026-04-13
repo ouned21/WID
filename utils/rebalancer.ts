@@ -104,10 +104,10 @@ export function generateRebalanceSuggestions(
     for (const task of movableTasks) {
       if (suggestions.length >= maxSuggestions) break;
 
-      // Trouver le jour le plus léger disponible
+      // Trouver le jour le plus léger dans la même semaine (après le jour surchargé de préférence)
       const targetDay = lightDays.find((d) =>
-        d.date > heavyDay.date || d.date < heavyDay.date // n'importe quel jour différent
-      );
+        d.date.getTime() !== heavyDay.date.getTime() && d.totalScore < heavyDay.totalScore * 0.5
+      ) ?? lightDays.find((d) => d.date.getTime() !== heavyDay.date.getTime());
 
       if (!targetDay) continue;
 

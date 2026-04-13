@@ -29,16 +29,18 @@ export type ExchangeSuggestion = {
 
 /**
  * Calcule la balance actuelle vs objectifs pour chaque membre.
+ * Accepte Profile[] ou HouseholdMember[] via le type unifié.
  */
 export function computeMemberBalance(
   tasks: TaskListItem[],
-  members: Profile[],
+  members: (Profile | HouseholdMember)[],
 ): MemberBalance[] {
   const totalScore = tasks.reduce((sum, t) => sum + (t.global_score ?? t.mental_load_score), 0);
   if (totalScore === 0 || members.length < 2) return [];
 
   return members.map((m) => {
-    const myTasks = tasks.filter((t) => t.assigned_to === m.id);
+    // Tâches assignées à ce membre (par assigned_to ou assigned_to_phantom_id)
+    const myTasks = tasks.filter((t) => t.assigned_to === m.id || t.assigned_to_phantom_id === m.id);
     const myScore = myTasks.reduce((sum, t) => sum + (t.global_score ?? t.mental_load_score), 0);
     const currentPercent = Math.round((myScore / totalScore) * 100);
     const targetPercent = m.target_share_percent ?? Math.round(100 / members.length);

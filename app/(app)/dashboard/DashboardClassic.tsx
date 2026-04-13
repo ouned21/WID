@@ -226,7 +226,7 @@ export default function DashboardClassic() {
       )}
 
       {/* Teaser gamification */}
-      <Link href="/boost" className="mx-4 rounded-2xl p-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #ff9500, #ff3b30)', boxShadow: '0 2px 8px rgba(255,59,48,0.2)' }}>
+      <Link href="/planning" className="mx-4 rounded-2xl p-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #ff9500, #ff3b30)', boxShadow: '0 2px 8px rgba(255,59,48,0.2)' }}>
         <div>
           <p className="text-[14px] font-bold text-white">Progression</p>
           <p className="text-[11px] text-white/70">Niveaux, badges, challenges →</p>

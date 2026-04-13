@@ -69,10 +69,17 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // Connecte avec foyer mais sur une page auth/household : redirect vers /tasks
+    // Connecte avec foyer mais sur une page auth/household : redirect vers dashboard ou onboarding
     if (hasHousehold && (isAuthPage || isHouseholdPage)) {
+      // Vérifier si le foyer a des tâches (sinon → onboarding)
+      const { count } = await supabase
+        .from('household_tasks')
+        .select('id', { count: 'exact', head: true })
+        .eq('household_id', profile!.household_id)
+        .eq('is_active', true);
+
       const url = request.nextUrl.clone();
-      url.pathname = '/dashboard';
+      url.pathname = (count ?? 0) === 0 ? '/onboarding' : '/dashboard';
       return NextResponse.redirect(url);
     }
   }

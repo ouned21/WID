@@ -56,6 +56,10 @@ export default function NewTaskPage() {
       setName(draft);
       localStorage.removeItem('fairshare_task_draft');
     }
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      setDueDate(dateParam);
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Catégories DB + templates (pour autocomplétion)
@@ -195,7 +199,7 @@ export default function NewTaskPage() {
       // Scoring V2 — dual score
       user_score: userScore, // ce que l'utilisateur a choisi (0-10)
       global_score: score.global_score, // ce que l'algo a calculé (2-36)
-      score_breakdown: score as unknown as Record<string, unknown>,
+      score_breakdown: score as Record<string, unknown>,
       duration_estimate: duration,
       physical_effort: physical,
       scoring_category: scoringCategory,
@@ -212,9 +216,14 @@ export default function NewTaskPage() {
         .in('trigger_type', ['event', 'keyword'])
         .eq('is_premium', false);
 
+      // Matching par mot entier (pas de substring) — minimum 4 caractères pour éviter les faux positifs
+      const taskNameLower = name.trim().toLowerCase();
       const matching = (associations ?? []).filter((a: { trigger_value: string }) => {
         const trigger = a.trigger_value.toLowerCase();
-        return keywords.some((kw: string) => kw.includes(trigger) || trigger.includes(kw));
+        if (trigger.length < 4) return false; // ignorer les triggers trop courts
+        // Le trigger doit apparaître comme mot entier dans le nom de la tâche
+        const regex = new RegExp(`\\b${trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        return regex.test(taskNameLower);
       });
 
       if (matching.length > 0) {
