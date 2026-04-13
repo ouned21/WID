@@ -49,8 +49,8 @@ export function computeDayLoads(
     const dayTasks = tasks.filter((t) => {
       if (!t.next_due_at) return false;
       if (!isSameDay(new Date(t.next_due_at), day)) return false;
-      // Si userId fourni, ne garder que les tâches de cet utilisateur
-      if (userId && t.assigned_to !== userId) return false;
+      // Si userId fourni, ne garder que les tâches de cet utilisateur (réel ou fantôme)
+      if (userId && t.assigned_to !== userId && t.assigned_to_phantom_id !== userId) return false;
       return true;
     });
 

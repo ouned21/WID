@@ -88,11 +88,11 @@ export function generateExchangeSuggestions(
 
       // Tâches de chacun, triées par score décroissant
       const overTasks = tasks
-        .filter((t) => t.assigned_to === over.memberId)
+        .filter((t) => (t.assigned_to === over.memberId || t.assigned_to_phantom_id === over.memberId) && !t.is_fixed_assignment)
         .sort((a, b) => (b.global_score ?? b.mental_load_score) - (a.global_score ?? a.mental_load_score));
 
       const underTasks = tasks
-        .filter((t) => t.assigned_to === under.memberId)
+        .filter((t) => (t.assigned_to === under.memberId || t.assigned_to_phantom_id === under.memberId) && !t.is_fixed_assignment)
         .sort((a, b) => (a.global_score ?? a.mental_load_score) - (b.global_score ?? b.mental_load_score));
 
       if (overTasks.length === 0 || underTasks.length === 0) continue;

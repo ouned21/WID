@@ -128,16 +128,17 @@ export default function TaskDetailPage() {
           <p className="text-[11px] text-[#8e8e93] uppercase mb-1">Assignée à</p>
           <select
             defaultValue={task.assigned_to ?? task.assigned_to_phantom_id ?? ''}
-            onChange={(e) => {
+            onChange={async (e) => {
               const selectedId = e.target.value || null;
               const isPhantom = allMembers.find((m) => m.id === selectedId)?.isPhantom;
-              if (isPhantom) {
-                autoSave('assigned_to', null);
-                autoSave('assigned_to_phantom_id', selectedId);
-              } else {
-                autoSave('assigned_to', selectedId);
-                autoSave('assigned_to_phantom_id', null);
-              }
+              if (!task) return;
+              setSaveStatus('saving');
+              const result = await updateTask(task.id, {
+                assigned_to: isPhantom ? null : selectedId,
+                assigned_to_phantom_id: isPhantom ? selectedId : null,
+              });
+              setSaveStatus(result.ok ? 'saved' : 'error');
+              setTimeout(() => setSaveStatus('idle'), 1500);
             }}
             className="w-full text-[17px] font-medium text-[#1c1c1e] bg-transparent outline-none"
           >

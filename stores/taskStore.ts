@@ -55,6 +55,7 @@ type UpdateTaskPayload = {
   global_score?: number | null;
   score_breakdown?: Record<string, unknown> | null;
   assigned_to?: string | null;
+  assigned_to_phantom_id?: string | null;
   category_id?: string;
   next_due_at?: string | null;
 };

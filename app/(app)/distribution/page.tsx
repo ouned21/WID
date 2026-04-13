@@ -22,7 +22,7 @@ export default function DistributionPage() {
   const { profile } = useAuthStore();
   const { period, memberAnalytics, categoryBreakdown, loading, setPeriod, fetchAnalytics } = useAnalyticsStore();
   const { tasks } = useTaskStore();
-  const { members } = useHouseholdStore();
+  const { members, allMembers } = useHouseholdStore();
 
   // Historique des complétions par jour pour la tendance
   const [dailyHistory, setDailyHistory] = useState<Record<string, number[]>>({});
@@ -239,16 +239,16 @@ export default function DistributionPage() {
           )}
 
           {/* Score cumulé par membre */}
-          {members.length > 1 && (
+          {allMembers.length > 1 && (
             <div className="mx-4 pb-8">
               <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Score cumulé</p>
               <div className="rounded-xl bg-white p-4 space-y-3" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-                {members.map((m, i) => {
+                {allMembers.map((m, i) => {
                   const color = MEMBER_COLORS[i % MEMBER_COLORS.length];
-                  const myTasks = tasks.filter((t) => t.assigned_to === m.id);
+                  const myTasks = tasks.filter((t) => t.assigned_to === m.id || t.assigned_to_phantom_id === m.id);
                   const totalLoad = myTasks.reduce((sum, t) => sum + taskLoad(t), 0);
-                  const maxLoad = Math.max(...members.map((mb) => {
-                    const ts = tasks.filter((t) => t.assigned_to === mb.id);
+                  const maxLoad = Math.max(...allMembers.map((mb) => {
+                    const ts = tasks.filter((t) => t.assigned_to === mb.id || t.assigned_to_phantom_id === mb.id);
                     return ts.reduce((s, t) => s + taskLoad(t), 0);
                   }), 1);
                   const pct = Math.round((totalLoad / maxLoad) * 100);

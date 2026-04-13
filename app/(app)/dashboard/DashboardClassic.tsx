@@ -225,13 +225,13 @@ export default function DashboardClassic() {
         </div>
       )}
 
-      {/* Teaser gamification */}
-      <Link href="/planning" className="mx-4 rounded-2xl p-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #ff9500, #ff3b30)', boxShadow: '0 2px 8px rgba(255,59,48,0.2)' }}>
+      {/* Planning */}
+      <Link href="/planning" className="mx-4 rounded-2xl p-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)', boxShadow: '0 2px 8px rgba(0,122,255,0.2)' }}>
         <div>
-          <p className="text-[14px] font-bold text-white">Progression</p>
-          <p className="text-[11px] text-white/70">Niveaux, badges, challenges →</p>
+          <p className="text-[14px] font-bold text-white">Planning</p>
+          <p className="text-[11px] text-white/70">Vue semaine, rééquilibrage →</p>
         </div>
-        <span className="text-[24px]">🔥</span>
+        <span className="text-[24px]">📅</span>
       </Link>
 
       {/* Quick actions */}

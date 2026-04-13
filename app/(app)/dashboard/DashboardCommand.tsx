@@ -259,18 +259,18 @@ export default function DashboardCommand() {
         </div>
       )}
 
-      {/* ═══════ TEASER BOOST ═══════ */}
+      {/* ═══════ PLANNING ═══════ */}
       <Link href="/planning" className="mx-4 rounded-2xl p-4 flex items-center justify-between transition-transform active:scale-[0.98]" style={{
-        background: 'linear-gradient(135deg, #ff9500, #ff3b30)',
-        boxShadow: '0 4px 16px rgba(255,149,0,0.3)',
+        background: 'linear-gradient(135deg, #007aff, #5856d6)',
+        boxShadow: '0 4px 16px rgba(0,122,255,0.3)',
       }}>
         <div>
-          <p className="text-[15px] font-bold text-white">Progression</p>
+          <p className="text-[15px] font-bold text-white">Planning</p>
           <p className="text-[12px] text-white/70">
-            {streak > 0 ? `🔥 Série ${streak} jours · ` : ''}Niveaux, badges, challenges →
+            {streak > 0 ? `🔥 Série ${streak} jours · ` : ''}Vue semaine, rééquilibrage →
           </p>
         </div>
-        <span className="text-[28px]">⚡</span>
+        <span className="text-[28px]">📅</span>
       </Link>
 
       {/* ═══════ RÉCAP DU SOIR (après 17h) ═══════ */}

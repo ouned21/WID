@@ -75,7 +75,24 @@ export function initRealtime(householdId: string) {
     )
     .subscribe();
 
-  channels = [tasksChannel, completionsChannel, membersChannel];
+  // Channel membres fantômes : INSERT, UPDATE, DELETE sur phantom_members
+  const phantomChannel = supabase
+    .channel(`household:${householdId}:phantoms`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'phantom_members',
+        filter: `household_id=eq.${householdId}`,
+      },
+      () => {
+        useHouseholdStore.getState().fetchHousehold(householdId);
+      },
+    )
+    .subscribe();
+
+  channels = [tasksChannel, completionsChannel, membersChannel, phantomChannel];
 }
 
 /**

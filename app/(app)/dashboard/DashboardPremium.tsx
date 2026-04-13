@@ -144,21 +144,21 @@ export default function DashboardPremium() {
           </div>
         </section>
 
-        {/* TEASER BOOST */}
+        {/* PLANNING */}
         <Link href="/planning" className="block rounded-[26px] p-5 ring-1" style={{
-          background: 'linear-gradient(to right, #fffbeb, #fff7ed, #fff1f2)',
-          boxShadow: '0 10px 30px rgba(251,146,60,0.12)',
-          borderColor: 'rgba(251,191,36,0.2)',
+          background: 'linear-gradient(to right, #eef4ff, #f0f0ff, #f5f0ff)',
+          boxShadow: '0 10px 30px rgba(0,122,255,0.08)',
+          borderColor: 'rgba(0,122,255,0.15)',
         }}>
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: '#ea580c' }}>Boost</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: '#007aff' }}>Planning</p>
               <h3 className="mt-1 text-lg font-semibold text-slate-900">
-                {streak > 0 ? `Série ${streak} jours` : 'Progression'} · Badges & challenges
+                {streak > 0 ? `Série ${streak} jours · ` : ''}Vue semaine & rééquilibrage
               </h3>
-              <p className="mt-1 text-sm text-slate-600">Passe en mode progression pour voir tes niveaux.</p>
+              <p className="mt-1 text-sm text-slate-600">Visualise ta semaine et optimise la répartition.</p>
             </div>
-            <div className="rounded-full bg-white px-3 py-2 text-sm font-medium shadow-sm" style={{ color: '#ea580c' }}>Ouvrir</div>
+            <div className="rounded-full bg-white px-3 py-2 text-sm font-medium shadow-sm" style={{ color: '#007aff' }}>Voir</div>
           </div>
         </Link>
 
