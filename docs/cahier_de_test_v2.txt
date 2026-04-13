@@ -1,0 +1,728 @@
+================================================================================
+              FAIRSHARE — CAHIER DE TEST EXHAUSTIF V2
+================================================================================
+                          Avril 2026
+                       170 cas de test
+================================================================================
+
+LÉGENDE :
+  [ ] = À tester
+  Priorité : P0 = bloquant, P1 = critique, P2 = important, P3 = mineur
+
+================================================================================
+  A. AUTHENTIFICATION (12 tests)
+================================================================================
+
+A01 [P0] Inscription — compte valide
+    Pré-requis : aucun compte
+    Action : remplir nom (≥2 chars), email, mdp (≥8 chars, 1 maj, 1 chiffre, 1 spécial)
+    Résultat attendu : compte créé, écran de confirmation email
+
+A02 [P0] Inscription — mot de passe faible
+    Action : mdp "123" → bouton désactivé, indicateur rouge
+    Résultat : impossible de soumettre
+
+A03 [P0] Inscription — email déjà utilisé
+    Action : email existant → message erreur
+
+A04 [P0] Connexion — identifiants valides
+    Action : email + mdp corrects
+    Résultat : redirect vers /dashboard (si foyer) ou /household (si pas de foyer)
+
+A05 [P0] Connexion — identifiants invalides
+    Action : mauvais mdp → message erreur, compteur +1
+
+A06 [P1] Connexion — verrouillage après 5 échecs
+    Action : 5 mdp faux → bouton bloqué 30 secondes
+
+A07 [P1] Connexion — toggle afficher/masquer mdp
+    Action : cliquer l'icône œil → mdp visible/masqué
+
+A08 [P0] Déconnexion
+    Action : profil → Se déconnecter → confirmer
+    Résultat : redirect vers /login, session supprimée
+
+A09 [P1] Redirect — non connecté vers /tasks
+    Action : accéder à /tasks sans être connecté
+    Résultat : redirect vers /login
+
+A10 [P1] Redirect — connecté sans foyer vers /dashboard
+    Action : accéder à /dashboard sans foyer
+    Résultat : redirect vers /household
+
+A11 [P1] Redirect — connecté avec foyer vers /login
+    Action : accéder à /login en étant connecté
+    Résultat : redirect vers /dashboard
+
+A12 [P2] Mode preview
+    Action : ajouter ?preview à n'importe quelle URL
+    Résultat : pas de redirect
+
+================================================================================
+  B. FOYER (8 tests)
+================================================================================
+
+B01 [P0] Créer un foyer
+    Action : choisir "Créer", entrer un nom, valider
+    Résultat : foyer créé, code d'invitation généré, redirect vers /onboarding
+
+B02 [P0] Rejoindre un foyer — code valide
+    Action : choisir "Rejoindre", entrer le code 6 chars
+    Résultat : foyer rejoint, redirect vers /dashboard
+
+B03 [P1] Rejoindre un foyer — code invalide
+    Action : code inexistant → message erreur
+
+B04 [P1] Rejoindre un foyer — code expiré
+    Action : code expiré → message erreur
+
+B05 [P1] Copier le code d'invitation (profil)
+    Action : cliquer sur le code
+    Résultat : copié dans le presse-papier, feedback "Copié !"
+
+B06 [P2] Renommer le foyer (admin)
+    Action : profil → renommer → nouveau nom
+    Résultat : nom mis à jour partout
+
+B07 [P2] Renommer le foyer (membre non-admin)
+    Action : membre essaie de renommer
+    Résultat : erreur "Seul l'admin peut renommer"
+
+B08 [P0] Nouveau foyer → redirect onboarding
+    Action : créer un foyer (0 tâche)
+    Résultat : redirect vers /onboarding (pas /dashboard)
+
+================================================================================
+  C. ONBOARDING (12 tests)
+================================================================================
+
+C01 [P0] Écran 1 — affichage des équipements
+    Action : ouvrir /onboarding
+    Résultat : 29 équipements en 7 catégories, défauts pré-cochés
+
+C02 [P0] Écran 1 — sélection/désélection
+    Action : cliquer sur un équipement
+    Résultat : toggle bleu/blanc, compteur mis à jour
+
+C03 [P0] Écran 1 → Écran 2
+    Action : cliquer "Suivant"
+    Résultat : écran famille affiché
+
+C04 [P0] Écran 2 — pas d'enfants
+    Action : cliquer "Non, pas d'enfants"
+    Résultat : génération des tâches (équipements uniquement)
+
+C05 [P0] Écran 2 — ajouter un enfant
+    Action : cliquer "Oui", remplir prénom + âge
+    Résultat : enfant ajouté à la liste
+
+C06 [P1] Écran 2 — ajouter plusieurs enfants
+    Action : ajouter 3 enfants d'âges différents (1 an, 7 ans, 15 ans)
+    Résultat : 3 tranches d'âge couvertes (0-2, 6-12, 13+)
+
+C07 [P1] Écran 2 — supprimer un enfant
+    Action : cliquer ✕ sur un enfant
+    Résultat : enfant retiré
+
+C08 [P0] Écran 3 — génération des tâches
+    Action : cliquer "Générer les tâches"
+    Résultat : tâches créées, nombre affiché, pas de doublons
+
+C09 [P1] Écran 3 — erreur de génération
+    Action : simuler une erreur réseau
+    Résultat : message d'erreur affiché (pas d'écran vide)
+
+C10 [P0] Écran 4 — swipe assignation
+    Action : cliquer sur le nom d'un membre pour chaque tâche
+    Résultat : tâche assignée au membre choisi
+
+C11 [P1] Écran 4 — passer (non assigné)
+    Action : cliquer "Passer"
+    Résultat : tâche reste non assignée
+
+C12 [P0] Fin onboarding → page tâches
+    Action : terminer le swipe ou cliquer "Plus tard"
+    Résultat : redirect vers /tasks, tâches visibles
+
+================================================================================
+  D. CRÉATION DE TÂCHE (20 tests)
+================================================================================
+
+D01 [P0] Créer une tâche minimale
+    Action : nom + catégorie + date → valider
+    Résultat : tâche créée, visible dans /tasks
+
+D02 [P0] Auto-détection de catégorie
+    Action : taper "école" → catégorie Enfants détectée
+    Résultat : badge "Détecté auto" affiché
+
+D03 [P1] Autocomplétion templates
+    Action : taper "net" dans le nom
+    Résultat : suggestions "Nettoyer le four", "Nettoyer la cuisine", etc.
+
+D04 [P1] Sélection d'un template
+    Action : cliquer sur un template suggéré
+    Résultat : nom, catégorie, durée, physique pré-remplis
+
+D05 [P0] Score slider — pré-rempli par l'algo
+    Action : remplir les champs → score affiché
+    Résultat : slider positionné sur la valeur algo
+
+D06 [P0] Score slider — ajustement utilisateur
+    Action : déplacer le slider de 5 à 8
+    Résultat : "Algo suggère 5/10" + bouton Restaurer
+
+D07 [P1] Score slider — restaurer
+    Action : cliquer Restaurer
+    Résultat : slider revient à la valeur algo
+
+D08 [P1] Détail du calcul algo
+    Action : cliquer "Voir le détail du calcul"
+    Résultat : 4 barres (Temps, Physique, Mental, Impact) affichées
+
+D09 [P1] Fréquence personnalisée
+    Action : sélectionner "Personnalisée" + entrer 10 jours
+    Résultat : intervalle de 10 jours enregistré
+
+D10 [P1] Assignation à un membre
+    Action : sélectionner un membre dans le dropdown
+    Résultat : tâche assignée à ce membre
+
+D11 [P2] Assignation à un membre fantôme
+    Action : sélectionner un fantôme dans le dropdown
+    Résultat : tâche assignée au fantôme
+
+D12 [P1] Toggle assignation fixe
+    Action : options avancées → activer "Assignation fixe"
+    Résultat : is_fixed_assignment = true en base
+
+D13 [P1] Toggle rappels désactivés
+    Action : options avancées → désactiver "Rappels"
+    Résultat : notifications_enabled = false en base
+
+D14 [P2] Date de début différée
+    Action : options avancées → choisir une date future
+    Résultat : tâche n'apparaît pas avant cette date
+
+D15 [P0] Suggestions sous-tâches — anniversaire
+    Action : créer "Anniversaire Léa" + valider
+    Résultat : bottom sheet avec suggestions (cadeau, gâteau, invitations...)
+
+D16 [P1] Suggestions sous-tâches — sélection
+    Action : cocher 3 sous-tâches sur 6 → valider
+    Résultat : 3 sous-tâches créées avec dates relatives
+
+D17 [P1] Suggestions sous-tâches — passer
+    Action : cliquer "Passer"
+    Résultat : aucune sous-tâche créée, redirect /tasks
+
+D18 [P0] Brouillon depuis FAB +
+    Action : FAB → taper "Courses" → fermer
+    Résultat : brouillon sauvé en localStorage
+
+D19 [P0] Brouillon restauré
+    Action : ouvrir /tasks/new (ou FAB → →)
+    Résultat : nom pré-rempli avec "Courses"
+
+D20 [P1] Paramètre ?date= depuis le planning
+    Action : ouvrir /tasks/new?date=2026-04-20
+    Résultat : date pré-remplie au 20 avril
+
+================================================================================
+  E. LISTE DES TÂCHES (16 tests)
+================================================================================
+
+E01 [P0] Affichage des tâches par section
+    Résultat : En retard, Aujourd'hui, Demain, Semaine, Plus tard
+
+E02 [P0] Filtre "Mes tâches"
+    Action : sélectionner "Mes tâches"
+    Résultat : seules mes tâches affichées
+
+E03 [P0] Filtre "Toutes"
+    Action : sélectionner "Toutes"
+    Résultat : toutes les tâches du foyer affichées
+
+E04 [P1] Filtre par section
+    Action : sélectionner "Aujourd'hui"
+    Résultat : seules les tâches du jour affichées
+
+E05 [P0] Recherche
+    Action : taper "cuisine" dans la barre de recherche
+    Résultat : seules les tâches contenant "cuisine" affichées
+
+E06 [P0] Bouton FAIT — animation
+    Action : cliquer FAIT sur une tâche
+    Résultat : animation verte 1s → tâche disparaît
+
+E07 [P0] Bouton FAIT — complétion en base
+    Action : cliquer FAIT
+    Résultat : task_completions inséré, next_due_at recalculé
+
+E08 [P1] Bouton fantôme 👤
+    Pré-requis : au moins 1 membre fantôme
+    Action : cliquer 👤 → sélectionner le fantôme
+    Résultat : complétion avec completed_by_phantom_id
+
+E09 [P1] Bouton fantôme — invisible sans fantôme
+    Pré-requis : 0 membre fantôme
+    Résultat : bouton 👤 absent
+
+E10 [P0] Supprimer une tâche
+    Action : cliquer poubelle → confirmer
+    Résultat : tâche supprimée (+ ses complétions)
+
+E11 [P1] Cliquer sur une carte → détail
+    Action : cliquer sur le nom de la tâche
+    Résultat : ouverture de /tasks/[id]
+
+E12 [P1] Score affiché = user_score (pas algo)
+    Pré-requis : tâche avec user_score = 7, global_score = 20
+    Résultat : carte affiche 7/10 (pas 6/10 du algo)
+
+E13 [P1] Jauges Mental et Temps affichées
+    Résultat : 2 barres de progression visibles par carte
+
+E14 [P2] Mode vacances — tâches masquées
+    Pré-requis : activer le mode vacances
+    Résultat : mes tâches masquées pour les autres
+
+E15 [P1] Lien "Ma journée" visible
+    Résultat : carte "🌙 Ma journée" en bas de la liste
+
+E16 [P1] Lien "Archives" visible
+    Résultat : lien "📁 Voir les tâches archivées" en bas
+
+================================================================================
+  F. DÉTAIL TÂCHE (10 tests)
+================================================================================
+
+F01 [P0] Affichage des infos
+    Résultat : nom, catégorie, score, fréquence, assigné, date
+
+F02 [P0] Modification du nom — auto-save
+    Action : modifier le nom, cliquer ailleurs
+    Résultat : "✓ Sauvegardé" affiché
+
+F03 [P1] Modification de la fréquence
+    Action : changer la fréquence
+    Résultat : auto-sauvegarde, next_due_at recalculé
+
+F04 [P1] Modification de l'assigné
+    Action : changer le membre assigné
+    Résultat : auto-sauvegarde
+
+F05 [P0] Marquer comme fait
+    Action : cliquer "✓ Marquer comme fait" → remplir durée → valider
+    Résultat : complétion créée, historique mis à jour
+
+F06 [P1] Historique des complétions
+    Résultat : liste des 10 dernières complétions avec date/durée
+
+F07 [P1] Archiver une tâche
+    Action : cliquer "📁 Archiver" → confirmer
+    Résultat : tâche disparaît de la liste active
+
+F08 [P0] Supprimer définitivement
+    Action : cliquer "🗑️ Supprimer" → confirmer
+    Résultat : tâche + complétions supprimées
+
+F09 [P1] Proposer un échange
+    Action : cliquer "↔ Proposer un échange"
+    Résultat : redirect vers /exchanges?offer=[id]
+
+F10 [P2] Tâche archivée → restaurer
+    Action : /tasks/archived → cliquer "Restaurer"
+    Résultat : tâche réapparaît dans la liste active
+
+================================================================================
+  G. QUICK LOG (6 tests)
+================================================================================
+
+G01 [P0] Quick log — tâche existante
+    Action : taper un nom qui matche → sélectionner
+    Résultat : formulaire simplifié, complétion créée
+
+G02 [P0] Quick log — nouvelle tâche
+    Action : taper un nom sans match → remplir catégorie/durée/physique
+    Résultat : tâche one-time créée + complétion
+
+G03 [P1] Suggestions de tâches existantes
+    Action : taper ≥2 chars
+    Résultat : max 5 suggestions affichées
+
+G04 [P1] Score affiché (nouvelle tâche)
+    Résultat : score /36 affiché avec label
+
+G05 [P0] Succès → redirect dashboard
+    Résultat : écran ✅ puis redirect après 1.5s
+
+G06 [P2] Durée exacte optionnelle
+    Action : entrer 25 minutes
+    Résultat : enregistré dans la complétion
+
+================================================================================
+  H. RÉCAP DU SOIR (10 tests)
+================================================================================
+
+H01 [P0] Affichage section "Tes tâches"
+    Résultat : tâches assignées à moi, dues aujourd'hui ou en retard
+
+H02 [P0] Tâches pré-cochées si déjà faites
+    Résultat : tâches complétées aujourd'hui = grisées + barrées
+
+H03 [P0] Section "Aussi fait aujourd'hui ?"
+    Résultat : tâches du foyer non assignées à moi
+
+H04 [P0] Section "Suggestions"
+    Résultat : templates soir/flexibles non encore dans le foyer (max 8)
+
+H05 [P1] Cocher une suggestion = quick log
+    Action : cocher un template → Terminé
+    Résultat : tâche one-time créée + complétion
+
+H06 [P0] Champ texte libre
+    Action : taper "Rangé le garage" → cocher
+    Résultat : quick log créé
+
+H07 [P0] Bouton "Terminé (N)" — compteur
+    Résultat : N = nombre de nouvelles sélections
+
+H08 [P0] Bouton désactivé si rien de nouveau
+    Résultat : grisé si seules les pré-cochées sont cochées
+
+H09 [P0] Soumission → écran succès
+    Action : cocher 5 tâches → Terminé
+    Résultat : "5 tâches enregistrées, Bravo" → redirect dashboard
+
+H10 [P1] Complétion fantôme
+    Pré-requis : tâche assignée à un fantôme
+    Résultat : complétion avec completed_by_phantom_id
+
+================================================================================
+  I. PLANNING / CALENDRIER (12 tests)
+================================================================================
+
+I01 [P0] Vue semaine — affichage 7 jours
+    Résultat : Lun-Dim avec dates correctes
+
+I02 [P0] Vue mois — grille calendrier
+    Résultat : tous les jours du mois, points colorés
+
+I03 [P0] Toggle semaine/mois
+    Action : cliquer le bouton
+    Résultat : vue change
+
+I04 [P0] Navigation ← / →
+    Action : cliquer "Préc." ou "Suiv."
+    Résultat : semaine/mois précédent/suivant
+
+I05 [P1] Revenir à aujourd'hui
+    Action : naviguer puis cliquer "Revenir à aujourd'hui"
+    Résultat : offsets remis à 0
+
+I06 [P0] Tâches affichées sur les bons jours
+    Résultat : chaque tâche apparaît à la date de son next_due_at
+
+I07 [P1] Jours surchargés en rouge
+    Résultat : score > 20 → fond rouge, score affiché
+
+I08 [P1] Score total semaine
+    Résultat : carte avec le total de la semaine
+
+I09 [P0] Lien "+" → /tasks/new?date=
+    Action : cliquer "+" sur un jour
+    Résultat : ouvre le formulaire avec date pré-remplie
+
+I10 [P1] Suggestions de rééquilibrage
+    Pré-requis : un jour surchargé (>2x moyenne)
+    Résultat : suggestions affichées avec bouton "Décaler"
+
+I11 [P1] Appliquer un rééquilibrage
+    Action : cliquer "Décaler"
+    Résultat : next_due_at mis à jour, tâche déplacée
+
+I12 [P0] Cliquer sur une tâche → détail
+    Résultat : ouverture de /tasks/[id]
+
+================================================================================
+  J. DASHBOARD (8 tests)
+================================================================================
+
+J01 [P0] Dashboard Command (Vivid) — affichage
+    Résultat : hero card gradient, score /10, stats, top 3
+
+J02 [P1] Dashboard Premium (Dark) — affichage
+    Résultat : style sombre, mêmes données
+
+J03 [P1] Dashboard Classic (Clean) — affichage
+    Résultat : style épuré, mêmes données
+
+J04 [P0] Score personnel correct
+    Résultat : correspond au total des tâches assignées à moi
+
+J05 [P1] Tendance semaine
+    Résultat : flèche haut/bas vs semaine précédente
+
+J06 [P1] Équilibre du foyer — barres par membre
+    Résultat : barres proportionnelles incluant fantômes
+
+J07 [P1] Lien récap du soir après 17h
+    Résultat : carte "🌙 Comment s'est passée ta journée ?" visible
+
+J08 [P2] Lien récap invisible avant 17h
+    Résultat : carte absente
+
+================================================================================
+  K. PROFIL (14 tests)
+================================================================================
+
+K01 [P0] Affichage informations
+    Résultat : nom, rôle, date d'inscription, stats
+
+K02 [P1] Stats correctes
+    Résultat : tâches actives, contribution %, score total
+
+K03 [P1] Slider objectif de répartition
+    Action : déplacer à 60%
+    Résultat : sauvegardé en base, affiché sur les autres pages
+
+K04 [P1] Mode vacances — activer
+    Action : activer → confirmer
+    Résultat : vacation_mode = true, tâches masquées
+
+K05 [P1] Mode vacances — désactiver
+    Action : désactiver → confirmer
+    Résultat : tâches réactivées, next_due_at recalculées
+
+K06 [P0] Ajouter un membre fantôme
+    Action : cliquer "+", entrer "Thomas", valider
+    Résultat : fantôme ajouté, visible avec badge 👻
+
+K07 [P0] Supprimer un membre fantôme
+    Action : cliquer "Retirer" → confirmer
+    Résultat : fantôme supprimé de la liste
+
+K08 [P1] Fantôme visible dans la liste des membres
+    Résultat : icône 👻, texte "Membre sans compte"
+
+K09 [P1] Sélecteur style dashboard
+    Action : choisir "Dark"
+    Résultat : dashboard change de style, persiste après reload
+
+K10 [P0] Déconnexion
+    Action : "Se déconnecter" → confirmer
+    Résultat : session supprimée, redirect /login
+
+K11 [P2] Affichage code invitation
+    Résultat : code 6 chars visible
+
+K12 [P2] Copier code invitation
+    Action : cliquer → feedback "Copié !"
+
+K13 [P2] Renommer le foyer
+    Action : cliquer "Renommer" → nouveau nom → valider
+
+K14 [P1] Liste des membres réels
+    Résultat : tous les membres avec rôle (Admin/Membre)
+
+================================================================================
+  L. ÉCHANGES (8 tests)
+================================================================================
+
+L01 [P0] Proposer un échange
+    Action : sélectionner membre + tâche à donner + tâche voulue → valider
+    Résultat : proposition créée, visible dans "Mes propositions"
+
+L02 [P1] Pré-remplir depuis ?offer=
+    Action : ouvrir /exchanges?offer=[taskId]
+    Résultat : tâche à donner pré-remplie
+
+L03 [P0] Recevoir et accepter un échange
+    Action : voir proposition entrante → "Accepter"
+    Résultat : tâches réassignées
+
+L04 [P0] Recevoir et refuser un échange
+    Action : "Refuser"
+    Résultat : proposition supprimée
+
+L05 [P1] Tâches fixes non échangeables
+    Pré-requis : tâche avec is_fixed_assignment = true
+    Résultat : n'apparaît pas dans le dropdown d'échange
+
+L06 [P1] Fantômes exclus des échanges
+    Résultat : fantômes absents de la liste des membres
+
+L07 [P1] Dropdown "Je veux" se met à jour
+    Action : changer le membre ciblé
+    Résultat : ses tâches apparaissent dans le dropdown
+
+L08 [P2] Annuler avant envoi
+    Action : cliquer "Annuler"
+    Résultat : formulaire fermé
+
+================================================================================
+  M. DISTRIBUTION / STATISTIQUES (6 tests)
+================================================================================
+
+M01 [P0] Changement de période (7j/30j/90j)
+    Action : cliquer 30j
+    Résultat : données recalculées
+
+M02 [P1] Badge équilibre/déséquilibre
+    Résultat : vert si <10% d'écart, orange sinon
+
+M03 [P1] Répartition par membre
+    Résultat : barres + pourcentages corrects
+
+M04 [P1] Tendance par membre (↑/↓/→)
+    Résultat : compare 1ère et 2ème moitié de la période
+
+M05 [P1] Breakdown par catégorie
+    Résultat : top catégories avec compteurs
+
+M06 [P1] Score cumulé par membre
+    Résultat : barres de score en points (pas en %)
+
+================================================================================
+  N. FAB + ET BROUILLONS (6 tests)
+================================================================================
+
+N01 [P0] FAB visible sur toutes les pages sauf /tasks/new
+    Résultat : bouton bleu "+" en bas à droite
+
+N02 [P0] FAB invisible sur /tasks/new
+    Résultat : bouton absent
+
+N03 [P0] Overlay quick add
+    Action : cliquer FAB
+    Résultat : overlay avec champ texte
+
+N04 [P0] Soumettre → redirect /tasks/new avec brouillon
+    Action : taper "Courses" → Enter
+    Résultat : /tasks/new?draft=Courses ouvert
+
+N05 [P1] Fermer overlay → brouillon sauvé
+    Action : taper "Courses" → fermer (clic en dehors)
+    Résultat : localStorage contient "Courses"
+
+N06 [P1] Brouillon restauré au prochain /tasks/new
+    Résultat : nom pré-rempli
+
+================================================================================
+  O. NOTIFICATIONS (4 tests)
+================================================================================
+
+O01 [P1] Demande de permission
+    Résultat : popup navigateur "Autoriser les notifications ?"
+
+O02 [P1] Notification récap 21h
+    Pré-requis : permissions accordées, attendre 21h
+    Résultat : notification "🌙 Comment s'est passée ta journée ?"
+
+O03 [P2] Notification rappel brouillon (midi)
+    Pré-requis : brouillon en localStorage, attendre midi
+    Résultat : notification avec le nom du brouillon
+
+O04 [P2] Clic notification → ouvre l'app
+    Action : cliquer la notification
+    Résultat : ouvre /tasks/recap ou /tasks/new
+
+================================================================================
+  P. LANDING PAGE (4 tests)
+================================================================================
+
+P01 [P1] Affichage complet
+    Résultat : hero, problème, solution, étapes, CTA
+
+P02 [P1] Bouton "Commencer gratuitement"
+    Action : cliquer
+    Résultat : redirect /register
+
+P03 [P2] Responsive mobile
+    Résultat : lisible sur 375px
+
+P04 [P2] SEO — meta tags
+    Résultat : title, description, og:image, keywords présents
+
+================================================================================
+  Q. NAVIGATION GLOBALE (6 tests)
+================================================================================
+
+Q01 [P0] 4 onglets fonctionnels
+    Résultat : Accueil, Tâches, Planning, Profil → pages correctes
+
+Q02 [P1] Onglet actif surligné
+    Résultat : icône bleue + point bleu sur l'onglet courant
+
+Q03 [P1] Header — nom du foyer
+    Résultat : affiché sous "FairShare"
+
+Q04 [P1] Header — avatar
+    Résultat : initiale du prénom en cercle bleu
+
+Q05 [P2] Scroll — contenu ne passe pas sous la nav
+    Résultat : padding-bottom suffisant
+
+Q06 [P0] Pas de lien vers /boost
+    Résultat : aucune référence à /boost dans toute l'app
+
+================================================================================
+  R. MEMBRE FANTÔME — PARCOURS COMPLET (8 tests)
+================================================================================
+
+R01 [P0] Ajouter fantôme → visible partout
+    Action : profil → ajouter "Thomas"
+    Résultat : visible dans profil, création tâche, dashboard
+
+R02 [P0] Assigner une tâche au fantôme
+    Action : création tâche → assigner à Thomas
+    Résultat : tâche assignée (assigned_to_phantom_id)
+
+R03 [P0] Compléter pour le fantôme
+    Action : bouton 👤 → Thomas → FAIT
+    Résultat : complétion avec completed_by_phantom_id
+
+R04 [P1] Fantôme dans les stats
+    Résultat : Thomas apparaît dans distribution + dashboard
+
+R05 [P1] Fantôme exclu des échanges
+    Résultat : Thomas absent du dropdown échange
+
+R06 [P1] Supprimer le fantôme
+    Action : profil → Retirer Thomas → confirmer
+    Résultat : Thomas disparaît, ses complétions restent
+
+R07 [P2] Fantôme dans le récap du soir
+    Résultat : tâches assignées à Thomas cochables
+
+R08 [P2] Fantôme dans l'onboarding swipe
+    Résultat : Thomas disponible comme option d'assignation
+
+================================================================================
+  S. RÉÉQUILIBRAGE (4 tests)
+================================================================================
+
+S01 [P1] Détection de jour surchargé
+    Pré-requis : un jour avec >2x la moyenne
+    Résultat : suggestion affichée dans le planning
+
+S02 [P1] Suggestion correcte
+    Résultat : tâche variable proposée, jour cible plus léger
+
+S03 [P0] Appliquer — tâche déplacée
+    Action : cliquer "Décaler"
+    Résultat : next_due_at mis à jour
+
+S04 [P1] Tâches fixes non proposées
+    Résultat : seules les tâches variables dans les suggestions
+
+================================================================================
+
+TOTAL : 170 cas de test
+  P0 (bloquant) : 52 tests
+  P1 (critique) : 78 tests
+  P2 (important) : 28 tests
+  P3 (mineur) : 12 tests
+
+================================================================================
