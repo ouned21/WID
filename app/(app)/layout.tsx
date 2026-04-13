@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { useEffect, useState, useCallback } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useHouseholdStore } from '@/stores/householdStore';
@@ -19,9 +19,9 @@ const NAV_ITEMS = [
       <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
     </svg>
   )},
-  { href: '/boost', label: 'Boost', icon: (
+  { href: '/planning', label: 'Planning', icon: (
     <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+      <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
     </svg>
   )},
   { href: '/profile', label: 'Profil', icon: (
@@ -31,10 +31,44 @@ const NAV_ITEMS = [
   )},
 ] as const;
 
+const DRAFT_KEY = 'fairshare_task_draft';
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { profile, isInitialized, initialize } = useAuthStore();
   const { fetchHousehold, household } = useHouseholdStore();
+
+  // FAB + : création rapide avec brouillon
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickName, setQuickName] = useState('');
+
+  // Charger un brouillon existant au montage
+  useEffect(() => {
+    const draft = localStorage.getItem(DRAFT_KEY);
+    if (draft) setQuickName(draft);
+  }, []);
+
+  const handleQuickSubmit = useCallback(() => {
+    if (quickName.trim()) {
+      // Sauvegarder comme brouillon et ouvrir le formulaire complet
+      localStorage.setItem(DRAFT_KEY, quickName.trim());
+      setShowQuickAdd(false);
+      router.push(`/tasks/new?draft=${encodeURIComponent(quickName.trim())}`);
+    }
+  }, [quickName, router]);
+
+  const handleQuickClose = useCallback(() => {
+    if (quickName.trim()) {
+      // Sauvegarder le brouillon
+      localStorage.setItem(DRAFT_KEY, quickName.trim());
+    }
+    setShowQuickAdd(false);
+    setQuickName('');
+  }, [quickName]);
+
+  // Ne pas afficher le FAB sur la page de création
+  const showFab = !pathname.startsWith('/tasks/new');
 
   useEffect(() => {
     if (!isInitialized) initialize();
@@ -91,6 +125,55 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 px-4 pt-2 pb-28">
         <div className="mx-auto max-w-lg">{children}</div>
       </main>
+
+      {/* Quick Add overlay */}
+      {showQuickAdd && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center" onClick={handleQuickClose}>
+          <div className="absolute inset-0 bg-black/30" />
+          <div className="relative w-full max-w-lg mx-4 mb-24 rounded-2xl bg-white p-4" onClick={(e) => e.stopPropagation()}
+            style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+            <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2">Nouvelle tâche</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={quickName}
+                onChange={(e) => setQuickName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleQuickSubmit(); }}
+                autoFocus
+                className="flex-1 rounded-xl px-4 py-3 text-[17px] text-[#1c1c1e] outline-none"
+                style={{ background: '#f0f2f8' }}
+                placeholder="Ex : Préparer le dîner"
+              />
+              <button onClick={handleQuickSubmit}
+                disabled={!quickName.trim()}
+                className="rounded-xl px-4 py-3 text-[15px] font-bold text-white disabled:opacity-40"
+                style={{ background: '#007aff' }}>
+                →
+              </button>
+            </div>
+            <p className="text-[11px] text-[#c7c7cc] mt-2">Tape le nom, on complète le reste ensuite</p>
+          </div>
+        </div>
+      )}
+
+      {/* FAB + */}
+      {showFab && !showQuickAdd && (
+        <button
+          onClick={() => setShowQuickAdd(true)}
+          className="fixed z-[55] flex items-center justify-center rounded-full text-white shadow-lg transition-transform active:scale-90"
+          style={{
+            width: 56, height: 56,
+            bottom: 88, right: 20,
+            background: '#007aff',
+            boxShadow: '0 4px 16px rgba(0,122,255,0.4)',
+          }}
+          aria-label="Ajouter une tâche"
+        >
+          <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
+      )}
 
       {/* Floating tab bar */}
       <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-32px)] max-w-lg rounded-[22px] bg-white/92 backdrop-blur-xl" style={{

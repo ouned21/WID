@@ -99,7 +99,7 @@ export default function TaskDetailPage() {
             {task.category?.name}
           </span>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#8e8e93]">Charge mentale</span>
+            <span className="text-[11px] text-[#8e8e93]">Score</span>
             <select
               defaultValue={task.mental_load_score}
               onChange={(e) => autoSave('mental_load_score', Number(e.target.value))}

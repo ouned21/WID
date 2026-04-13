@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
@@ -44,17 +44,32 @@ function detectCategory(title: string): ScoringCategory | null {
 
 export default function NewTaskPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { profile } = useAuthStore();
   const { createTask, creating } = useTaskStore();
   const { members } = useHouseholdStore();
 
-  // Catégories DB (pour l'assignation en base)
+  // Charger le brouillon depuis l'URL ou localStorage
+  useEffect(() => {
+    const draft = searchParams.get('draft') || localStorage.getItem('fairshare_task_draft');
+    if (draft) {
+      setName(draft);
+      localStorage.removeItem('fairshare_task_draft');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Catégories DB + templates (pour autocomplétion)
   const [dbCategories, setDbCategories] = useState<TaskCategory[]>([]);
+  const [allTemplates, setAllTemplates] = useState<{ name: string; scoring_category: string | null; default_duration: string | null; default_physical: string | null }[]>([]);
   useEffect(() => {
     async function load() {
       const supabase = createClient();
-      const { data } = await supabase.from('task_categories').select('*').order('sort_order');
-      if (data) setDbCategories(data as TaskCategory[]);
+      const [catRes, tplRes] = await Promise.all([
+        supabase.from('task_categories').select('*').order('sort_order'),
+        supabase.from('task_templates').select('name, scoring_category, default_duration, default_physical').order('name'),
+      ]);
+      if (catRes.data) setDbCategories(catRes.data as TaskCategory[]);
+      if (tplRes.data) setAllTemplates(tplRes.data);
     }
     load();
   }, []);
@@ -68,6 +83,8 @@ export default function NewTaskPage() {
   const [frequency, setFrequency] = useState<Frequency>('weekly');
   const [assignedTo, setAssignedTo] = useState('');
   const [customIntervalDays, setCustomIntervalDays] = useState('');
+  const [isFixedAssignment, setIsFixedAssignment] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   // Date pré-remplie à demain
   const tomorrow = new Date();
@@ -78,6 +95,22 @@ export default function NewTaskPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [startsAt, setStartsAt] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(true);
+
+  // Sous-tâches suggérées après création
+  const [subTaskSuggestions, setSubTaskSuggestions] = useState<{ id: string; suggested_name: string; suggested_frequency: string; relative_days: number }[]>([]);
+  const [selectedSubTasks, setSelectedSubTasks] = useState<Set<string>>(new Set());
+  const [showSubTasks, setShowSubTasks] = useState(false);
+  const [creatingSubTasks, setCreatingSubTasks] = useState(false);
+
+  // Autocomplétion depuis les templates
+  const templateSuggestions = useMemo(() => {
+    if (name.trim().length < 2 || !showSuggestions) return [];
+    const q = name.trim().toLowerCase();
+    return allTemplates
+      .filter((t) => t.name.toLowerCase().includes(q))
+      .slice(0, 5);
+  }, [name, allTemplates, showSuggestions]);
 
   // Score utilisateur : pré-rempli par l'algo, ajustable via slider
   const [userScore, setUserScore] = useState<number | null>(null);
@@ -166,9 +199,73 @@ export default function NewTaskPage() {
       duration_estimate: duration,
       physical_effort: physical,
       scoring_category: scoringCategory,
+      is_fixed_assignment: isFixedAssignment,
+      notifications_enabled: notificationsEnabled,
     });
-    if (result.ok) router.push('/tasks');
-    else setError(result.error ?? 'Erreur inconnue.');
+    if (result.ok) {
+      // Chercher des sous-tâches associées (événements, mots-clés)
+      const supabase2 = createClient();
+      const keywords = name.trim().toLowerCase().split(/\s+/);
+      const { data: associations } = await supabase2
+        .from('task_associations')
+        .select('*')
+        .in('trigger_type', ['event', 'keyword'])
+        .eq('is_premium', false);
+
+      const matching = (associations ?? []).filter((a: { trigger_value: string }) => {
+        const trigger = a.trigger_value.toLowerCase();
+        return keywords.some((kw: string) => kw.includes(trigger) || trigger.includes(kw));
+      });
+
+      if (matching.length > 0) {
+        setSubTaskSuggestions(matching);
+        setSelectedSubTasks(new Set(matching.map((a: { id: string }) => a.id)));
+        setShowSubTasks(true);
+      } else {
+        router.push('/tasks');
+      }
+    } else {
+      setError(result.error ?? 'Erreur inconnue.');
+    }
+  };
+
+  // Créer les sous-tâches sélectionnées
+  const handleCreateSubTasks = async () => {
+    if (!profile?.household_id || selectedSubTasks.size === 0) {
+      router.push('/tasks');
+      return;
+    }
+    setCreatingSubTasks(true);
+    const supabase3 = createClient();
+    const defaultCatId = dbCategories[0]?.id ?? '';
+
+    // Date de référence = la date de la tâche parent
+    const parentDate = dueDate ? new Date(`${dueDate}T${dueTime || '09:00'}:00`) : new Date();
+
+    for (const assoc of subTaskSuggestions) {
+      if (!selectedSubTasks.has(assoc.id)) continue;
+      const a = assoc as Record<string, unknown>;
+      const subDate = new Date(parentDate);
+      subDate.setDate(subDate.getDate() + (a.relative_days as number || 0));
+
+      await supabase3.from('household_tasks').insert({
+        household_id: profile.household_id,
+        name: a.suggested_name as string,
+        category_id: (a.suggested_category_id as string) || defaultCatId,
+        frequency: (a.suggested_frequency as string) || 'once',
+        mental_load_score: (a.suggested_mental_load_score as number) || 3,
+        scoring_category: a.suggested_scoring_category as string || 'misc',
+        duration_estimate: a.suggested_duration as string || 'short',
+        physical_effort: a.suggested_physical as string || 'light',
+        is_active: true,
+        created_by: profile.id,
+        assigned_to: null,
+        next_due_at: subDate.toISOString(),
+      });
+    }
+
+    setCreatingSubTasks(false);
+    router.push('/tasks');
   };
 
   const globalColor =
@@ -176,6 +273,61 @@ export default function NewTaskPage() {
     score.global_score <= 16 ? '#007aff' :
     score.global_score <= 24 ? '#ff9500' :
     '#ff3b30';
+
+  // Overlay sous-tâches
+  if (showSubTasks) {
+    return (
+      <div className="pt-4 pb-28">
+        <div className="px-4 mb-4">
+          <h2 className="text-[22px] font-bold text-[#1c1c1e]">Tâches associées</h2>
+          <p className="text-[14px] text-[#8e8e93] mt-1">On a trouvé des sous-tâches pour &laquo; {name} &raquo;. Coche celles que tu veux créer.</p>
+        </div>
+
+        <div className="mx-4 rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          {subTaskSuggestions.map((s, i) => {
+            const checked = selectedSubTasks.has(s.id);
+            return (
+              <button key={s.id} type="button"
+                onClick={() => {
+                  setSelectedSubTasks((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
+                    return next;
+                  });
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                style={i < subTaskSuggestions.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
+                <span className="flex-shrink-0 flex items-center justify-center rounded-full"
+                  style={{ width: 24, height: 24, background: checked ? '#007aff' : 'transparent', border: checked ? 'none' : '2px solid #c7c7cc' }}>
+                  {checked && <svg width="12" height="12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>}
+                </span>
+                <div className="flex-1">
+                  <p className="text-[15px] text-[#1c1c1e]">{s.suggested_name}</p>
+                  {s.relative_days !== 0 && (
+                    <p className="text-[11px] text-[#8e8e93]">
+                      {s.relative_days < 0 ? `${Math.abs(s.relative_days)} jours avant` : s.relative_days > 0 ? `${s.relative_days} jours après` : 'Le jour même'}
+                    </p>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="px-4 pt-4 space-y-2">
+          <button onClick={handleCreateSubTasks} disabled={creatingSubTasks}
+            className="w-full rounded-xl py-[14px] text-[17px] font-semibold text-white disabled:opacity-50"
+            style={{ background: '#007aff' }}>
+            {creatingSubTasks ? 'Création...' : `Créer ${selectedSubTasks.size} sous-tâche${selectedSubTasks.size > 1 ? 's' : ''}`}
+          </button>
+          <button onClick={() => router.push('/tasks')}
+            className="w-full rounded-xl py-[14px] text-[15px] font-medium text-[#8e8e93]">
+            Passer
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pt-4">
@@ -194,9 +346,33 @@ export default function NewTaskPage() {
           {/* 1. Nom — premier champ, le plus important */}
           <div className="px-4 py-4" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
             <label className="text-[13px] text-[#8e8e93] block mb-1">Qu&apos;est-ce que c&apos;est ?</label>
-            <input type="text" required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} autoFocus
+            <input type="text" required maxLength={100} value={name}
+              onChange={(e) => { setName(e.target.value); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              autoFocus
               className="w-full text-[20px] font-semibold text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
               placeholder="Ex : Préparer le dîner" />
+
+            {/* Autocomplétion templates */}
+            {templateSuggestions.length > 0 && (
+              <div className="mt-2 rounded-lg overflow-hidden" style={{ border: '1px solid var(--ios-separator)' }}>
+                {templateSuggestions.map((tpl, i) => (
+                  <button key={i} type="button"
+                    onClick={() => {
+                      setName(tpl.name);
+                      if (tpl.scoring_category) setScoringCategory(tpl.scoring_category as ScoringCategory);
+                      if (tpl.default_duration) setDuration(tpl.default_duration as DurationEstimate);
+                      if (tpl.default_physical) setPhysical(tpl.default_physical as PhysicalEffort);
+                      setShowSuggestions(false);
+                    }}
+                    className="w-full px-3 py-2.5 text-left text-[15px] text-[#1c1c1e] flex items-center justify-between"
+                    style={i < templateSuggestions.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
+                    <span>{tpl.name}</span>
+                    <span className="text-[12px] text-[#8e8e93]">Modèle</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 2. Type de tâche — auto-détecté + modifiable */}
@@ -295,19 +471,19 @@ export default function NewTaskPage() {
           </div>
         </div>
 
-        {/* Charge mentale — slider utilisateur */}
+        {/* Score — slider utilisateur */}
         {name.trim() && (
           <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: 'white', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
             {/* Slider principal */}
             <div className="p-4 pb-3">
               <div className="flex items-center justify-between mb-1">
-                <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide">Charge mentale</p>
+                <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide">Score</p>
                 <span className="text-[28px] font-bold" style={{ color: scoreColor10(userScore ?? algoScore10) }}>
                   {userScore ?? algoScore10}<span className="text-[14px] text-[#8e8e93] font-normal">/10</span>
                 </span>
               </div>
               <p className="text-[12px] text-[#8e8e93] mb-3">
-                Pré-rempli par notre algo. Ajustez si vous ressentez différemment.
+                Pré-rempli par notre algo. Ajustez selon votre ressenti.
               </p>
 
               {/* Slider */}
@@ -388,6 +564,35 @@ export default function NewTaskPage() {
 
         {showAdvanced && (
           <div className="mx-4 rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+            {/* Assignation fixe / variable */}
+            <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+              <div>
+                <p className="text-[15px] text-[#1c1c1e]">Assignation fixe</p>
+                <p className="text-[11px] text-[#c7c7cc]">{isFixedAssignment ? 'Toujours la même personne' : 'Rotation possible entre membres'}</p>
+              </div>
+              <button type="button" onClick={() => setIsFixedAssignment(!isFixedAssignment)}
+                className="relative w-[51px] h-[31px] rounded-full transition-colors"
+                style={{ background: isFixedAssignment ? '#007aff' : '#e5e5ea' }}>
+                <span className="absolute top-[2px] w-[27px] h-[27px] rounded-full bg-white shadow transition-transform"
+                  style={{ left: isFixedAssignment ? '22px' : '2px' }} />
+              </button>
+            </div>
+
+            {/* Notifications */}
+            <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+              <div>
+                <p className="text-[15px] text-[#1c1c1e]">Rappels</p>
+                <p className="text-[11px] text-[#c7c7cc]">{notificationsEnabled ? 'Notifications activées' : 'Pas de rappel pour cette tâche'}</p>
+              </div>
+              <button type="button" onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+                className="relative w-[51px] h-[31px] rounded-full transition-colors"
+                style={{ background: notificationsEnabled ? '#34c759' : '#e5e5ea' }}>
+                <span className="absolute top-[2px] w-[27px] h-[27px] rounded-full bg-white shadow transition-transform"
+                  style={{ left: notificationsEnabled ? '22px' : '2px' }} />
+              </button>
+            </div>
+
+            {/* Date de début différée */}
             <div className="px-4 py-3">
               <label className="text-[13px] text-[#8e8e93] block mb-1">Date de début différée</label>
               <input type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)}

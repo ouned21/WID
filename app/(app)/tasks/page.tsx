@@ -347,7 +347,7 @@ export default function TasksPage() {
           </p>
           <div className="space-y-2 mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-[13px] font-semibold w-[110px]">Charge mentale</span>
+              <span className="text-[13px] font-semibold w-[110px]">Score</span>
               <span className="text-[12px] text-[#8e8e93]">Anticipation, décisions, stress, responsabilité</span>
             </div>
             <div className="flex items-center gap-2">

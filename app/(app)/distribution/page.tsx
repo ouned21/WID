@@ -233,10 +233,10 @@ export default function DistributionPage() {
             </div>
           )}
 
-          {/* Charge mentale cumulée par membre */}
+          {/* Score cumulé par membre */}
           {members.length > 1 && (
             <div className="mx-4 pb-8">
-              <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Charge mentale cumulée</p>
+              <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Score cumulé</p>
               <div className="rounded-xl bg-white p-4 space-y-3" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
                 {members.map((m, i) => {
                   const color = MEMBER_COLORS[i % MEMBER_COLORS.length];

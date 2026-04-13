@@ -27,12 +27,16 @@ type CreateTaskPayload = {
   custom_interval_days?: number | null;
   starts_at?: string | null;
   // Scoring V2 — dual score
-  user_score?: number | null; // score choisi par l'utilisateur (0-10)
-  global_score?: number | null; // score calculé par l'algo (2-36)
-  score_breakdown?: Record<string, unknown> | null; // ScoreBreakdown JSON
+  user_score?: number | null;
+  global_score?: number | null;
+  score_breakdown?: Record<string, unknown> | null;
   duration_estimate?: string | null;
   physical_effort?: string | null;
   scoring_category?: string | null;
+  // V2 features
+  is_fixed_assignment?: boolean;
+  notifications_enabled?: boolean;
+  estimated_cost?: number | null;
 };
 
 type CompleteTaskPayload = {
@@ -194,6 +198,9 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       duration_estimate: payload.duration_estimate ?? null,
       physical_effort: payload.physical_effort ?? null,
       scoring_category: payload.scoring_category ?? null,
+      is_fixed_assignment: payload.is_fixed_assignment ?? false,
+      notifications_enabled: payload.notifications_enabled ?? true,
+      estimated_cost: payload.estimated_cost ?? null,
     });
 
     set({ creating: false });

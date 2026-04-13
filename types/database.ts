@@ -87,6 +87,9 @@ export type HouseholdTask = {
   global_score: number | null; // score global calculé par l'algo (2-36)
   user_score: number | null; // score choisi par l'utilisateur (0-10), pré-rempli par l'algo
   assigned_to_phantom_id: string | null; // assigné à un membre fantôme
+  is_fixed_assignment: boolean; // true = toujours assignée à la même personne
+  notifications_enabled: boolean; // false = pas de rappels pour cette tâche
+  estimated_cost: number | null; // coût estimé en euros (optionnel)
   next_due_at: string | null;
   starts_at: string | null;
   is_active: boolean;
