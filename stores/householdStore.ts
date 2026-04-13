@@ -67,6 +67,10 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
     ]);
 
     const members = (membersRes.data as Profile[]) ?? [];
+    // phantom_members peut échouer si la table n'existe pas encore (legacy)
+    if (phantomRes.error) {
+      console.warn('[householdStore] phantom_members:', phantomRes.error.message);
+    }
     const phantomMembers = (phantomRes.data as PhantomMember[]) ?? [];
 
     set({

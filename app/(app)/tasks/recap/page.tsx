@@ -218,12 +218,14 @@ export default function RecapPage() {
         const task = tasks.find((t) => t.id === taskId);
         if (!task) continue;
 
-        // Insérer la complétion (avec phantom_id si la tâche est assignée à un fantôme)
+        // Complétion attribuée au membre assigné (fantôme ou réel)
+        // Si la tâche est assignée à un fantôme → completed_by_phantom_id
+        // Si assignée à un autre membre réel → completed_by reste l'utilisateur courant (c'est lui qui logge)
         await supabase.from('task_completions').insert({
           task_id: taskId,
           household_id: householdId,
-          completed_by: userId,
-          completed_by_phantom_id: task.assigned_to_phantom_id ?? null,
+          completed_by: userId, // toujours l'utilisateur qui logge
+          completed_by_phantom_id: task.assigned_to_phantom_id ?? null, // le fantôme s'il est assigné
           completed_at: nowISO,
           mental_load_score: task.mental_load_score,
         });

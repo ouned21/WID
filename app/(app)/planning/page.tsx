@@ -63,7 +63,7 @@ function TaskBlock({ task }: { task: TaskListItem }) {
     <Link href={`/tasks/${task.id}`}
       className="block rounded-lg px-2 py-1.5 mb-1 transition-all active:scale-[0.97]"
       style={{ background: `${catColor}15`, borderLeft: `3px solid ${catColor}` }}>
-      <p className="text-[11px] font-semibold text-[#1c1c1e] truncate leading-tight">{task.name}</p>
+      <p className="text-[9px] sm:text-[11px] font-semibold text-[#1c1c1e] truncate leading-tight">{task.name}</p>
       <div className="flex items-center gap-1 mt-0.5">
         <span className="text-[10px] font-bold" style={{ color }}>{score}</span>
         {assigneeLetter && (
@@ -84,14 +84,14 @@ function WeekView({ tasks, weekStart, userId }: { tasks: TaskListItem[]; weekSta
   return (
     <div>
       {/* Header jours */}
-      <div className="grid grid-cols-7 gap-1 mb-3">
+      <div className="grid grid-cols-7 gap-0.5 mb-3">
         {days.map((day) => (
           <WeekDayHeader key={day.toISOString()} day={day} isToday={isSameDay(day, today)} />
         ))}
       </div>
 
       {/* Contenu */}
-      <div className="grid grid-cols-7 gap-1" style={{ minHeight: '400px' }}>
+      <div className="grid grid-cols-7 gap-0.5" style={{ minHeight: '400px' }}>
         {days.map((day) => {
           const dayTasks = getTasksForDay(tasks, day);
           const total = dayScore(dayTasks);
@@ -155,7 +155,7 @@ function MonthView({ tasks, monthStart }: { tasks: TaskListItem[]; monthStart: D
       </div>
 
       {/* Grille */}
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-0.5">
         {/* Padding */}
         {Array.from({ length: paddingDays }).map((_, i) => (
           <div key={`pad-${i}`} />

@@ -82,10 +82,13 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
     }
 
     // -- Analytics par membre (réel + fantôme) --
-    // Si completed_by_phantom_id existe → compter pour le fantôme, sinon pour completed_by
+    // Si completed_by_phantom_id est renseigné → compter pour le fantôme
+    // Sinon → compter pour completed_by (le membre réel)
     const countByMember = new Map<string, number>();
     for (const c of completions) {
-      const memberId = (c as Record<string, unknown>).completed_by_phantom_id as string | null ?? c.completed_by;
+      const row = c as Record<string, unknown>;
+      const phantomId = typeof row.completed_by_phantom_id === 'string' ? row.completed_by_phantom_id : null;
+      const memberId = phantomId || c.completed_by;
       countByMember.set(memberId, (countByMember.get(memberId) ?? 0) + 1);
     }
 

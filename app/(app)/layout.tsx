@@ -174,7 +174,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           className="fixed z-[55] flex items-center justify-center rounded-full text-white shadow-lg transition-transform active:scale-90"
           style={{
             width: 56, height: 56,
-            bottom: 88, right: 20,
+            bottom: 100, right: 20,
             background: '#007aff',
             boxShadow: '0 4px 16px rgba(0,122,255,0.4)',
           }}

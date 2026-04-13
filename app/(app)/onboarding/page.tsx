@@ -162,6 +162,9 @@ export default function OnboardingPage() {
           duration_estimate: assoc.suggested_duration,
           physical_effort: assoc.suggested_physical,
           is_active: true,
+          is_fixed_assignment: false,
+          notifications_enabled: true,
+          estimated_cost: null,
           created_by: userId,
           assigned_to: null, // non assigné → pool
         })

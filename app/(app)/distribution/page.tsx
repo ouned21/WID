@@ -39,13 +39,17 @@ export default function DistributionPage() {
       const since = new Date();
       since.setDate(since.getDate() - period);
 
-      const { data } = await supabase
+      const { data, error: queryError } = await supabase
         .from('task_completions')
-        .select('completed_by, completed_at')
+        .select('completed_by, completed_by_phantom_id, completed_at')
         .eq('household_id', profile!.household_id!)
         .gte('completed_at', since.toISOString())
         .order('completed_at', { ascending: true });
 
+      if (queryError) {
+        console.error('[distribution] Erreur chargement historique:', queryError.message);
+        return;
+      }
       if (!data) return;
 
       // Grouper par membre par jour
@@ -54,8 +58,9 @@ export default function DistributionPage() {
 
       for (const c of data) {
         const day = c.completed_at.split('T')[0];
-        if (!dayMap[c.completed_by]) dayMap[c.completed_by] = {};
-        dayMap[c.completed_by][day] = (dayMap[c.completed_by][day] ?? 0) + 1;
+        const memberId = (c as Record<string, unknown>).completed_by_phantom_id as string || c.completed_by;
+        if (!dayMap[memberId]) dayMap[memberId] = {};
+        dayMap[memberId][day] = (dayMap[memberId][day] ?? 0) + 1;
       }
 
       // Convertir en tableau pour les N derniers jours

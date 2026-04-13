@@ -37,6 +37,7 @@ type CreateTaskPayload = {
   is_fixed_assignment?: boolean;
   notifications_enabled?: boolean;
   estimated_cost?: number | null;
+  assigned_to_phantom_id?: string | null;
 };
 
 type CompleteTaskPayload = {
@@ -201,6 +202,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       is_fixed_assignment: payload.is_fixed_assignment ?? false,
       notifications_enabled: payload.notifications_enabled ?? true,
       estimated_cost: payload.estimated_cost ?? null,
+      assigned_to_phantom_id: payload.assigned_to_phantom_id ?? null,
     });
 
     set({ creating: false });

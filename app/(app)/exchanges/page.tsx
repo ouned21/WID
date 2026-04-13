@@ -12,7 +12,7 @@ export default function ExchangesPage() {
   const searchParams = useSearchParams();
   const { profile } = useAuthStore();
   const { tasks } = useTaskStore();
-  const { members } = useHouseholdStore();
+  const { members, allMembers } = useHouseholdStore();
   const { exchanges, loading, fetchExchanges, proposeExchange, respondToExchange } = useExchangeStore();
 
   // Pré-remplir depuis les paramètres URL
@@ -31,9 +31,11 @@ export default function ExchangesPage() {
     if (profile?.household_id) fetchExchanges(profile.household_id);
   }, [profile?.household_id, fetchExchanges]);
 
-  const otherMembers = members.filter((m) => m.id !== profile?.id);
-  const myTasks = tasks.filter((t) => t.assigned_to === profile?.id);
-  const otherTasks = tasks.filter((t) => t.assigned_to === toUserId);
+  // Exclure les fantômes des échanges (ils ne peuvent pas répondre)
+  const otherMembers = allMembers.filter((m) => m.id !== profile?.id && !m.isPhantom);
+  // Seules les tâches variables (non fixées) sont échangeables
+  const myTasks = tasks.filter((t) => t.assigned_to === profile?.id && !t.is_fixed_assignment);
+  const otherTasks = tasks.filter((t) => t.assigned_to === toUserId && !t.is_fixed_assignment);
   const prefilledTask = offeredTaskId ? tasks.find((t) => t.id === offeredTaskId) : null;
 
   const pendingForMe = exchanges.filter((e) => e.to_user_id === profile?.id);
