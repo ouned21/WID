@@ -12,7 +12,7 @@ import { loadColor, loadMessage, taskLoad, loadTo10, scoreColor10, taskScoreDisp
 export default function DashboardCommand() {
   const { profile } = useAuthStore();
   const { tasks, fetchTasks } = useTaskStore();
-  const { household, members } = useHouseholdStore();
+  const { household, members, allMembers } = useHouseholdStore();
   const { fetchAnalytics } = useAnalyticsStore();
   const [weekTrend, setWeekTrend] = useState<number | null>(null);
   const [streak, setStreak] = useState(0);
@@ -76,7 +76,7 @@ export default function DashboardCommand() {
 
     const top3 = [...my].sort((a, b) => taskLoad(b) - taskLoad(a)).slice(0, 3);
 
-    const byMember = members.map((m) => {
+    const byMember = allMembers.map((m) => {
       const mt = tasks.filter((t) => t.assigned_to === m.id || t.assigned_to_phantom_id === m.id);
       return {
         id: m.id, name: m.display_name, isMe: m.id === profile?.id,
@@ -91,7 +91,7 @@ export default function DashboardCommand() {
     const avg = my.length > 0 ? Math.round(myLoad / my.length) : 0;
 
     return { myLoad, myPct, target, gap, overdue, today, top3, byMember, maxLoad, myTime, avg, myCount: my.length };
-  }, [tasks, profile?.id, profile?.target_share_percent, members]);
+  }, [tasks, profile?.id, profile?.target_share_percent, allMembers]);
 
   const greeting = (() => { const h = new Date().getHours(); return h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir'; })();
   const color = loadColor(d.avg);

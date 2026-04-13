@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase';
 export default function DashboardClassic() {
   const { profile } = useAuthStore();
   const { tasks, fetchTasks } = useTaskStore();
-  const { household, members } = useHouseholdStore();
+  const { household, members, allMembers } = useHouseholdStore();
   const { fetchAnalytics } = useAnalyticsStore();
 
   const [weekTrend, setWeekTrend] = useState<number | null>(null);
@@ -74,7 +74,7 @@ export default function DashboardClassic() {
       .sort((a, b) => taskLoad(b) - taskLoad(a))
       .slice(0, 3);
 
-    const loadByMember = members.map((m) => {
+    const loadByMember = allMembers.map((m) => {
       const mTasks = tasks.filter((t) => t.assigned_to === m.id || t.assigned_to_phantom_id === m.id);
       const load = mTasks.reduce((s, t) => s + taskLoad(t), 0);
       const time = mTasks.reduce((s, t) => s + (durationMap[t.duration_estimate ?? 'medium'] ?? 15), 0);
@@ -89,7 +89,7 @@ export default function DashboardClassic() {
     const loadMsg = myLoad === 0 ? 'Aucune charge' : avgLoadPerTask <= 10 ? 'Charge légère — ça roule' : avgLoadPerTask <= 20 ? 'Charge modérée — sous contrôle' : avgLoadPerTask <= 28 ? 'Charge élevée — attention' : 'Surcharge — rééquilibrage urgent';
 
     return { myLoad, myPercent, targetPercent, gap, progressToTarget, overdue, todayCount, heaviest, loadByMember, maxLoad, myTimeMin, loadColor, loadMsg, myTasks };
-  }, [tasks, profile?.id, profile?.target_share_percent, members]);
+  }, [tasks, profile?.id, profile?.target_share_percent, allMembers]);
 
   const greeting = (() => {
     const h = new Date().getHours();
