@@ -12,6 +12,7 @@ import {
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import type { TaskListItem } from '@/types/database';
+import { computeDayLoads, generateRebalanceSuggestions, type RebalanceSuggestion } from '@/utils/rebalancer';
 
 // -- Types -------------------------------------------------------------------
 
@@ -215,6 +216,7 @@ export default function PlanningPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
+  const [applyingRebalance, setApplyingRebalance] = useState<string | null>(null);
 
   const today = new Date();
   const weekStart = startOfWeek(addWeeks(today, weekOffset), { weekStartsOn: 1 });
@@ -239,6 +241,25 @@ export default function PlanningPage() {
     }
     return { totalScore, totalTasks };
   }, [tasks, weekStart]);
+
+  // Suggestions de rééquilibrage
+  const rebalanceSuggestions = useMemo(() => {
+    if (tasks.length === 0) return [];
+    const dayLoads = computeDayLoads(tasks, 14, profile?.id);
+    return generateRebalanceSuggestions(dayLoads, 3);
+  }, [tasks, profile?.id]);
+
+  const handleApplyRebalance = async (suggestion: RebalanceSuggestion) => {
+    setApplyingRebalance(suggestion.task.id);
+    const { createClient } = await import('@/lib/supabase');
+    const supabase = createClient();
+    await supabase
+      .from('household_tasks')
+      .update({ next_due_at: suggestion.toDate.toISOString() })
+      .eq('id', suggestion.task.id);
+    if (profile?.household_id) await fetchTasks(profile.household_id);
+    setApplyingRebalance(null);
+  };
 
   const weekLabel = `${format(weekStart, 'd MMM', { locale: fr })} — ${format(weekEnd2, 'd MMM yyyy', { locale: fr })}`;
   const monthLabel = format(monthStart, 'MMMM yyyy', { locale: fr });
@@ -308,6 +329,34 @@ export default function PlanningPage() {
           ) : (
             <MonthView tasks={tasks} monthStart={monthStart} />
           )}
+        </div>
+      )}
+
+      {/* Suggestions de rééquilibrage */}
+      {rebalanceSuggestions.length > 0 && viewMode === 'week' && (
+        <div className="mx-4">
+          <p className="text-[11px] font-bold text-[#ff9500] uppercase tracking-[0.15em] mb-2 px-1">
+            Rééquilibrage suggéré
+          </p>
+          <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+            {rebalanceSuggestions.map((s, i) => (
+              <div key={s.task.id}
+                className="px-4 py-3"
+                style={i < rebalanceSuggestions.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
+                <p className="text-[14px] font-semibold text-[#1c1c1e]">{s.task.name}</p>
+                <p className="text-[12px] text-[#8e8e93] mt-0.5">
+                  {s.fromDateStr} → {s.toDateStr} (−{s.scoreReduction} pts)
+                </p>
+                <button
+                  onClick={() => handleApplyRebalance(s)}
+                  disabled={applyingRebalance === s.task.id}
+                  className="mt-2 rounded-lg px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
+                  style={{ background: '#ff9500' }}>
+                  {applyingRebalance === s.task.id ? 'Décalage...' : 'Décaler'}
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { useTaskNotifications } from '@/utils/useTaskNotifications';
 import { initRealtime, stopRealtime } from '@/stores/realtimeStore';
+import { requestNotificationPermission, scheduleEveningRecap, scheduleDraftReminders } from '@/utils/pushNotifications';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Accueil', icon: (
@@ -82,6 +83,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Planifier les notifications pour les tâches du jour
   useTaskNotifications();
+
+  // Notifications push (récap 21h + rappels brouillons)
+  useEffect(() => {
+    requestNotificationPermission().then((granted) => {
+      if (granted) {
+        scheduleEveningRecap();
+        scheduleDraftReminders();
+      }
+    });
+  }, []);
 
   // Activer Supabase Realtime pour le foyer
   useEffect(() => {
