@@ -75,7 +75,7 @@ export default function DashboardClassic() {
       .slice(0, 3);
 
     const loadByMember = members.map((m) => {
-      const mTasks = tasks.filter((t) => t.assigned_to === m.id);
+      const mTasks = tasks.filter((t) => t.assigned_to === m.id || t.assigned_to_phantom_id === m.id);
       const load = mTasks.reduce((s, t) => s + taskLoad(t), 0);
       const time = mTasks.reduce((s, t) => s + (durationMap[t.duration_estimate ?? 'medium'] ?? 15), 0);
       return { id: m.id, name: m.display_name, load, time, isMe: m.id === profile?.id };

@@ -14,7 +14,7 @@ export default function TaskDetailPage() {
   const router = useRouter();
   const { profile } = useAuthStore();
   const { tasks, completeTask, updateTask, archiveTask, deleteTask, fetchTaskDetail, completing, archiving } = useTaskStore();
-  const { members } = useHouseholdStore();
+  const { members, allMembers } = useHouseholdStore();
   const task = tasks.find((t) => t.id === id);
 
   const [completions, setCompletions] = useState<TaskCompletion[]>([]);
@@ -127,12 +127,22 @@ export default function TaskDetailPage() {
         <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
           <p className="text-[11px] text-[#8e8e93] uppercase mb-1">Assignée à</p>
           <select
-            defaultValue={task.assigned_to ?? ''}
-            onChange={(e) => autoSave('assigned_to', e.target.value || null)}
+            defaultValue={task.assigned_to ?? task.assigned_to_phantom_id ?? ''}
+            onChange={(e) => {
+              const selectedId = e.target.value || null;
+              const isPhantom = allMembers.find((m) => m.id === selectedId)?.isPhantom;
+              if (isPhantom) {
+                autoSave('assigned_to', null);
+                autoSave('assigned_to_phantom_id', selectedId);
+              } else {
+                autoSave('assigned_to', selectedId);
+                autoSave('assigned_to_phantom_id', null);
+              }
+            }}
             className="w-full text-[17px] font-medium text-[#1c1c1e] bg-transparent outline-none"
           >
             <option value="">Non assigné</option>
-            {members.map((m) => (<option key={m.id} value={m.id}>{m.display_name}</option>))}
+            {allMembers.map((m) => (<option key={m.id} value={m.id}>{m.isPhantom ? '👻 ' : ''}{m.display_name}</option>))}
           </select>
         </div>
 

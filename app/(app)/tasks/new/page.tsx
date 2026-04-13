@@ -60,7 +60,7 @@ export default function NewTaskPage() {
     if (dateParam) {
       setDueDate(dateParam);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- montage uniquement (draft/date URL)
 
   // Catégories DB + templates (pour autocomplétion)
   const [dbCategories, setDbCategories] = useState<TaskCategory[]>([]);
@@ -238,7 +238,9 @@ export default function NewTaskPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ taskName: name.trim(), dueDate }),
           });
-          const aiData = await aiRes.json();
+          if (!aiRes.ok) { router.push('/tasks'); return; }
+          let aiData: { subtasks?: { name: string; relativeDays: number; duration: string; category: string }[] };
+          try { aiData = await aiRes.json(); } catch { router.push('/tasks'); return; }
           if (aiData.subtasks && aiData.subtasks.length > 0) {
             // Convertir le format IA en format compatible avec le composant
             const aiSuggestions = aiData.subtasks.map((s: { name: string; relativeDays: number; duration: string; category: string }, i: number) => ({

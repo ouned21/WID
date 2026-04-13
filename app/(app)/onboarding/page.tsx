@@ -377,7 +377,7 @@ export default function OnboardingPage() {
   if (step === 'swipe') {
     const currentTask = generatedTasks[swipeIndex];
     const isFinished = swipeIndex >= generatedTasks.length;
-    const realMembers = allMembers.filter((m) => !m.isPhantom || true); // tous les membres
+    const realMembers = allMembers; // tous les membres (réels + fantômes)
 
     if (isFinished) {
       return (

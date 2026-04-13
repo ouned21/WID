@@ -41,14 +41,20 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Mettre en cache les réponses valides
-        if (response.status === 200) {
+        // Ne cacher que les réponses 200 (pas les erreurs)
+        if (response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(() => {
+        // Offline : servir depuis le cache uniquement pour les pages HTML
+        if (event.request.mode === 'navigate') {
+          return caches.match(event.request) || caches.match('/');
+        }
+        return caches.match(event.request);
+      })
   );
 });
 

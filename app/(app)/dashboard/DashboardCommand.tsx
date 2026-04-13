@@ -77,7 +77,7 @@ export default function DashboardCommand() {
     const top3 = [...my].sort((a, b) => taskLoad(b) - taskLoad(a)).slice(0, 3);
 
     const byMember = members.map((m) => {
-      const mt = tasks.filter((t) => t.assigned_to === m.id);
+      const mt = tasks.filter((t) => t.assigned_to === m.id || t.assigned_to_phantom_id === m.id);
       return {
         id: m.id, name: m.display_name, isMe: m.id === profile?.id,
         load: mt.reduce((s, t) => s + taskLoad(t), 0),

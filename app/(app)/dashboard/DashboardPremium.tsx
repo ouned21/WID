@@ -58,7 +58,7 @@ export default function DashboardPremium() {
     const today = tasks.filter((t) => { if (!t.next_due_at) return false; const x = new Date(t.next_due_at); return x >= todayStart && x < new Date(todayStart.getTime() + 86400000); }).length;
     const top3 = [...my].sort((a, b) => taskLoad(b) - taskLoad(a)).slice(0, 3);
     const byMember = members.map((m) => {
-      const mt = tasks.filter((t) => t.assigned_to === m.id);
+      const mt = tasks.filter((t) => t.assigned_to === m.id || t.assigned_to_phantom_id === m.id);
       return { id: m.id, name: m.display_name, load: mt.reduce((s, t) => s + taskLoad(t), 0), isMe: m.id === profile?.id };
     }).sort((a, b) => b.load - a.load);
     const maxLoad = Math.max(...byMember.map((m) => m.load), 1);

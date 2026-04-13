@@ -1,24 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 /**
  * API Route : génération de sous-tâches par IA (Claude API)
- *
- * POST /api/ai/subtasks
- * Body: { taskName: string, dueDate?: string }
- * Response: { subtasks: { name: string, relativeDays: number, duration: string, category: string }[] }
+ * Authentifiée, rate-limitée (simple), input validé.
  */
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
+// Rate limit simple en mémoire (par userId, max 10 appels par minute)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
 export async function POST(request: NextRequest) {
   if (!ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: 'API key non configurée' }, { status: 500 });
+    return NextResponse.json({ subtasks: [] }); // Dégradation gracieuse, pas d'erreur 500
   }
 
-  const { taskName, dueDate } = await request.json();
+  // Auth check
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+  }
 
-  if (!taskName || typeof taskName !== 'string') {
-    return NextResponse.json({ error: 'taskName requis' }, { status: 400 });
+  // Rate limiting (10 appels/minute par user)
+  const now = Date.now();
+  const userLimit = rateLimitMap.get(user.id);
+  if (userLimit && userLimit.resetAt > now && userLimit.count >= 10) {
+    return NextResponse.json({ error: 'Trop de requêtes' }, { status: 429 });
+  }
+  if (!userLimit || userLimit.resetAt <= now) {
+    rateLimitMap.set(user.id, { count: 1, resetAt: now + 60000 });
+  } else {
+    userLimit.count++;
+  }
+
+  let body: { taskName?: unknown; dueDate?: unknown };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'JSON invalide' }, { status: 400 });
+  }
+
+  const { taskName, dueDate } = body;
+
+  if (!taskName || typeof taskName !== 'string' || taskName.length > 200) {
+    return NextResponse.json({ error: 'taskName requis (max 200 chars)' }, { status: 400 });
   }
 
   const prompt = `Tu es un assistant de gestion de foyer. L'utilisateur crée la tâche "${taskName}"${dueDate ? ` prévue le ${dueDate}` : ''}.
