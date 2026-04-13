@@ -218,11 +218,12 @@ export default function RecapPage() {
         const task = tasks.find((t) => t.id === taskId);
         if (!task) continue;
 
-        // Insérer la complétion
+        // Insérer la complétion (avec phantom_id si la tâche est assignée à un fantôme)
         await supabase.from('task_completions').insert({
           task_id: taskId,
           household_id: householdId,
           completed_by: userId,
+          completed_by_phantom_id: task.assigned_to_phantom_id ?? null,
           completed_at: nowISO,
           mental_load_score: task.mental_load_score,
         });

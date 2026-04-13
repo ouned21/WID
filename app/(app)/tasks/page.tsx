@@ -51,14 +51,18 @@ function GaugeBar({ label, value }: { label: string; value: number }) {
 
 // -- Carte tâche ---------------------------------------------------------------
 
-function TaskCard({ task, onComplete, onDelete, isCompleted, isAnimating }: {
+function TaskCard({ task, onComplete, onCompleteFor, onDelete, isCompleted, isAnimating, allMembers }: {
   task: TaskListItem;
   onComplete: (id: string) => void;
+  onCompleteFor: (taskId: string, phantomId: string) => void;
   onDelete: (id: string) => Promise<void>;
   isCompleted: boolean;
   isAnimating: boolean;
+  allMembers: import('@/types/database').HouseholdMember[];
 }) {
+  const [showMemberPicker, setShowMemberPicker] = useState(false);
   const catColor = task.category?.color_hex ?? '#8e8e93';
+  const phantomMembers = allMembers.filter((m) => m.isPhantom);
 
   if (isCompleted && !isAnimating) return null;
 
@@ -139,22 +143,49 @@ function TaskCard({ task, onComplete, onDelete, isCompleted, isAnimating }: {
           </Link>
 
           {/* Actions */}
-          <div className="px-4 pb-3 flex items-center justify-end gap-2">
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onComplete(task.id); }}
-              className="rounded-lg px-3.5 py-[5px] text-[12px] font-bold tracking-wide transition-all"
-              style={{ background: '#34c759', color: 'white' }}>
-              FAIT
-            </button>
-            <button onClick={(e) => {
-              e.preventDefault(); e.stopPropagation();
-              if (confirm('Supprimer cette tâche ?')) onDelete(task.id);
-            }}
-              className="rounded-lg p-[5px] transition-all"
-              style={{ color: '#ff3b30' }}>
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-              </svg>
-            </button>
+          <div className="px-4 pb-3">
+            {/* Sélecteur membre fantôme (si ouvert) */}
+            {showMemberPicker && phantomMembers.length > 0 && (
+              <div className="mb-2 rounded-lg overflow-hidden" style={{ border: '1px solid var(--ios-separator)', background: '#f9f9fb' }}>
+                <p className="px-3 py-1.5 text-[11px] font-semibold text-[#8e8e93] uppercase">Fait par...</p>
+                {phantomMembers.map((m) => (
+                  <button key={m.id} onClick={(e) => {
+                    e.preventDefault(); e.stopPropagation();
+                    onCompleteFor(task.id, m.id);
+                    setShowMemberPicker(false);
+                  }}
+                    className="w-full px-3 py-2 text-left text-[14px] text-[#1c1c1e] flex items-center gap-2"
+                    style={{ borderTop: '0.5px solid var(--ios-separator)' }}>
+                    <span>👻</span>
+                    <span>{m.display_name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-2">
+              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onComplete(task.id); }}
+                className="rounded-lg px-3.5 py-[5px] text-[12px] font-bold tracking-wide transition-all"
+                style={{ background: '#34c759', color: 'white' }}>
+                FAIT
+              </button>
+              {phantomMembers.length > 0 && (
+                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowMemberPicker(!showMemberPicker); }}
+                  className="rounded-lg px-2 py-[5px] text-[12px] font-bold transition-all"
+                  style={{ background: showMemberPicker ? '#007aff' : '#e5e5ea', color: showMemberPicker ? 'white' : '#3c3c43' }}>
+                  👤
+                </button>
+              )}
+              <button onClick={(e) => {
+                e.preventDefault(); e.stopPropagation();
+                if (confirm('Supprimer cette tâche ?')) onDelete(task.id);
+              }}
+                className="rounded-lg p-[5px] transition-all"
+                style={{ color: '#ff3b30' }}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                </svg>
+              </button>
+            </div>
           </div>
         </>
       )}
@@ -172,9 +203,9 @@ const SECTION_COLORS: Record<string, string> = {
   'Plus tard': '#8e8e93',
 };
 
-function TaskSection({ title, tasks, onComplete, onDelete, completedIds, animatingIds }: {
+function TaskSection({ title, tasks, onComplete, onCompleteFor, onDelete, completedIds, animatingIds, allMembers }: {
   title: string; tasks: TaskListItem[];
-  onComplete: (id: string) => void; onDelete: (id: string) => Promise<void>; completedIds: Set<string>; animatingIds: Set<string>;
+  onComplete: (id: string) => void; onCompleteFor: (taskId: string, phantomId: string) => void; onDelete: (id: string) => Promise<void>; completedIds: Set<string>; animatingIds: Set<string>; allMembers: import('@/types/database').HouseholdMember[];
 }) {
   const visibleCount = tasks.filter((t) => !completedIds.has(t.id) || animatingIds.has(t.id)).length;
   if (visibleCount === 0) return null;
@@ -189,7 +220,7 @@ function TaskSection({ title, tasks, onComplete, onDelete, completedIds, animati
       </div>
       <div className="grid grid-cols-2 gap-2.5 px-3">
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} onComplete={onComplete} onDelete={onDelete} isCompleted={completedIds.has(task.id)} isAnimating={animatingIds.has(task.id)} />
+          <TaskCard key={task.id} task={task} onComplete={onComplete} onCompleteFor={onCompleteFor} onDelete={onDelete} isCompleted={completedIds.has(task.id)} isAnimating={animatingIds.has(task.id)} allMembers={allMembers} />
         ))}
       </div>
     </section>
@@ -201,7 +232,7 @@ function TaskSection({ title, tasks, onComplete, onDelete, completedIds, animati
 export default function TasksPage() {
   const { profile } = useAuthStore();
   const { tasks, filters, loading, fetchTasks, completeTask, deleteTask, setFilters } = useTaskStore();
-  const { members } = useHouseholdStore();
+  const { members, allMembers } = useHouseholdStore();
 
   const [sectionFilter, setSectionFilter] = useState<string>('all');
   const [showScoreInfo, setShowScoreInfo] = useState(false);
@@ -242,6 +273,20 @@ export default function TasksPage() {
         return next;
       });
       completeTask(taskId);
+    }, 1000);
+  }, [completeTask]);
+
+  const handleCompleteFor = useCallback((taskId: string, phantomId: string) => {
+    setAnimatingIds((prev) => new Set(prev).add(taskId));
+    setCompletedIds((prev) => new Set(prev).add(taskId));
+
+    setTimeout(() => {
+      setAnimatingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+      completeTask(taskId, { phantom_member_id: phantomId });
     }, 1000);
   }, [completeTask]);
 
@@ -397,7 +442,7 @@ export default function TasksPage() {
       ) : (
         <div className="pt-2">
           {visibleSections.map((s) => (
-            <TaskSection key={s.key} title={s.title} tasks={s.tasks} onComplete={handleComplete} onDelete={handleDelete} completedIds={completedIds} animatingIds={animatingIds} />
+            <TaskSection key={s.key} title={s.title} tasks={s.tasks} onComplete={handleComplete} onCompleteFor={handleCompleteFor} onDelete={handleDelete} completedIds={completedIds} animatingIds={animatingIds} allMembers={allMembers} />
           ))}
 
           {/* Récap du soir */}

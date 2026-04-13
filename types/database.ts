@@ -86,6 +86,7 @@ export type HouseholdTask = {
   score_breakdown: Record<string, unknown> | null; // ScoreBreakdown JSON
   global_score: number | null; // score global calculé par l'algo (2-36)
   user_score: number | null; // score choisi par l'utilisateur (0-10), pré-rempli par l'algo
+  assigned_to_phantom_id: string | null; // assigné à un membre fantôme
   next_due_at: string | null;
   starts_at: string | null;
   is_active: boolean;
@@ -97,10 +98,32 @@ export type TaskCompletion = {
   id: string;
   task_id: string;
   completed_by: string;
+  completed_by_phantom_id: string | null; // si complété au nom d'un membre fantôme
   completed_at: string;
   mental_load_score: number | null;
   duration_minutes: number | null;
   note: string | null;
+};
+
+/** Membre fantôme — membre du foyer sans compte */
+export type PhantomMember = {
+  id: string;
+  household_id: string;
+  display_name: string;
+  target_share_percent: number | null;
+  created_by: string;
+  linked_profile_id: string | null;
+  created_at: string;
+};
+
+/** Type unifié pour l'UI — un membre est soit un vrai profil, soit un fantôme */
+export type HouseholdMember = {
+  id: string;
+  display_name: string;
+  avatar_url: string | null;
+  isPhantom: boolean;
+  target_share_percent: number | null;
+  vacation_mode: boolean;
 };
 
 // -----------------------------------------------------------------------------

@@ -33,10 +33,12 @@ function DashboardStyleButton({ value, label, desc, emoji }: { value: DashboardS
 export default function ProfilePage() {
   const router = useRouter();
   const { profile, signOut } = useAuthStore();
-  const { household, members, renameHousehold } = useHouseholdStore();
+  const { household, members, phantomMembers, renameHousehold, addPhantomMember, removePhantomMember } = useHouseholdStore();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [copied, setCopied] = useState(false);
+  const [showAddPhantom, setShowAddPhantom] = useState(false);
+  const [phantomName, setPhantomName] = useState('');
 
   const handleSignOut = async () => {
     if (!confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) return;
@@ -188,13 +190,14 @@ export default function ProfilePage() {
           {/* Membres */}
           <div className="mx-4">
             <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">
-              Membres ({members.length})
+              Membres ({members.length + phantomMembers.length})
             </p>
             <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+              {/* Membres réels */}
               {members.map((member, i) => (
                 <div key={member.id}
                   className="flex items-center gap-3 px-4 py-3"
-                  style={i < members.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
+                  style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
                   <div className="flex h-9 w-9 items-center justify-center rounded-full text-[14px] font-semibold text-white"
                     style={{ background: member.role === 'admin' ? '#007aff' : '#34c759' }}>
                     {member.display_name?.charAt(0)?.toUpperCase() ?? '?'}
@@ -205,7 +208,86 @@ export default function ProfilePage() {
                   </span>
                 </div>
               ))}
+
+              {/* Membres fantômes */}
+              {phantomMembers.map((phantom) => (
+                <div key={phantom.id}
+                  className="flex items-center gap-3 px-4 py-3"
+                  style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full text-[14px]"
+                    style={{ background: '#e5e5ea' }}>
+                    👻
+                  </div>
+                  <span className="flex-1 text-[17px] text-[#1c1c1e]">{phantom.display_name}</span>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Retirer ${phantom.display_name} du foyer ?`)) {
+                        removePhantomMember(phantom.id);
+                      }
+                    }}
+                    className="text-[13px] font-medium"
+                    style={{ color: '#ff3b30' }}
+                  >
+                    Retirer
+                  </button>
+                </div>
+              ))}
+
+              {/* Ajouter un membre fantôme */}
+              <div className="flex items-center gap-3 px-4 py-3">
+                {showAddPhantom ? (
+                  <>
+                    <input
+                      type="text"
+                      value={phantomName}
+                      onChange={(e) => setPhantomName(e.target.value)}
+                      placeholder="Prénom"
+                      autoFocus
+                      className="flex-1 text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && phantomName.trim()) {
+                          addPhantomMember(phantomName.trim());
+                          setPhantomName('');
+                          setShowAddPhantom(false);
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (phantomName.trim()) {
+                          addPhantomMember(phantomName.trim());
+                          setPhantomName('');
+                          setShowAddPhantom(false);
+                        }
+                      }}
+                      className="text-[14px] font-semibold"
+                      style={{ color: '#007aff' }}
+                    >
+                      Ajouter
+                    </button>
+                    <button
+                      onClick={() => { setShowAddPhantom(false); setPhantomName(''); }}
+                      className="text-[14px] text-[#8e8e93]"
+                    >
+                      ✕
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setShowAddPhantom(true)}
+                    className="flex items-center gap-2 text-[15px] font-medium"
+                    style={{ color: '#007aff' }}
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full text-[18px]"
+                      style={{ background: '#f0f2f8' }}>+</span>
+                    Ajouter un membre
+                  </button>
+                )}
+              </div>
             </div>
+            <p className="text-[11px] text-[#8e8e93] mt-1.5 px-1">
+              👻 Membre sans compte — vous loguez ses tâches à sa place
+            </p>
           </div>
         </>
       )}

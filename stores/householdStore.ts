@@ -5,11 +5,34 @@ import { createClient } from '@/lib/supabase';
 import { generateInviteCode } from '@/utils/inviteCode';
 import { isUniqueViolation } from '@/utils/validation';
 import { useAuthStore } from '@/stores/authStore';
-import type { Household, Profile } from '@/types/database';
+import type { Household, Profile, PhantomMember, HouseholdMember } from '@/types/database';
+
+/** Fusionne profils réels et fantômes en un type unifié */
+function buildAllMembers(members: Profile[], phantomMembers: PhantomMember[]): HouseholdMember[] {
+  const real: HouseholdMember[] = members.map((m) => ({
+    id: m.id,
+    display_name: m.display_name,
+    avatar_url: m.avatar_url,
+    isPhantom: false,
+    target_share_percent: m.target_share_percent,
+    vacation_mode: m.vacation_mode,
+  }));
+  const phantom: HouseholdMember[] = phantomMembers.map((p) => ({
+    id: p.id,
+    display_name: p.display_name,
+    avatar_url: null,
+    isPhantom: true,
+    target_share_percent: p.target_share_percent,
+    vacation_mode: false,
+  }));
+  return [...real, ...phantom];
+}
 
 type HouseholdState = {
   household: Household | null;
   members: Profile[];
+  phantomMembers: PhantomMember[];
+  allMembers: HouseholdMember[]; // profils + fantômes fusionnés
   loading: boolean;
   error: string | null;
 
@@ -18,6 +41,8 @@ type HouseholdState = {
   joinHousehold: (inviteCode: string) => Promise<{ ok: boolean; error?: string }>;
   renameHousehold: (newName: string) => Promise<{ ok: boolean; error?: string }>;
   leaveHousehold: () => Promise<{ ok: boolean; error?: string }>;
+  addPhantomMember: (name: string) => Promise<{ ok: boolean; error?: string }>;
+  removePhantomMember: (id: string) => Promise<{ ok: boolean; error?: string }>;
   clearError: () => void;
   reset: () => void;
 };
@@ -27,23 +52,29 @@ const MAX_INVITE_CODE_RETRIES = 5;
 export const useHouseholdStore = create<HouseholdState>((set, get) => ({
   household: null,
   members: [],
+  phantomMembers: [],
+  allMembers: [],
   loading: false,
   error: null,
 
   fetchHousehold: async (householdId) => {
     const supabase = createClient();
 
-    const [householdRes, membersRes] = await Promise.all([
+    const [householdRes, membersRes, phantomRes] = await Promise.all([
       supabase.from('households').select('*').eq('id', householdId).single(),
       supabase.from('profiles').select('*').eq('household_id', householdId).is('left_at', null),
+      supabase.from('phantom_members').select('*').eq('household_id', householdId),
     ]);
 
-    if (householdRes.data) {
-      set({ household: householdRes.data as Household });
-    }
-    if (membersRes.data) {
-      set({ members: membersRes.data as Profile[] });
-    }
+    const members = (membersRes.data as Profile[]) ?? [];
+    const phantomMembers = (phantomRes.data as PhantomMember[]) ?? [];
+
+    set({
+      household: householdRes.data ? (householdRes.data as Household) : get().household,
+      members,
+      phantomMembers,
+      allMembers: buildAllMembers(members, phantomMembers),
+    });
   },
 
   createHousehold: async (name) => {
@@ -203,6 +234,37 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
     return { ok: true };
   },
 
+  addPhantomMember: async (displayName) => {
+    const supabase = createClient();
+    const userId = useAuthStore.getState().user?.id;
+    const householdId = get().household?.id;
+    if (!userId || !householdId) return { ok: false, error: 'Non authentifié.' };
+
+    const { error } = await supabase.from('phantom_members').insert({
+      household_id: householdId,
+      display_name: displayName.trim(),
+      created_by: userId,
+    });
+
+    if (error) return { ok: false, error: error.message };
+
+    await get().fetchHousehold(householdId);
+    return { ok: true };
+  },
+
+  removePhantomMember: async (id) => {
+    const supabase = createClient();
+    const householdId = get().household?.id;
+    if (!householdId) return { ok: false, error: 'Aucun foyer.' };
+
+    const { error } = await supabase.from('phantom_members').delete().eq('id', id);
+
+    if (error) return { ok: false, error: error.message };
+
+    await get().fetchHousehold(householdId);
+    return { ok: true };
+  },
+
   clearError: () => set({ error: null }),
-  reset: () => set({ household: null, members: [], loading: false, error: null }),
+  reset: () => set({ household: null, members: [], phantomMembers: [], allMembers: [], loading: false, error: null }),
 }));

@@ -39,7 +39,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
     set({ loading: true, error: null });
     const supabase = createClient();
     const period = get().period;
-    const members = useHouseholdStore.getState().members;
+    const allMembers = useHouseholdStore.getState().allMembers;
 
     // Date de debut de la periode
     const since = new Date();
@@ -48,7 +48,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
     // Requête simple : completions du foyer sur la période
     const { data: rawCompletions, error } = await supabase
       .from('task_completions')
-      .select('completed_by, task_id')
+      .select('completed_by, completed_by_phantom_id, task_id')
       .eq('household_id', householdId)
       .gte('completed_at', since.toISOString());
 
@@ -81,14 +81,15 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
       }
     }
 
-    // -- Analytics par membre --
-    // Source de verite = householdStore.members (un membre a 0% apparait toujours)
+    // -- Analytics par membre (réel + fantôme) --
+    // Si completed_by_phantom_id existe → compter pour le fantôme, sinon pour completed_by
     const countByMember = new Map<string, number>();
     for (const c of completions) {
-      countByMember.set(c.completed_by, (countByMember.get(c.completed_by) ?? 0) + 1);
+      const memberId = (c as Record<string, unknown>).completed_by_phantom_id as string | null ?? c.completed_by;
+      countByMember.set(memberId, (countByMember.get(memberId) ?? 0) + 1);
     }
 
-    const rawPercentages = members.map((m) => {
+    const rawPercentages = allMembers.map((m) => {
       const count = countByMember.get(m.id) ?? 0;
       const pct = totalCompletions > 0 ? (count / totalCompletions) * 100 : 0;
       return { memberId: m.id, displayName: m.display_name, taskCount: count, rawPct: pct };

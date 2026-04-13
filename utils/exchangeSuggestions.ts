@@ -1,4 +1,4 @@
-import type { TaskListItem, Profile } from '@/types/database';
+import type { TaskListItem, Profile, HouseholdMember } from '@/types/database';
 
 /**
  * Moteur de suggestions d'échanges de tâches.
@@ -64,13 +64,17 @@ export function generateExchangeSuggestions(
   tasks: TaskListItem[],
   members: Profile[],
   maxSuggestions: number = 3,
+  allMembers?: HouseholdMember[],
 ): ExchangeSuggestion[] {
   const balance = computeMemberBalance(tasks, members);
   if (balance.length < 2) return [];
 
+  // Exclure les membres fantômes des propositions d'échange (ils ne peuvent pas répondre)
+  const phantomIds = new Set((allMembers ?? []).filter((m) => m.isPhantom).map((m) => m.id));
+
   // Trier : ceux qui font trop en premier, ceux qui font pas assez en dernier
-  const overloaded = balance.filter((b) => b.gap > 3).sort((a, b) => b.gap - a.gap);
-  const underloaded = balance.filter((b) => b.gap < -3).sort((a, b) => a.gap - b.gap);
+  const overloaded = balance.filter((b) => b.gap > 3 && !phantomIds.has(b.memberId)).sort((a, b) => b.gap - a.gap);
+  const underloaded = balance.filter((b) => b.gap < -3 && !phantomIds.has(b.memberId)).sort((a, b) => a.gap - b.gap);
 
   if (overloaded.length === 0 || underloaded.length === 0) return [];
 

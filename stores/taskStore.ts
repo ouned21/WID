@@ -39,6 +39,7 @@ type CompleteTaskPayload = {
   mental_load_score?: number | null;
   duration_minutes?: number | null;
   note?: string | null;
+  phantom_member_id?: string | null; // compléter au nom d'un membre fantôme
 };
 
 type UpdateTaskPayload = {
@@ -224,6 +225,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       task_id: taskId,
       household_id: task.household_id,
       completed_by: userId,
+      completed_by_phantom_id: payload.phantom_member_id ?? null,
       completed_at: now.toISOString(),
       mental_load_score: payload.mental_load_score ?? task.mental_load_score,
       duration_minutes: payload.duration_minutes ?? null,
