@@ -231,7 +231,37 @@ export default function NewTaskPage() {
         setSelectedSubTasks(new Set(matching.map((a: { id: string }) => a.id)));
         setShowSubTasks(true);
       } else {
-        router.push('/tasks');
+        // Fallback IA : demander à Claude de générer des sous-tâches
+        try {
+          const aiRes = await fetch('/api/ai/subtasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ taskName: name.trim(), dueDate }),
+          });
+          const aiData = await aiRes.json();
+          if (aiData.subtasks && aiData.subtasks.length > 0) {
+            // Convertir le format IA en format compatible avec le composant
+            const aiSuggestions = aiData.subtasks.map((s: { name: string; relativeDays: number; duration: string; category: string }, i: number) => ({
+              id: `ai-${i}`,
+              trigger_type: 'ai',
+              trigger_value: 'ai',
+              suggested_name: s.name,
+              suggested_frequency: 'once',
+              suggested_duration: s.duration || 'short',
+              suggested_physical: 'light',
+              suggested_scoring_category: s.category || 'misc',
+              suggested_mental_load_score: 3,
+              relative_days: s.relativeDays || 0,
+            }));
+            setSubTaskSuggestions(aiSuggestions);
+            setSelectedSubTasks(new Set(aiSuggestions.map((s: { id: string }) => s.id)));
+            setShowSubTasks(true);
+          } else {
+            router.push('/tasks');
+          }
+        } catch {
+          router.push('/tasks');
+        }
       }
     } else {
       setError(result.error ?? 'Erreur inconnue.');

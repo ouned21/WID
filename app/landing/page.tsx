@@ -111,6 +111,58 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Ce qui nous rend unique */}
+      <section className="py-20 px-6" style={{ background: '#f6f8ff' }}>
+        <div className="max-w-lg mx-auto">
+          <p className="text-[14px] font-semibold text-[#ff9500] uppercase tracking-wide mb-3 text-center">Unique</p>
+          <h2 className="text-[28px] font-bold text-[#1c1c1e] mb-10 text-center">
+            Ce qu&apos;aucune autre app ne fait
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="rounded-2xl bg-white p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p className="text-[24px] mb-2">🏠</p>
+              <h3 className="text-[15px] font-bold text-[#1c1c1e]">Onboarding intelligent</h3>
+              <p className="text-[13px] text-[#8e8e93] mt-1">Sélectionnez vos équipements et vos enfants, l&apos;app génère automatiquement vos tâches</p>
+            </div>
+            <div className="rounded-2xl bg-white p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p className="text-[24px] mb-2">👻</p>
+              <h3 className="text-[15px] font-bold text-[#1c1c1e]">Membre fantôme</h3>
+              <p className="text-[13px] text-[#8e8e93] mt-1">Votre partenaire ne veut pas s&apos;inscrire ? Utilisez l&apos;app seul(e) et loguez ses tâches</p>
+            </div>
+            <div className="rounded-2xl bg-white p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p className="text-[24px] mb-2">🌙</p>
+              <h3 className="text-[15px] font-bold text-[#1c1c1e]">Récap du soir en 15 secondes</h3>
+              <p className="text-[13px] text-[#8e8e93] mt-1">Cochez en rafale ce que vous avez fait aujourd&apos;hui. Pas de saisie, juste des taps</p>
+            </div>
+            <div className="rounded-2xl bg-white p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p className="text-[24px] mb-2">🤖</p>
+              <h3 className="text-[15px] font-bold text-[#1c1c1e]">IA intégrée</h3>
+              <p className="text-[13px] text-[#8e8e93] mt-1">Créez &quot;Anniversaire Léa&quot; et l&apos;IA génère cadeau, gâteau, invitations — positionnés dans le calendrier</p>
+            </div>
+            <div className="rounded-2xl bg-white p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p className="text-[24px] mb-2">📅</p>
+              <h3 className="text-[15px] font-bold text-[#1c1c1e]">Planning partagé</h3>
+              <p className="text-[13px] text-[#8e8e93] mt-1">Vue semaine et mois. L&apos;app détecte les jours surchargés et propose de décaler des tâches</p>
+            </div>
+            <div className="rounded-2xl bg-white p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p className="text-[24px] mb-2">🔄</p>
+              <h3 className="text-[15px] font-bold text-[#1c1c1e]">Échanges de tâches</h3>
+              <p className="text-[13px] text-[#8e8e93] mt-1">Proposez un swap concret : votre tâche lourde contre une tâche plus légère de l&apos;autre</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Chiffre clé */}
+      <section className="py-16 px-6 bg-white text-center">
+        <div className="max-w-lg mx-auto">
+          <p className="text-[48px] font-black" style={{ color: '#007aff' }}>71%</p>
+          <p className="text-[18px] font-bold text-[#1c1c1e] mt-2">de la charge mentale est portée par les mères</p>
+          <p className="text-[14px] text-[#8e8e93] mt-2">Université de Bath, 2025. FairShare rend ça visible.</p>
+        </div>
+      </section>
+
       {/* Comment ça marche */}
       <section className="py-20 px-6" id="how">
         <div className="max-w-lg mx-auto text-center">

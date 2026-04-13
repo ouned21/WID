@@ -84,8 +84,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Planifier les notifications pour les tâches du jour
   useTaskNotifications();
 
-  // Notifications push (récap 21h + rappels brouillons)
+  // Service Worker + Notifications push
   useEffect(() => {
+    // Enregistrer le service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.warn('[sw] Registration failed:', err);
+      });
+    }
+
+    // Notifications push (récap 21h + rappels brouillons)
     requestNotificationPermission().then((granted) => {
       if (granted) {
         scheduleEveningRecap();
