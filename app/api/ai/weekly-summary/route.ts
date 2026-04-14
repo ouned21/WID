@@ -1,0 +1,119 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+
+/**
+ * API Route : résumé hebdomadaire IA (premium)
+ * Analyse les complétions de la semaine et génère un résumé en langage naturel.
+ */
+
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+
+export async function POST(request: NextRequest) {
+  if (!ANTHROPIC_API_KEY) {
+    return NextResponse.json({ summary: 'IA non configurée.' });
+  }
+
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+
+  const { householdId } = await request.json();
+  if (!householdId) return NextResponse.json({ error: 'householdId requis' }, { status: 400 });
+
+  // Récupérer les données de la semaine
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+
+  const [completions, members, tasks] = await Promise.all([
+    supabase.from('task_completions')
+      .select('completed_by, completed_by_phantom_id, task_id, completed_at')
+      .eq('household_id', householdId)
+      .gte('completed_at', weekAgo.toISOString()),
+    supabase.from('profiles')
+      .select('id, display_name')
+      .eq('household_id', householdId),
+    supabase.from('household_tasks')
+      .select('id, name, global_score, mental_load_score, scoring_category, assigned_to, assigned_to_phantom_id')
+      .eq('household_id', householdId)
+      .eq('is_active', true),
+  ]);
+
+  const phantomRes = await supabase.from('phantom_members')
+    .select('id, display_name')
+    .eq('household_id', householdId);
+
+  // Construire le contexte
+  const memberMap = new Map<string, string>();
+  for (const m of (members.data ?? [])) memberMap.set(m.id, m.display_name);
+  for (const p of (phantomRes.data ?? [])) memberMap.set(p.id, p.display_name + ' (fantôme)');
+
+  const taskMap = new Map<string, { name: string; score: number; category: string }>();
+  for (const t of (tasks.data ?? [])) {
+    taskMap.set(t.id, { name: t.name, score: t.global_score ?? t.mental_load_score * 7, category: t.scoring_category ?? 'misc' });
+  }
+
+  // Stats par membre
+  const stats: Record<string, { count: number; totalScore: number; categories: Record<string, number> }> = {};
+  for (const c of (completions.data ?? [])) {
+    const memberId = (c.completed_by_phantom_id as string) || c.completed_by;
+    if (!stats[memberId]) stats[memberId] = { count: 0, totalScore: 0, categories: {} };
+    stats[memberId].count++;
+    const task = taskMap.get(c.task_id);
+    if (task) {
+      stats[memberId].totalScore += task.score;
+      stats[memberId].categories[task.category] = (stats[memberId].categories[task.category] ?? 0) + 1;
+    }
+  }
+
+  const dataText = Object.entries(stats).map(([id, s]) => {
+    const name = memberMap.get(id) ?? 'Inconnu';
+    const topCats = Object.entries(s.categories).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([c, n]) => `${c}(${n})`).join(', ');
+    return `${name}: ${s.count} tâches, score total ${s.totalScore}, catégories: ${topCats}`;
+  }).join('\n');
+
+  const totalScore = Object.values(stats).reduce((s, v) => s + v.totalScore, 0);
+
+  const prompt = `Tu es l'assistant FairShare. Voici les données de la semaine pour ce foyer :
+
+${dataText}
+
+Score total foyer : ${totalScore}
+Nombre de membres : ${memberMap.size}
+
+Rédige un résumé en français, 4-5 phrases maximum. Sois factuel, neutre, pas accusateur. Mentionne :
+1. Qui a fait le plus/moins et dans quelle proportion
+2. Les catégories déséquilibrées
+3. Une suggestion concrète pour la semaine prochaine
+
+Pas de formule de politesse. Pas de "Bonjour". Juste le résumé.`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 512,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!response.ok) return NextResponse.json({ summary: 'Erreur lors de la génération.' });
+
+    const data = await response.json();
+    const summary = data.content?.[0]?.text ?? 'Pas assez de données cette semaine.';
+    return NextResponse.json({ summary });
+  } catch {
+    return NextResponse.json({ summary: 'Erreur lors de la génération.' });
+  }
+}
