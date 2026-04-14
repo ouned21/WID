@@ -5,8 +5,9 @@ import { persist } from 'zustand/middleware';
 import DashboardClassic from './DashboardClassic';
 import DashboardCommand from './DashboardCommand';
 import DashboardPremium from './DashboardPremium';
+import DashboardChatGPT from './DashboardChatGPT';
 
-export type DashboardStyle = 'command' | 'classic' | 'premium';
+export type DashboardStyle = 'command' | 'classic' | 'premium' | 'chatgpt';
 
 export const useDashboardStyle = create<{
   style: DashboardStyle;
@@ -26,5 +27,6 @@ export default function DashboardPage() {
 
   if (style === 'classic') return <DashboardClassic />;
   if (style === 'premium') return <DashboardPremium />;
+  if (style === 'chatgpt') return <DashboardChatGPT />;
   return <DashboardCommand />;
 }
