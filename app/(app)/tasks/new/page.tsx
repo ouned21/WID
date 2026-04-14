@@ -47,7 +47,7 @@ export default function NewTaskPage() {
   const searchParams = useSearchParams();
   const { profile } = useAuthStore();
   const { createTask, creating } = useTaskStore();
-  const { members } = useHouseholdStore();
+  const { members, allMembers } = useHouseholdStore();
 
   // Charger le brouillon depuis l'URL ou localStorage
   useEffect(() => {
@@ -493,7 +493,7 @@ export default function NewTaskPage() {
             <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}
               className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none">
               <option value="">Non assigné</option>
-              {members.map((m) => (<option key={m.id} value={m.id}>{m.display_name}</option>))}
+              {allMembers.map((m) => (<option key={m.id} value={m.id}>{m.isPhantom ? '👻 ' : ''}{m.display_name}</option>))}
             </select>
           </div>
 

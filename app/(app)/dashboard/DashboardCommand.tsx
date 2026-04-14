@@ -16,6 +16,9 @@ export default function DashboardCommand() {
   const { fetchAnalytics } = useAnalyticsStore();
   const [weekTrend, setWeekTrend] = useState<number | null>(null);
   const [streak, setStreak] = useState(0);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiInsights, setAiInsights] = useState<{ emoji: string; title: string; body: string }[]>([]);
+  const [loadingAi, setLoadingAi] = useState(false);
 
   useEffect(() => {
     if (profile?.household_id) {
@@ -283,6 +286,65 @@ export default function DashboardCommand() {
           </div>
           <svg width="7" height="12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
         </Link>
+      )}
+
+      {/* ═══════ IA INSIGHTS ═══════ */}
+      {!aiSummary && !loadingAi && profile?.household_id && (
+        <div className="mx-4">
+          <button onClick={async () => {
+            setLoadingAi(true);
+            try {
+              const [sumRes, insRes] = await Promise.all([
+                fetch('/api/ai/weekly-summary', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ householdId: profile.household_id }) }),
+                fetch('/api/ai/insights', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ householdId: profile.household_id }) }),
+              ]);
+              const sumData = await sumRes.json();
+              const insData = await insRes.json();
+              if (sumData.summary) setAiSummary(sumData.summary);
+              if (insData.insights) setAiInsights(insData.insights);
+            } catch { /* silencieux */ }
+            setLoadingAi(false);
+          }}
+            className="w-full rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+            style={{ background: 'linear-gradient(135deg, #f0f0ff, #e8f4ff)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div className="flex items-center gap-3">
+              <span className="text-[24px]">🤖</span>
+              <div>
+                <p className="text-[15px] font-bold text-[#1c1c1e]">Résumé IA de la semaine</p>
+                <p className="text-[12px] text-[#8e8e93]">Analyse ta répartition et tes patterns</p>
+              </div>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {loadingAi && (
+        <div className="mx-4 rounded-2xl bg-white p-4 flex items-center justify-center" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#007aff] border-t-transparent mr-3" />
+          <span className="text-[14px] text-[#8e8e93]">Analyse en cours...</span>
+        </div>
+      )}
+
+      {aiSummary && (
+        <div className="mx-4 rounded-2xl bg-white p-4" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[16px]">🤖</span>
+            <p className="text-[13px] font-bold text-[#8e8e93] uppercase tracking-wide">Résumé IA</p>
+          </div>
+          <p className="text-[14px] text-[#1c1c1e] leading-relaxed">{aiSummary}</p>
+        </div>
+      )}
+
+      {aiInsights.length > 0 && (
+        <div className="mx-4 rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          <p className="px-4 pt-3 text-[13px] font-bold text-[#8e8e93] uppercase tracking-wide">Insights</p>
+          {aiInsights.map((ins, i) => (
+            <div key={i} className="px-4 py-3" style={i < aiInsights.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
+              <p className="text-[14px] font-semibold text-[#1c1c1e]">{ins.emoji} {ins.title}</p>
+              <p className="text-[13px] text-[#8e8e93] mt-0.5">{ins.body}</p>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* ═══════ ACTIONS ═══════ */}
