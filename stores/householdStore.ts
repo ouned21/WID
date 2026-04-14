@@ -43,6 +43,7 @@ type HouseholdState = {
   leaveHousehold: () => Promise<{ ok: boolean; error?: string }>;
   addPhantomMember: (name: string) => Promise<{ ok: boolean; error?: string }>;
   removePhantomMember: (id: string) => Promise<{ ok: boolean; error?: string }>;
+  linkPhantomToReal: (phantomId: string, realProfileId: string) => Promise<{ ok: boolean; error?: string }>;
   clearError: () => void;
   reset: () => void;
 };
@@ -265,6 +266,44 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
 
     if (error) return { ok: false, error: error.message };
 
+    await get().fetchHousehold(householdId);
+    return { ok: true };
+  },
+
+  /**
+   * Rattache un membre fantôme à un vrai profil.
+   * Transfère toutes les complétions et assignations, puis supprime le fantôme.
+   */
+  linkPhantomToReal: async (phantomId, realProfileId) => {
+    const supabase = createClient();
+    const householdId = get().household?.id;
+    if (!householdId) return { ok: false, error: 'Aucun foyer.' };
+
+    // 1. Marquer le fantôme comme rattaché
+    await supabase
+      .from('phantom_members')
+      .update({ linked_profile_id: realProfileId })
+      .eq('id', phantomId);
+
+    // 2. Transférer les complétions : completed_by_phantom_id → completed_by
+    await supabase
+      .from('task_completions')
+      .update({ completed_by: realProfileId, completed_by_phantom_id: null })
+      .eq('completed_by_phantom_id', phantomId);
+
+    // 3. Transférer les assignations : assigned_to_phantom_id → assigned_to
+    await supabase
+      .from('household_tasks')
+      .update({ assigned_to: realProfileId, assigned_to_phantom_id: null })
+      .eq('assigned_to_phantom_id', phantomId);
+
+    // 4. Supprimer le fantôme
+    await supabase
+      .from('phantom_members')
+      .delete()
+      .eq('id', phantomId);
+
+    // 5. Rafraîchir
     await get().fetchHousehold(householdId);
     return { ok: true };
   },

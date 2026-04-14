@@ -33,12 +33,14 @@ function DashboardStyleButton({ value, label, desc, emoji }: { value: DashboardS
 export default function ProfilePage() {
   const router = useRouter();
   const { profile, signOut } = useAuthStore();
-  const { household, members, phantomMembers, renameHousehold, addPhantomMember, removePhantomMember } = useHouseholdStore();
+  const { household, members, phantomMembers, renameHousehold, addPhantomMember, removePhantomMember, linkPhantomToReal } = useHouseholdStore();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [copied, setCopied] = useState(false);
   const [showAddPhantom, setShowAddPhantom] = useState(false);
   const [phantomName, setPhantomName] = useState('');
+  const [linkingPhantom, setLinkingPhantom] = useState<string | null>(null); // phantomId en cours de rattachement
+  const [linkTargetId, setLinkTargetId] = useState(''); // realProfileId sélectionné
 
   const handleSignOut = async () => {
     if (!confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) return;
@@ -211,25 +213,76 @@ export default function ProfilePage() {
 
               {/* Membres fantômes */}
               {phantomMembers.map((phantom) => (
-                <div key={phantom.id}
-                  className="flex items-center gap-3 px-4 py-3"
-                  style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full text-[14px]"
-                    style={{ background: '#e5e5ea' }}>
-                    👻
+                <div key={phantom.id} style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full text-[14px]"
+                      style={{ background: '#e5e5ea' }}>
+                      👻
+                    </div>
+                    <span className="flex-1 text-[17px] text-[#1c1c1e]">{phantom.display_name}</span>
+                    <div className="flex gap-2">
+                      {/* Rattacher à un vrai membre */}
+                      {members.length > 0 && (
+                        <button
+                          onClick={() => setLinkingPhantom(linkingPhantom === phantom.id ? null : phantom.id)}
+                          className="text-[12px] font-medium px-2 py-1 rounded-lg"
+                          style={{ color: '#007aff', background: linkingPhantom === phantom.id ? '#EEF4FF' : 'transparent' }}
+                        >
+                          Rattacher
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          if (confirm(`Retirer ${phantom.display_name} du foyer ?`)) {
+                            removePhantomMember(phantom.id);
+                          }
+                        }}
+                        className="text-[12px] font-medium px-2 py-1 rounded-lg"
+                        style={{ color: '#ff3b30' }}
+                      >
+                        Retirer
+                      </button>
+                    </div>
                   </div>
-                  <span className="flex-1 text-[17px] text-[#1c1c1e]">{phantom.display_name}</span>
-                  <button
-                    onClick={() => {
-                      if (confirm(`Retirer ${phantom.display_name} du foyer ?`)) {
-                        removePhantomMember(phantom.id);
-                      }
-                    }}
-                    className="text-[13px] font-medium"
-                    style={{ color: '#ff3b30' }}
-                  >
-                    Retirer
-                  </button>
+
+                  {/* Panel de rattachement */}
+                  {linkingPhantom === phantom.id && (
+                    <div className="px-4 pb-3 pt-1">
+                      <p className="text-[12px] text-[#8e8e93] mb-2">
+                        Quel membre réel remplace {phantom.display_name} ?
+                      </p>
+                      <div className="flex gap-2">
+                        <select
+                          value={linkTargetId}
+                          onChange={(e) => setLinkTargetId(e.target.value)}
+                          className="flex-1 text-[14px] rounded-lg px-3 py-2 bg-[#f0f2f8] text-[#1c1c1e] outline-none"
+                        >
+                          <option value="">Choisir un membre...</option>
+                          {members.filter((m) => m.id !== profile?.id || members.length === 1).map((m) => (
+                            <option key={m.id} value={m.id}>{m.display_name}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={async () => {
+                            if (!linkTargetId) return;
+                            const targetName = members.find((m) => m.id === linkTargetId)?.display_name;
+                            if (!confirm(`Transférer tout l'historique de ${phantom.display_name} vers ${targetName} ? Cette action est irréversible.`)) return;
+                            await linkPhantomToReal(phantom.id, linkTargetId);
+                            setLinkingPhantom(null);
+                            setLinkTargetId('');
+                          }}
+                          disabled={!linkTargetId}
+                          className="text-[13px] font-semibold px-3 py-2 rounded-lg text-white disabled:opacity-40"
+                          style={{ background: '#007aff' }}
+                        >
+                          Confirmer
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-[#c7c7cc] mt-1.5">
+                        Toutes les tâches et complétions de {phantom.display_name} seront transférées.
+                      </p>
+                    </div>
+                  )}
                 </div>
               ))}
 
@@ -330,10 +383,18 @@ export default function ProfilePage() {
             </div>
             <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
           </Link>
-          <Link href="/tasks/archived" className="flex items-center justify-between px-4 py-3">
+          <Link href="/tasks/archived" className="flex items-center justify-between px-4 py-3"
+            style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
             <div className="flex items-center gap-3">
               <span className="text-[18px]">📁</span>
               <span className="text-[15px] text-[#1c1c1e]">Tâches archivées</span>
+            </div>
+            <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
+          </Link>
+          <Link href="/onboarding" className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-3">
+              <span className="text-[18px]">🏠</span>
+              <span className="text-[15px] text-[#1c1c1e]">Tutoriel / Onboarding</span>
             </div>
             <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
           </Link>
