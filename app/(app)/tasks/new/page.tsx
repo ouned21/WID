@@ -21,8 +21,9 @@ import {
   type TaskCategory as ScoringCategory,
   type ScoreBreakdown,
 } from '@/utils/taskScoring';
-import { loadTo10, scoreColor10, taskLoad } from '@/utils/designSystem';
+import { loadTo10, scoreColor10 } from '@/utils/designSystem';
 import type { Frequency, TaskCategory } from '@/types/database';
+import { inferTaskMetadata } from '@/utils/taskInference';
 import { createClient } from '@/lib/supabase';
 
 // Auto-détection de catégorie par mots-clés du titre
@@ -46,8 +47,8 @@ export default function NewTaskPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { profile } = useAuthStore();
-  const { createTask, creating, tasks } = useTaskStore();
-  const { members, allMembers } = useHouseholdStore();
+  const { createTask, creating } = useTaskStore();
+  const { allMembers } = useHouseholdStore();
 
   // Mode : aura (minimal, laisse l'IA inférer) | advanced (formulaire complet)
   const [mode, setMode] = useState<'aura' | 'advanced'>('aura');
@@ -123,18 +124,21 @@ export default function NewTaskPage() {
   const [userScore, setUserScore] = useState<number | null>(null);
   const [userHasAdjusted, setUserHasAdjusted] = useState(false);
 
-  // Auto-détection de catégorie quand le nom change
+  // Auto-inférence complète (catégorie + fréquence + durée + effort) quand le nom change
   useEffect(() => {
     if (name.trim().length >= 3) {
-      const detected = detectCategory(name);
-      if (detected) {
-        setScoringCategory(detected);
+      const inferred = inferTaskMetadata(name);
+      if (inferred.confidence !== 'low') {
+        setScoringCategory(inferred.category);
+        setFrequency(inferred.frequency);
+        setDuration(inferred.duration);
+        setPhysical(inferred.physical);
         setAutoDetected(true);
       } else if (autoDetected) {
         setAutoDetected(false);
       }
     }
-  }, [name]);
+  }, [name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Score en temps réel (algo)
   const score: ScoreBreakdown = useMemo(() => {
@@ -151,31 +155,7 @@ export default function NewTaskPage() {
     }
   }, [algoScore10, userHasAdjusted]);
 
-  // Auto-assignation : membre le moins chargé (en comptant les load actuels)
-  const leastBusyMemberId = useMemo(() => {
-    if (members.length === 0) return '';
-    const loadByMember = new Map<string, number>();
-    for (const m of members) loadByMember.set(m.id, 0);
-    for (const t of tasks) {
-      if (!t.is_active) continue;
-      if (t.assigned_to && loadByMember.has(t.assigned_to)) {
-        loadByMember.set(t.assigned_to, (loadByMember.get(t.assigned_to) ?? 0) + taskLoad(t));
-      }
-    }
-    let minId = members[0].id;
-    let minLoad = loadByMember.get(minId) ?? 0;
-    for (const [id, load] of loadByMember) {
-      if (load < minLoad) { minId = id; minLoad = load; }
-    }
-    return minId;
-  }, [members, tasks]);
-
-  // Si Aura mode et rien d'assigné manuellement : auto-attribuer au moins chargé
-  useEffect(() => {
-    if (mode === 'aura' && !assignedTo && leastBusyMemberId) {
-      setAssignedTo(leastBusyMemberId);
-    }
-  }, [mode, leastBusyMemberId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Pas d'auto-assignation : l'utilisateur choisit explicitement qui fait la tâche.
 
   // Labels pour la preview Aura
   const categoryLabel = useMemo(() => {
@@ -433,12 +413,32 @@ export default function NewTaskPage() {
                 </p>
               </div>
 
-              {/* Assignation */}
-              <div className="flex items-center gap-2 py-2 px-3 rounded-lg" style={{ background: '#f0f2f8' }}>
-                <span className="text-[16px]">👤</span>
-                <div>
-                  <p className="text-[12px] text-[#8e8e93]">Assigné à</p>
-                  <p className="text-[15px] font-semibold text-[#1c1c1e]">{assigneeName ?? 'Non assigné'}</p>
+              {/* Assignation — choix explicite */}
+              <div>
+                <p className="text-[12px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2">
+                  👤 Qui s&apos;en occupe ?
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {allMembers.filter((m) => !m.isPhantom).map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setAssignedTo(m.id)}
+                      className="rounded-xl p-2.5 text-center transition-all"
+                      style={assignedTo === m.id
+                        ? { background: '#007aff', color: 'white' }
+                        : { background: '#f0f2f8', color: '#1c1c1e', border: '1px solid transparent' }
+                      }
+                    >
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold text-white flex-shrink-0"
+                          style={{ background: assignedTo === m.id ? 'rgba(255,255,255,0.3)' : '#007aff' }}>
+                          {m.display_name.charAt(0).toUpperCase()}
+                        </span>
+                        <span className="text-[13px] font-semibold truncate">{m.display_name}</span>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -462,12 +462,13 @@ export default function NewTaskPage() {
               <button
                 onClick={async (e) => {
                   e.preventDefault();
-                  await handleSubmit({ preventDefault: () => {} } as any);
+                  if (!assignedTo) return;
+                  await handleSubmit({ preventDefault: () => {} } as unknown as React.FormEvent);
                 }}
-                disabled={creating}
+                disabled={creating || !assignedTo}
                 className="w-full rounded-xl py-3 text-[16px] font-semibold text-white disabled:opacity-50"
                 style={{ background: '#007aff' }}>
-                {creating ? 'Création...' : 'Parfait, crée-la'}
+                {creating ? 'Création...' : !assignedTo ? 'Choisis qui s\'en occupe' : 'Parfait, crée-la'}
               </button>
               <button
                 type="button"
