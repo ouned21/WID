@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
@@ -54,6 +54,22 @@ export default function NewTaskPage() {
   const [mode, setMode] = useState<'aura' | 'advanced'>('aura');
   // Étape dans le mode Aura : 'input' = saisie + preview, 'assign' = swipe assignation
   const [auraStep, setAuraStep] = useState<'input' | 'assign'>('input');
+
+  // Batch : tâches en attente d'assignation (saisies successivement, assignées en masse)
+  type PendingTask = {
+    name: string;
+    scoringCategory: ScoringCategory;
+    frequency: Frequency;
+    duration: DurationEstimate;
+    physical: PhysicalEffort;
+    userScore: number | null;
+    algoScore36: number;
+    dueDate: string;
+    dueTime: string;
+  };
+  const [pendingTasks, setPendingTasks] = useState<PendingTask[]>([]);
+  const [swipeIndex, setSwipeIndex] = useState(0);
+  const [batchCreating, setBatchCreating] = useState(false);
 
   // Charger le brouillon depuis l'URL ou localStorage
   useEffect(() => {
@@ -337,6 +353,140 @@ export default function NewTaskPage() {
     router.push('/tasks');
   };
 
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // BATCH — ajouter la tâche courante à la liste locale puis reset l'input
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const addCurrentToBatch = useCallback(() => {
+    if (!name.trim()) return;
+    const newPending: PendingTask = {
+      name: name.trim(),
+      scoringCategory,
+      frequency,
+      duration,
+      physical,
+      userScore,
+      algoScore36: score.global_score,
+      dueDate,
+      dueTime,
+    };
+    setPendingTasks((prev) => [...prev, newPending]);
+    // Reset pour saisir la prochaine
+    setName('');
+    setUserScore(null);
+    setUserHasAdjusted(false);
+    setScoringCategory('misc');
+    setDuration('medium');
+    setPhysical('light');
+    setFrequency('weekly');
+    setAutoDetected(false);
+  }, [name, scoringCategory, frequency, duration, physical, userScore, score.global_score, dueDate, dueTime]);
+
+  // Transition vers l'écran de swipe assignation (en s'assurant que la tâche courante est commit si l'input est rempli)
+  const goToAssign = useCallback(() => {
+    if (name.trim()) {
+      // Commit la tâche courante avant de transitionner
+      const newPending: PendingTask = {
+        name: name.trim(),
+        scoringCategory,
+        frequency,
+        duration,
+        physical,
+        userScore,
+        algoScore36: score.global_score,
+        dueDate,
+        dueTime,
+      };
+      setPendingTasks((prev) => [...prev, newPending]);
+    }
+    setSwipeIndex(0);
+    setAuraStep('assign');
+  }, [name, scoringCategory, frequency, duration, physical, userScore, score.global_score, dueDate, dueTime]);
+
+  // Assignation d'une tâche du batch à un membre → passage à la suivante ou création finale
+  const assignBatchTask = useCallback(async (memberId: string | null) => {
+    const currentIdx = swipeIndex;
+    const nextIdx = currentIdx + 1;
+
+    // Stocke l'assignation sur la tâche en attente
+    setPendingTasks((prev) => prev.map((t, i) =>
+      i === currentIdx ? { ...t, assignedTo: memberId } as PendingTask & { assignedTo: string | null } : t
+    ));
+
+    // S'il reste des tâches à assigner, on passe à la suivante
+    if (nextIdx < pendingTasks.length) {
+      setSwipeIndex(nextIdx);
+      return;
+    }
+
+    // Toutes assignées : on crée en base
+    if (!profile?.household_id) return;
+    setBatchCreating(true);
+
+    // Récupérer la liste à jour avec l'assignation courante
+    const finalTasks = pendingTasks.map((t, i) => ({
+      ...t,
+      assignedTo: i === currentIdx ? memberId : (t as PendingTask & { assignedTo?: string | null }).assignedTo ?? null,
+    }));
+
+    const supabase2 = createClient();
+    const { data: cats } = await supabase2.from('task_categories').select('id, name');
+    const catMap = new Map<string, string>();
+    for (const c of (cats ?? [])) catMap.set(c.name, c.id);
+    const mappings: Record<string, string[]> = {
+      cleaning: ['Nettoyage', 'Ménage'],
+      tidying: ['Rangement'],
+      shopping: ['Courses'],
+      laundry: ['Linge'],
+      meals: ['Cuisine', 'Courses'],
+      children: ['Enfants'],
+      admin: ['Administratif'],
+      outdoor: ['Extérieur & Jardin', 'Extérieur'],
+      hygiene: ['Hygiène & Soin', 'Hygiène'],
+      pets: ['Animaux'],
+      vehicle: ['Voiture'],
+      transport: ['Voiture', 'Transport'],
+    };
+    const resolveCatId = (sc: ScoringCategory): string => {
+      const names = mappings[sc] ?? [];
+      for (const n of names) {
+        const id = catMap.get(n);
+        if (id) return id;
+      }
+      return cats?.[0]?.id ?? '';
+    };
+
+    // Insert toutes les tâches
+    for (const t of finalTasks) {
+      const catId = resolveCatId(t.scoringCategory);
+      const nextDueAt = t.dueDate ? new Date(`${t.dueDate}T${t.dueTime || '09:00'}:00`).toISOString() : null;
+      await supabase2.from('household_tasks').insert({
+        household_id: profile.household_id,
+        name: t.name,
+        category_id: catId,
+        frequency: t.frequency,
+        mental_load_score: Math.round(t.algoScore36 / 7),
+        assigned_to: t.assignedTo || null,
+        next_due_at: nextDueAt,
+        user_score: t.userScore,
+        global_score: t.algoScore36,
+        duration_estimate: t.duration,
+        physical_effort: t.physical,
+        scoring_category: t.scoringCategory,
+        is_active: true,
+        is_fixed_assignment: false,
+        notifications_enabled: true,
+        created_by: profile.id,
+      });
+    }
+
+    setBatchCreating(false);
+    // Recharger les tâches et retourner à la liste
+    if (profile.household_id) {
+      await useTaskStore.getState().fetchTasks(profile.household_id);
+    }
+    router.push('/tasks');
+  }, [swipeIndex, pendingTasks, profile, router]);
+
   const globalColor =
     score.global_score <= 8 ? '#34c759' :
     score.global_score <= 16 ? '#007aff' :
@@ -360,6 +510,28 @@ export default function NewTaskPage() {
             <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Nouvelle tâche</h2>
             <div className="w-16" />
           </div>
+
+          {/* Liste des tâches en attente (batch) */}
+          {pendingTasks.length > 0 && (
+            <div className="mx-4 mb-4 rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+              <div className="px-4 py-2.5 flex items-center justify-between" style={{ background: '#EEF4FF', borderBottom: '0.5px solid var(--ios-separator)' }}>
+                <p className="text-[12px] font-semibold uppercase tracking-wide" style={{ color: '#007aff' }}>
+                  {pendingTasks.length} tâche{pendingTasks.length > 1 ? 's' : ''} en attente d&apos;assignation
+                </p>
+              </div>
+              {pendingTasks.map((pt, i) => (
+                <div key={i} className="flex items-center justify-between px-4 py-2.5"
+                  style={i < pendingTasks.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
+                  <span className="text-[14px] text-[#1c1c1e] flex-1 truncate">{pt.name}</span>
+                  <button
+                    onClick={() => setPendingTasks((prev) => prev.filter((_, idx) => idx !== i))}
+                    className="text-[12px] text-[#ff3b30] ml-2 px-2">
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Input */}
           <div className="mx-4 mb-6">
@@ -430,19 +602,29 @@ export default function NewTaskPage() {
               </div>
 
               <div className="px-5 py-4 space-y-3" style={{ borderTop: '0.5px solid var(--ios-separator)' }}>
+                {/* 1. Nouvelle tâche : ajoute à la file et reset l'input */}
                 <button
                   type="button"
-                  onClick={() => setAuraStep('assign')}
+                  onClick={addCurrentToBatch}
                   className="w-full rounded-xl py-3 text-[16px] font-semibold text-white"
                   style={{ background: '#007aff' }}>
-                  Suivant : qui s&apos;en occupe ? →
+                  + Nouvelle tâche
                 </button>
+                {/* 2. Plus de tâches : commit la courante si besoin et passe à l'assignation */}
+                <button
+                  type="button"
+                  onClick={goToAssign}
+                  className="w-full rounded-xl py-3 text-[15px] font-semibold"
+                  style={{ background: '#f0f2f8', color: '#1c1c1e' }}>
+                  Plus de tâches →
+                </button>
+                {/* 3. Voir les détails : mode avancé */}
                 <button
                   type="button"
                   onClick={() => setMode('advanced')}
-                  className="w-full rounded-xl py-3 text-[16px] font-semibold text-[#007aff]"
-                  style={{ background: 'transparent' }}>
-                  Ajuster les détails
+                  className="w-full rounded-xl py-2 text-[14px] font-medium"
+                  style={{ background: 'transparent', color: '#8e8e93' }}>
+                  Voir les détails
                 </button>
               </div>
             </div>
@@ -455,15 +637,47 @@ export default function NewTaskPage() {
       );
     }
 
-    // ─── ÉTAPE 2 : Swipe assignation ───────────────────────────────────────────
+    // ─── ÉTAPE 2 : Swipe assignation du batch ─────────────────────────────────
     if (auraStep === 'assign') {
+      const currentPending = pendingTasks[swipeIndex];
+
+      // Si aucune tâche en attente ou déjà toutes assignées : fallback
+      if (!currentPending) {
+        return (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center">
+            <div className="text-[48px] mb-4">📭</div>
+            <p className="text-[17px] font-semibold text-[#1c1c1e] mb-2">Aucune tâche à assigner</p>
+            <button
+              onClick={() => setAuraStep('input')}
+              className="mt-4 rounded-xl px-6 py-3 text-[15px] font-semibold text-white"
+              style={{ background: '#007aff' }}
+            >
+              Retour à la saisie
+            </button>
+          </div>
+        );
+      }
+
+      const currentCatEmoji = SCORING_CATEGORY_OPTIONS.find((o) => o.value === currentPending.scoringCategory)?.emoji ?? '📋';
+
       return (
         <div className="pt-4 pb-8">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 mb-6">
-            <button onClick={() => setAuraStep('input')} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
-            <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Qui s&apos;en occupe ?</h2>
-            <div className="w-16" />
+          {/* Header + progression */}
+          <div className="px-4 mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <button onClick={() => setAuraStep('input')} className="text-[15px] font-medium" style={{ color: '#007aff' }}>
+                ← Retour
+              </button>
+              <span className="text-[13px] text-[#8e8e93]">
+                {swipeIndex + 1} / {pendingTasks.length}
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full" style={{ background: '#e5e5ea' }}>
+              <div className="h-1.5 rounded-full transition-all" style={{
+                width: `${((swipeIndex + 1) / pendingTasks.length) * 100}%`,
+                background: 'linear-gradient(90deg, #007aff, #5856d6)',
+              }} />
+            </div>
           </div>
 
           {/* Carte tâche */}
@@ -471,12 +685,15 @@ export default function NewTaskPage() {
             background: 'linear-gradient(135deg, #ffffff, #f6f8ff)',
             boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
           }}>
-            <div className="text-[40px] mb-2">{SCORING_CATEGORY_OPTIONS.find((o) => o.value === scoringCategory)?.emoji ?? '📋'}</div>
-            <p className="text-[22px] font-black text-[#1c1c1e] mb-2">{name}</p>
-            <p className="text-[13px] text-[#8e8e93]">{frequencyLabelText} · {durationLabelText}</p>
+            <div className="text-[40px] mb-2">{currentCatEmoji}</div>
+            <p className="text-[22px] font-black text-[#1c1c1e] mb-2">{currentPending.name}</p>
+            <p className="text-[13px] text-[#8e8e93]">
+              {DURATION_OPTIONS.find((o) => o.value === currentPending.duration)?.label} · {currentPending.frequency}
+            </p>
+            <p className="text-[13px] text-[#8e8e93] mt-4">Qui s&apos;en occupe ?</p>
           </div>
 
-          {/* Swipe / boutons membres réels */}
+          {/* Boutons membres réels */}
           <div className="mx-4 space-y-2">
             {realMembers.length === 0 && (
               <p className="text-center text-[13px] text-[#8e8e93] py-4">
@@ -486,31 +703,20 @@ export default function NewTaskPage() {
             {realMembers.map((member) => (
               <button
                 key={member.id}
-                onClick={async () => {
-                  setAssignedTo(member.id);
-                  // Créer la tâche directement après sélection
-                  setTimeout(async () => {
-                    await handleSubmit({ preventDefault: () => {} } as unknown as React.FormEvent);
-                  }, 100);
-                }}
-                disabled={creating}
+                onClick={() => assignBatchTask(member.id)}
+                disabled={batchCreating}
                 className="w-full rounded-2xl py-[14px] text-[16px] font-bold text-white transition-transform active:scale-[0.97] disabled:opacity-50"
                 style={{
                   background: 'linear-gradient(135deg, #007aff, #5856d6)',
                   boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
                 }}
               >
-                {creating && assignedTo === member.id ? 'Création...' : member.display_name}
+                {batchCreating ? 'Création...' : member.display_name}
               </button>
             ))}
             <button
-              onClick={async () => {
-                setAssignedTo('');
-                setTimeout(async () => {
-                  await handleSubmit({ preventDefault: () => {} } as unknown as React.FormEvent);
-                }, 100);
-              }}
-              disabled={creating}
+              onClick={() => assignBatchTask(null)}
+              disabled={batchCreating}
               className="w-full rounded-2xl py-[14px] text-[15px] font-semibold bg-white disabled:opacity-50"
               style={{ color: '#8e8e93', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
             >
