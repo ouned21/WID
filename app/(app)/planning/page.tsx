@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
-import { useHouseholdStore } from '@/stores/householdStore';
 import { taskScoreDisplay, scoreColor10, taskScoreCompare } from '@/utils/designSystem';
 import {
   startOfWeek, endOfWeek, addWeeks, addDays, format, isSameDay,
@@ -211,7 +210,6 @@ function MonthView({ tasks, monthStart }: { tasks: TaskListItem[]; monthStart: D
 export default function PlanningPage() {
   const { profile } = useAuthStore();
   const { tasks, loading, fetchTasks } = useTaskStore();
-  const { members } = useHouseholdStore();
 
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [weekOffset, setWeekOffset] = useState(0);

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
@@ -48,7 +48,6 @@ export const metadata: Metadata = {
   authors: [{ name: "Aura" }],
   creator: "Aura",
   manifest: "/manifest.json",
-  themeColor: "#007aff",
   metadataBase: new URL("https://wid-eight.vercel.app"),
   alternates: {
     canonical: "/",
@@ -89,6 +88,12 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#007aff",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

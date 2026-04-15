@@ -470,24 +470,24 @@ export default function ProfilePage() {
         <button
           onClick={async () => {
             const confirmed = confirm(
-              'Supprimer définitivement ton compte ?\n\nToutes tes données seront effacées sous 30 jours (tâches, historique, préférences). Cette action est irréversible.',
+              'Supprimer définitivement ton compte ?\n\nToutes tes données seront effacées immédiatement (tâches, historique, préférences). Cette action est irréversible.',
             );
             if (!confirmed) return;
             const sure = confirm('Dernière confirmation : es-tu vraiment sûr(e) ?');
             if (!sure) return;
 
-            const supabase = createClient();
-            // Soft delete : marque le profil pour suppression, vraie suppression côté backend
-            await supabase
-              .from('profiles')
-              .update({
-                left_at: new Date().toISOString(),
-                household_id: null,
-                display_name: 'Compte supprimé',
-              })
-              .eq('id', profile?.id ?? '');
-            await signOut();
-            router.push('/login');
+            try {
+              const res = await fetch('/api/account/delete', { method: 'POST' });
+              if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                alert(`Erreur lors de la suppression : ${data.message ?? data.error ?? 'inconnue'}`);
+                return;
+              }
+              await signOut();
+              router.push('/login');
+            } catch (err) {
+              alert(`Erreur réseau : ${err instanceof Error ? err.message : 'inconnue'}`);
+            }
           }}
           className="w-full rounded-xl py-3 text-[13px] font-medium"
           style={{ color: '#ff3b30', background: 'transparent' }}

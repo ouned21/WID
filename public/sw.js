@@ -1,9 +1,9 @@
 /**
- * Service Worker FairShare
+ * Service Worker Aura
  * Gère les notifications push et le cache basique pour la PWA.
  */
 
-const CACHE_NAME = 'fairshare-v1';
+const CACHE_NAME = 'aura-v1';
 
 // Install : mettre en cache les assets essentiels
 self.addEventListener('install', (event) => {
@@ -12,7 +12,7 @@ self.addEventListener('install', (event) => {
       return cache.addAll([
         '/',
         '/manifest.json',
-        '/icon-192x192.png',
+        '/icon-192.png',
       ]);
     })
   );
@@ -61,12 +61,12 @@ self.addEventListener('fetch', (event) => {
 // Push notification reçue
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || 'FairShare';
+  const title = data.title || 'Aura';
   const options = {
     body: data.body || 'Tu as des tâches à vérifier',
-    icon: '/icon-192x192.png',
-    badge: '/icon-192x192.png',
-    tag: data.tag || 'fairshare-notification',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: data.tag || 'aura-notification',
     data: { url: data.url || '/tasks/recap' },
   };
 
