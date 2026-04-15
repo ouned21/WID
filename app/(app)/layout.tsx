@@ -120,28 +120,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col" style={{ background: '#f6f8ff' }}>
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b" style={{ borderColor: 'rgba(60,60,67,0.12)' }}>
-        <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-[17px] font-semibold text-[#1c1c1e]">FairShare</h1>
-            {household && (
-              <p className="text-[13px] text-[#8e8e93]">{household.name}</p>
-            )}
-          </div>
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-semibold text-white"
-            style={{ background: '#007aff' }}
-            role="img"
-            aria-label={`Avatar de ${profile?.display_name ?? 'utilisateur'}`}
-          >
-            {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
-          </div>
-        </div>
-      </header>
+      {/* Avatar flottant (remplace le header complet) */}
+      <Link
+        href="/profile"
+        className="fixed top-3 right-3 z-40 flex h-10 w-10 items-center justify-center rounded-full text-[15px] font-semibold text-white"
+        style={{ background: '#007aff', boxShadow: '0 2px 8px rgba(0,122,255,0.3)' }}
+        aria-label={`Profil de ${profile?.display_name ?? 'utilisateur'}`}
+      >
+        {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
+      </Link>
 
       {/* Contenu */}
-      <main className="flex-1 px-4 pt-2 pb-28">
+      <main className="flex-1 px-4 pt-6 pb-28">
         <div className="mx-auto max-w-lg">{children}</div>
       </main>
 
