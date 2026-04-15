@@ -71,6 +71,13 @@ export default function NewTaskPage() {
   const [swipeIndex, setSwipeIndex] = useState(0);
   const [batchCreating, setBatchCreating] = useState(false);
 
+  // Drag state pour le swipe de la carte
+  const [dragX, setDragX] = useState(0);
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  const [exitDirection, setExitDirection] = useState<'left' | 'right' | 'up' | 'down' | null>(null);
+
   // Charger le brouillon depuis l'URL ou localStorage
   useEffect(() => {
     const draft = searchParams.get('draft') || localStorage.getItem('aura_task_draft');
@@ -660,8 +667,83 @@ export default function NewTaskPage() {
 
       const currentCatEmoji = SCORING_CATEGORY_OPTIONS.find((o) => o.value === currentPending.scoringCategory)?.emoji ?? '📋';
 
+      // Mapping : chaque direction → un membre (ou skip)
+      // Gauche = membre 0, Droite = membre 1, Haut = membre 2 (si existe), Bas = skip
+      const leftMember = realMembers[0] ?? null;
+      const rightMember = realMembers[1] ?? null;
+      const upMember = realMembers[2] ?? null;
+
+      const SWIPE_THRESHOLD = 120; // px pour valider un swipe
+      const ROTATION_FACTOR = 0.1; // degrés par pixel
+
+      const resolveExit = (dir: 'left' | 'right' | 'up' | 'down') => {
+        let memberId: string | null = null;
+        if (dir === 'left' && leftMember) memberId = leftMember.id;
+        else if (dir === 'right' && rightMember) memberId = rightMember.id;
+        else if (dir === 'up' && upMember) memberId = upMember.id;
+        else if (dir === 'down') memberId = null; // skip
+        else return; // direction sans cible
+        setExitDirection(dir);
+        setTimeout(() => {
+          assignBatchTask(memberId);
+          setDragX(0);
+          setDragY(0);
+          setExitDirection(null);
+        }, 280);
+      };
+
+      const handlePointerDown = (e: React.PointerEvent) => {
+        if (batchCreating || exitDirection) return;
+        setIsDragging(true);
+        setDragStart({ x: e.clientX, y: e.clientY });
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      };
+
+      const handlePointerMove = (e: React.PointerEvent) => {
+        if (!isDragging || !dragStart) return;
+        setDragX(e.clientX - dragStart.x);
+        setDragY(e.clientY - dragStart.y);
+      };
+
+      const handlePointerUp = () => {
+        if (!isDragging) return;
+        setIsDragging(false);
+        setDragStart(null);
+
+        const absX = Math.abs(dragX);
+        const absY = Math.abs(dragY);
+
+        // Direction horizontale prioritaire
+        if (absX > SWIPE_THRESHOLD && absX > absY) {
+          resolveExit(dragX > 0 ? 'right' : 'left');
+          return;
+        }
+        // Direction verticale
+        if (absY > SWIPE_THRESHOLD) {
+          resolveExit(dragY < 0 ? 'up' : 'down');
+          return;
+        }
+        // Pas assez loin : retour au centre
+        setDragX(0);
+        setDragY(0);
+      };
+
+      // Calculs visuels
+      const rotation = dragX * ROTATION_FACTOR;
+      let transform = `translate(${dragX}px, ${dragY}px) rotate(${rotation}deg)`;
+      if (exitDirection === 'left') transform = 'translate(-150%, 50px) rotate(-25deg)';
+      else if (exitDirection === 'right') transform = 'translate(150%, 50px) rotate(25deg)';
+      else if (exitDirection === 'up') transform = 'translate(0, -150%) rotate(0deg)';
+      else if (exitDirection === 'down') transform = 'translate(0, 150%) rotate(0deg)';
+
+      // Opacité des indicateurs de direction
+      const leftOpacity = Math.min(1, Math.max(0, -dragX / SWIPE_THRESHOLD));
+      const rightOpacity = Math.min(1, Math.max(0, dragX / SWIPE_THRESHOLD));
+      const upOpacity = Math.min(1, Math.max(0, -dragY / SWIPE_THRESHOLD));
+      const downOpacity = Math.min(1, Math.max(0, dragY / SWIPE_THRESHOLD));
+
       return (
-        <div className="pt-4 pb-8">
+        <div className="pt-4 pb-8 overflow-hidden">
           {/* Header + progression */}
           <div className="px-4 mb-4">
             <div className="flex items-center justify-between mb-2">
@@ -680,27 +762,99 @@ export default function NewTaskPage() {
             </div>
           </div>
 
-          {/* Carte tâche */}
-          <div className="mx-4 rounded-3xl p-6 text-center min-h-[220px] flex flex-col justify-center mb-6" style={{
-            background: 'linear-gradient(135deg, #ffffff, #f6f8ff)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
-          }}>
-            <div className="text-[40px] mb-2">{currentCatEmoji}</div>
-            <p className="text-[22px] font-black text-[#1c1c1e] mb-2">{currentPending.name}</p>
-            <p className="text-[13px] text-[#8e8e93]">
-              {DURATION_OPTIONS.find((o) => o.value === currentPending.duration)?.label} · {currentPending.frequency}
-            </p>
-            <p className="text-[13px] text-[#8e8e93] mt-4">Qui s&apos;en occupe ?</p>
+          {/* Étiquettes de direction autour de la carte */}
+          <div className="relative mx-4" style={{ minHeight: '320px' }}>
+            {/* Label gauche */}
+            {leftMember && (
+              <div className="absolute top-1/2 -translate-y-1/2 z-10 pointer-events-none"
+                style={{ left: '4px', opacity: 0.3 + leftOpacity * 0.7 }}>
+                <div className="rounded-xl px-2 py-3 text-center" style={{
+                  background: leftOpacity > 0.5 ? '#007aff' : 'transparent',
+                  color: leftOpacity > 0.5 ? 'white' : '#007aff',
+                  border: '2px solid #007aff',
+                  transform: `scale(${1 + leftOpacity * 0.15})`,
+                }}>
+                  <span className="text-[11px] font-bold block">←</span>
+                  <span className="text-[10px] font-semibold block mt-0.5">{leftMember.display_name}</span>
+                </div>
+              </div>
+            )}
+            {/* Label droite */}
+            {rightMember && (
+              <div className="absolute top-1/2 -translate-y-1/2 z-10 pointer-events-none"
+                style={{ right: '4px', opacity: 0.3 + rightOpacity * 0.7 }}>
+                <div className="rounded-xl px-2 py-3 text-center" style={{
+                  background: rightOpacity > 0.5 ? '#5856d6' : 'transparent',
+                  color: rightOpacity > 0.5 ? 'white' : '#5856d6',
+                  border: '2px solid #5856d6',
+                  transform: `scale(${1 + rightOpacity * 0.15})`,
+                }}>
+                  <span className="text-[11px] font-bold block">→</span>
+                  <span className="text-[10px] font-semibold block mt-0.5">{rightMember.display_name}</span>
+                </div>
+              </div>
+            )}
+            {/* Label haut (3e membre) */}
+            {upMember && (
+              <div className="absolute left-1/2 -translate-x-1/2 z-10 pointer-events-none"
+                style={{ top: '4px', opacity: 0.3 + upOpacity * 0.7 }}>
+                <div className="rounded-full px-3 py-1 text-center" style={{
+                  background: upOpacity > 0.5 ? '#34c759' : 'transparent',
+                  color: upOpacity > 0.5 ? 'white' : '#34c759',
+                  border: '2px solid #34c759',
+                }}>
+                  <span className="text-[10px] font-semibold">↑ {upMember.display_name}</span>
+                </div>
+              </div>
+            )}
+            {/* Label bas (skip) */}
+            <div className="absolute left-1/2 -translate-x-1/2 z-10 pointer-events-none"
+              style={{ bottom: '4px', opacity: 0.2 + downOpacity * 0.8 }}>
+              <div className="rounded-full px-3 py-1 text-center" style={{
+                background: downOpacity > 0.5 ? '#8e8e93' : 'transparent',
+                color: downOpacity > 0.5 ? 'white' : '#8e8e93',
+                border: '2px solid #8e8e93',
+              }}>
+                <span className="text-[10px] font-semibold">↓ Passer</span>
+              </div>
+            </div>
+
+            {/* Carte tâche draggable */}
+            <div
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+              className="rounded-3xl p-6 text-center min-h-[280px] flex flex-col justify-center select-none cursor-grab active:cursor-grabbing"
+              style={{
+                background: 'linear-gradient(135deg, #ffffff, #f6f8ff)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+                transform,
+                transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
+                touchAction: 'none',
+                marginLeft: '52px',
+                marginRight: '52px',
+              }}
+            >
+              <div className="text-[40px] mb-2">{currentCatEmoji}</div>
+              <p className="text-[22px] font-black text-[#1c1c1e] mb-2">{currentPending.name}</p>
+              <p className="text-[13px] text-[#8e8e93]">
+                {DURATION_OPTIONS.find((o) => o.value === currentPending.duration)?.label} · {currentPending.frequency}
+              </p>
+              <p className="text-[11px] text-[#c7c7cc] mt-6">
+                {realMembers.length >= 2 ? 'Swipe pour assigner' : 'Tape un membre'}
+              </p>
+            </div>
           </div>
 
-          {/* Boutons membres réels */}
-          <div className="mx-4 space-y-2">
+          {/* Fallback : boutons pour chaque membre (au cas où le swipe ne marche pas / accessibilité) */}
+          <div className="mx-4 mt-4 space-y-2">
             {realMembers.length === 0 && (
               <p className="text-center text-[13px] text-[#8e8e93] py-4">
                 Aucun membre dans ce foyer. Invite quelqu&apos;un depuis ton profil.
               </p>
             )}
-            {realMembers.map((member) => (
+            {realMembers.length === 1 && realMembers.map((member) => (
               <button
                 key={member.id}
                 onClick={() => assignBatchTask(member.id)}
@@ -714,14 +868,6 @@ export default function NewTaskPage() {
                 {batchCreating ? 'Création...' : member.display_name}
               </button>
             ))}
-            <button
-              onClick={() => assignBatchTask(null)}
-              disabled={batchCreating}
-              className="w-full rounded-2xl py-[14px] text-[15px] font-semibold bg-white disabled:opacity-50"
-              style={{ color: '#8e8e93', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
-            >
-              Passer (non assigné)
-            </button>
           </div>
 
           {error && (
