@@ -18,7 +18,7 @@ export const useDashboardStyle = create<{
       style: 'command',
       setStyle: (style) => set({ style }),
     }),
-    { name: 'fairshare-dashboard-style' },
+    { name: 'aura-dashboard-style' },
   ),
 );
 

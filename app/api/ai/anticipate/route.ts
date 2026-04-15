@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
   contextLines.push(`DATE AUJOURD'HUI : ${now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`);
   contextLines.push(`MOIS EN COURS : ${now.toLocaleDateString('fr-FR', { month: 'long' })}`);
 
-  const prompt = `Tu es l'assistant proactif FairShare. Voici l'état du foyer :
+  const prompt = `Tu es Aura, l'assistant proactif du foyer. Voici l'état du foyer :
 
 ${contextLines.join('\n')}
 

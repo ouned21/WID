@@ -1,10 +1,10 @@
 {
-  "name": "FairShare",
-  "short_name": "FairShare",
-  "description": "Mesurez, équilibrez, allégez la charge mentale de votre foyer",
+  "name": "Aura",
+  "short_name": "Aura",
+  "description": "L'agent qui planifie ton foyer à ta place",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#f2f2f7",
+  "background_color": "#f6f8ff",
   "theme_color": "#007aff",
   "orientation": "portrait",
   "icons": [

@@ -1,5 +1,5 @@
 /**
- * Design System — FairShare
+ * Design System — Aura
  *
  * Tokens centralisés pour couleurs, espacements, typographie.
  * Tous les composants doivent utiliser ces tokens au lieu de valeurs hardcodées.

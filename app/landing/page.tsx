@@ -2,214 +2,206 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'FairShare — Mesurez, équilibrez, allégez la charge de votre foyer',
-  description: 'Application de suivi et rééquilibrage des tâches domestiques. Mesurez la charge mentale, visualisez la répartition, proposez des échanges.',
+  title: 'Aura — L\'agent qui planifie ton foyer à ta place',
+  description: 'Aura est l\'intelligence artificielle qui anticipe, rappelle et planifie toutes les tâches de ton foyer. Tu te concentres sur l\'essentiel, Aura s\'occupe du reste.',
 };
 
 export default function LandingPage() {
   return (
-    <div style={{ background: '#f0f2f8' }}>
+    <div style={{ background: '#f6f8ff' }}>
       {/* Hero */}
-      <section className="min-h-screen flex flex-col items-center justify-center px-6 text-center" style={{ background: 'linear-gradient(135deg, #007aff 0%, #5856d6 50%, #af52de 100%)' }}>
-        <div className="max-w-lg">
-          <div className="inline-flex h-20 w-20 items-center justify-center rounded-[22px] text-[36px] font-black text-white mb-6" style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)' }}>
-            FS
+      <section className="min-h-screen flex flex-col items-center justify-center px-6 text-center relative overflow-hidden" style={{
+        background: 'linear-gradient(135deg, #0a1628 0%, #162544 40%, #1e3a5f 100%)',
+      }}>
+        {/* Étoiles en fond */}
+        <div className="absolute inset-0 opacity-40" style={{
+          backgroundImage: 'radial-gradient(1px 1px at 20% 30%, white, transparent), radial-gradient(1px 1px at 80% 10%, white, transparent), radial-gradient(1px 1px at 50% 70%, white, transparent), radial-gradient(1px 1px at 10% 80%, white, transparent), radial-gradient(1px 1px at 90% 60%, white, transparent), radial-gradient(1.5px 1.5px at 35% 50%, white, transparent), radial-gradient(1px 1px at 70% 85%, white, transparent)',
+        }} />
+
+        <div className="max-w-xl relative z-10">
+          <div className="inline-flex h-24 w-24 items-center justify-center rounded-[28px] text-[44px] font-black text-white mb-8" style={{
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+          }}>
+            A
           </div>
-          <h1 className="text-[40px] font-black text-white leading-tight mb-4">
-            FairShare
+          <h1 className="text-[56px] font-black text-white leading-none mb-4" style={{ letterSpacing: '-0.03em' }}>
+            Aura
           </h1>
-          <p className="text-[20px] text-white/90 font-medium mb-2">
-            Mesurez. Équilibrez. Allégez.
+          <p className="text-[22px] text-white/90 font-semibold mb-3">
+            Ne pense plus à tout ça.
           </p>
-          <p className="text-[16px] text-white/70 mb-8 max-w-md mx-auto">
-            La première app qui mesure vraiment la charge mentale de votre foyer — pas juste le temps passé.
+          <p className="text-[17px] text-white/60 mb-10 max-w-md mx-auto leading-relaxed">
+            L&apos;agent intelligent qui anticipe, rappelle et planifie toutes les tâches de ton foyer. Tu te concentres sur l&apos;essentiel, Aura s&apos;occupe du reste.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/register"
-              className="rounded-2xl bg-white px-8 py-4 text-[17px] font-bold text-[#007aff] shadow-lg hover:shadow-xl transition-all">
-              Commencer gratuitement
+              className="rounded-2xl px-8 py-4 text-[17px] font-bold transition-all"
+              style={{
+                background: 'white',
+                color: '#0a1628',
+                boxShadow: '0 10px 40px rgba(255,255,255,0.25)',
+              }}>
+              Commencer gratuitement →
             </Link>
-            <a href="#features"
-              className="rounded-2xl bg-white/10 backdrop-blur px-8 py-4 text-[17px] font-semibold text-white border border-white/20">
-              En savoir plus
+            <a href="#comment"
+              className="rounded-2xl px-8 py-4 text-[17px] font-semibold text-white"
+              style={{
+                background: 'rgba(255,255,255,0.1)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255,255,255,0.2)',
+              }}>
+              Comment ça marche
             </a>
           </div>
+          <p className="text-[12px] text-white/40 mt-6">Gratuit. Sans carte bancaire. Sans engagement.</p>
         </div>
       </section>
 
       {/* Le problème */}
-      <section className="py-20 px-6" id="problem">
-        <div className="max-w-lg mx-auto text-center">
-          <p className="text-[14px] font-semibold text-[#007aff] uppercase tracking-wide mb-3">Le problème</p>
-          <h2 className="text-[28px] font-bold text-[#1c1c1e] mb-6">
-            91% des parents ressentent une charge mentale liée au quotidien
+      <section className="py-24 px-6">
+        <div className="max-w-2xl mx-auto text-center">
+          <p className="text-[13px] font-bold text-[#007aff] uppercase tracking-[0.2em] mb-4">Le constat</p>
+          <h2 className="text-[32px] font-bold text-[#1c1c1e] mb-6 leading-tight">
+            Ta tête n&apos;est pas un agenda.
           </h2>
-          <p className="text-[16px] text-[#8e8e93] mb-8">
-            Mais aucun outil ne la mesure vraiment. Les to-do lists comptent les tâches, pas leur poids réel. Résultat : des discussions sans fin sur &quot;qui fait quoi&quot; sans données factuelles.
+          <p className="text-[17px] text-[#3c3c43] mb-10 leading-relaxed">
+            Les rendez-vous médicaux. Les courses. Les papiers. Les anniversaires. Les devoirs. L&apos;entretien de la maison. Les impôts. Le contrôle technique. La rentrée scolaire.
+            <br /><br />
+            <strong className="text-[#1c1c1e]">Tu portes tout ça dans ta tête.</strong> Et tu n&apos;es pas payée pour ça.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-2xl bg-white p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-              <p className="text-[32px] mb-2">🧠</p>
-              <p className="text-[15px] font-bold text-[#1c1c1e]">Charge invisible</p>
-              <p className="text-[13px] text-[#8e8e93] mt-1">Anticiper, organiser, se souvenir — le travail que personne ne voit</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-12">
+            <div className="rounded-2xl bg-white p-6" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p className="text-[40px] font-black" style={{ color: '#007aff' }}>71%</p>
+              <p className="text-[13px] text-[#8e8e93] mt-2">de la charge mentale portée par les mères</p>
             </div>
-            <div className="rounded-2xl bg-white p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-              <p className="text-[32px] mb-2">⚖️</p>
-              <p className="text-[15px] font-bold text-[#1c1c1e]">Déséquilibre</p>
-              <p className="text-[13px] text-[#8e8e93] mt-1">Une personne porte souvent plus que l&apos;autre sans que ce soit visible</p>
+            <div className="rounded-2xl bg-white p-6" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p className="text-[40px] font-black" style={{ color: '#af52de' }}>2-3h</p>
+              <p className="text-[13px] text-[#8e8e93] mt-2">par semaine juste à penser au foyer</p>
             </div>
-            <div className="rounded-2xl bg-white p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-              <p className="text-[32px] mb-2">💬</p>
-              <p className="text-[15px] font-bold text-[#1c1c1e]">Conflits</p>
-              <p className="text-[13px] text-[#8e8e93] mt-1">Sans données, les discussions sur la répartition tournent en rond</p>
+            <div className="rounded-2xl bg-white p-6" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p className="text-[40px] font-black" style={{ color: '#ff3b30' }}>63%</p>
+              <p className="text-[13px] text-[#8e8e93] mt-2">des femmes se sentent seules à tout gérer</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* La solution */}
-      <section className="py-20 px-6 bg-white" id="features">
-        <div className="max-w-lg mx-auto">
-          <p className="text-[14px] font-semibold text-[#af52de] uppercase tracking-wide mb-3 text-center">La solution</p>
-          <h2 className="text-[28px] font-bold text-[#1c1c1e] mb-10 text-center">
-            FairShare mesure ce qui compte vraiment
+      <section className="py-24 px-6 bg-white" id="comment">
+        <div className="max-w-2xl mx-auto">
+          <p className="text-[13px] font-bold text-[#007aff] uppercase tracking-[0.2em] mb-4 text-center">La solution</p>
+          <h2 className="text-[32px] font-bold text-[#1c1c1e] mb-12 text-center leading-tight">
+            Aura pense à tout. Toi, tu vis.
           </h2>
 
-          <div className="space-y-8">
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold" style={{ background: '#007aff' }}>1</div>
+          <div className="space-y-10">
+            <div className="flex gap-5">
+              <div className="flex-shrink-0 h-12 w-12 rounded-2xl flex items-center justify-center text-[20px]" style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)', boxShadow: '0 4px 16px rgba(0,122,255,0.3)' }}>
+                <span>🏠</span>
+              </div>
               <div>
-                <h3 className="text-[17px] font-bold text-[#1c1c1e]">Score automatique sur 4 axes</h3>
-                <p className="text-[14px] text-[#8e8e93] mt-1">Durée, effort physique, charge mentale, impact sur le foyer. Calculé automatiquement, pas subjectivement.</p>
+                <h3 className="text-[19px] font-bold text-[#1c1c1e] mb-2">Scanne ton foyer en 2 minutes</h3>
+                <p className="text-[15px] text-[#3c3c43] leading-relaxed">Sélectionne tes équipements, ta famille, tes animaux. C&apos;est tout. Aura découvre ton monde en quelques taps.</p>
               </div>
             </div>
 
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold" style={{ background: '#af52de' }}>2</div>
+            <div className="flex gap-5">
+              <div className="flex-shrink-0 h-12 w-12 rounded-2xl flex items-center justify-center text-[20px]" style={{ background: 'linear-gradient(135deg, #5856d6, #af52de)', boxShadow: '0 4px 16px rgba(88,86,214,0.3)' }}>
+                <span>✨</span>
+              </div>
               <div>
-                <h3 className="text-[17px] font-bold text-[#1c1c1e]">Dashboard de répartition</h3>
-                <p className="text-[14px] text-[#8e8e93] mt-1">Visualisez en un coup d&apos;œil qui fait quoi, la charge mentale cumulée, les tendances et les déséquilibres.</p>
+                <h3 className="text-[19px] font-bold text-[#1c1c1e] mb-2">Aura génère 3 mois de planning</h3>
+                <p className="text-[15px] text-[#3c3c43] leading-relaxed">Des dizaines de tâches, sous-tâches et rappels — même ceux auxquels tu n&apos;aurais jamais pensé. Contrôle technique, vaccins, préparation rentrée, saisonnalité.</p>
               </div>
             </div>
 
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold" style={{ background: '#34c759' }}>3</div>
+            <div className="flex gap-5">
+              <div className="flex-shrink-0 h-12 w-12 rounded-2xl flex items-center justify-center text-[20px]" style={{ background: 'linear-gradient(135deg, #af52de, #ff2d55)', boxShadow: '0 4px 16px rgba(175,82,222,0.3)' }}>
+                <span>📅</span>
+              </div>
               <div>
-                <h3 className="text-[17px] font-bold text-[#1c1c1e]">Suggestions de rééquilibrage</h3>
-                <p className="text-[14px] text-[#8e8e93] mt-1">L&apos;app propose des échanges de tâches concrets pour atteindre l&apos;équilibre que vous visez — sans conflit.</p>
+                <h3 className="text-[19px] font-bold text-[#1c1c1e] mb-2">Tout apparaît dans ton calendrier</h3>
+                <p className="text-[15px] text-[#3c3c43] leading-relaxed">Chaque tâche est positionnée à la bonne date. Tu swipes pour assigner : toi, ton conjoint, ou personne. Aura s&apos;adapte à ta vie.</p>
               </div>
             </div>
 
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold" style={{ background: '#ff9500' }}>4</div>
+            <div className="flex gap-5">
+              <div className="flex-shrink-0 h-12 w-12 rounded-2xl flex items-center justify-center text-[20px]" style={{ background: 'linear-gradient(135deg, #ff2d55, #ff9500)', boxShadow: '0 4px 16px rgba(255,45,85,0.3)' }}>
+                <span>🌤</span>
+              </div>
               <div>
-                <h3 className="text-[17px] font-bold text-[#1c1c1e]">Chaque membre définit son objectif</h3>
-                <p className="text-[14px] text-[#8e8e93] mt-1">Pas de 50/50 imposé. Chacun choisit sa cible et l&apos;app compare la réalité à l&apos;objectif.</p>
+                <h3 className="text-[19px] font-bold text-[#1c1c1e] mb-2">Et surtout : Aura te rappelle</h3>
+                <p className="text-[15px] text-[#3c3c43] leading-relaxed">Les rappels proactifs, la météo qui décale tes tâches extérieures, les anniversaires, les échéances administratives. Tout ce que tu gérais dans ta tête, Aura le prend en charge.</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Ce qui nous rend unique */}
-      <section className="py-20 px-6" style={{ background: '#f6f8ff' }}>
-        <div className="max-w-lg mx-auto">
-          <p className="text-[14px] font-semibold text-[#ff9500] uppercase tracking-wide mb-3 text-center">Unique</p>
-          <h2 className="text-[28px] font-bold text-[#1c1c1e] mb-10 text-center">
-            Ce qu&apos;aucune autre app ne fait
+      {/* Ce qui rend Aura unique */}
+      <section className="py-24 px-6" style={{ background: '#f6f8ff' }}>
+        <div className="max-w-2xl mx-auto">
+          <p className="text-[13px] font-bold text-[#ff9500] uppercase tracking-[0.2em] mb-4 text-center">Unique</p>
+          <h2 className="text-[32px] font-bold text-[#1c1c1e] mb-10 text-center">
+            Ce que personne d&apos;autre ne fait
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="rounded-2xl bg-white p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-              <p className="text-[24px] mb-2">🏠</p>
-              <h3 className="text-[15px] font-bold text-[#1c1c1e]">Onboarding intelligent</h3>
-              <p className="text-[13px] text-[#8e8e93] mt-1">Sélectionnez vos équipements et vos enfants, l&apos;app génère automatiquement vos tâches</p>
+            <div className="rounded-2xl bg-white p-6" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p className="text-[28px] mb-3">🤖</p>
+              <h3 className="text-[16px] font-bold text-[#1c1c1e]">Onboarding en 2 minutes</h3>
+              <p className="text-[13px] text-[#8e8e93] mt-2 leading-relaxed">Aucune saisie manuelle. Juste des taps sur ton foyer et l&apos;IA fait le reste.</p>
             </div>
-            <div className="rounded-2xl bg-white p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-              <p className="text-[24px] mb-2">👻</p>
-              <h3 className="text-[15px] font-bold text-[#1c1c1e]">Membre fantôme</h3>
-              <p className="text-[13px] text-[#8e8e93] mt-1">Votre partenaire ne veut pas s&apos;inscrire ? Utilisez l&apos;app seul(e) et loguez ses tâches</p>
+            <div className="rounded-2xl bg-white p-6" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p className="text-[28px] mb-3">👻</p>
+              <h3 className="text-[16px] font-bold text-[#1c1c1e]">Utilise Aura sans ton conjoint</h3>
+              <p className="text-[13px] text-[#8e8e93] mt-2 leading-relaxed">Crée un membre fantôme avec juste un prénom. Aura s&apos;occupe du foyer même si l&apos;autre n&apos;est pas inscrit.</p>
             </div>
-            <div className="rounded-2xl bg-white p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-              <p className="text-[24px] mb-2">🌙</p>
-              <h3 className="text-[15px] font-bold text-[#1c1c1e]">Récap du soir en 15 secondes</h3>
-              <p className="text-[13px] text-[#8e8e93] mt-1">Cochez en rafale ce que vous avez fait aujourd&apos;hui. Pas de saisie, juste des taps</p>
+            <div className="rounded-2xl bg-white p-6" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p className="text-[28px] mb-3">💡</p>
+              <h3 className="text-[16px] font-bold text-[#1c1c1e]">Les tâches que tu oubliais</h3>
+              <p className="text-[13px] text-[#8e8e93] mt-2 leading-relaxed">Contrôle technique voiture, vignette Crit&apos;Air, piles détecteurs fumée, rappel vaccin enfant. Aura y pense pour toi.</p>
             </div>
-            <div className="rounded-2xl bg-white p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-              <p className="text-[24px] mb-2">🤖</p>
-              <h3 className="text-[15px] font-bold text-[#1c1c1e]">IA intégrée</h3>
-              <p className="text-[13px] text-[#8e8e93] mt-1">Créez &quot;Anniversaire Léa&quot; et l&apos;IA génère cadeau, gâteau, invitations — positionnés dans le calendrier</p>
-            </div>
-            <div className="rounded-2xl bg-white p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-              <p className="text-[24px] mb-2">📅</p>
-              <h3 className="text-[15px] font-bold text-[#1c1c1e]">Planning partagé</h3>
-              <p className="text-[13px] text-[#8e8e93] mt-1">Vue semaine et mois. L&apos;app détecte les jours surchargés et propose de décaler des tâches</p>
-            </div>
-            <div className="rounded-2xl bg-white p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-              <p className="text-[24px] mb-2">🔄</p>
-              <h3 className="text-[15px] font-bold text-[#1c1c1e]">Échanges de tâches</h3>
-              <p className="text-[13px] text-[#8e8e93] mt-1">Proposez un swap concret : votre tâche lourde contre une tâche plus légère de l&apos;autre</p>
+            <div className="rounded-2xl bg-white p-6" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p className="text-[28px] mb-3">🌤</p>
+              <h3 className="text-[16px] font-bold text-[#1c1c1e]">L&apos;IA adapte ton planning</h3>
+              <p className="text-[13px] text-[#8e8e93] mt-2 leading-relaxed">Il pleut demain ? Aura décale ta tonte automatiquement. Vacances scolaires ? Elle adapte les tâches enfants.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Chiffre clé */}
-      <section className="py-16 px-6 bg-white text-center">
-        <div className="max-w-lg mx-auto">
-          <p className="text-[48px] font-black" style={{ color: '#007aff' }}>71%</p>
-          <p className="text-[18px] font-bold text-[#1c1c1e] mt-2">de la charge mentale est portée par les mères</p>
-          <p className="text-[14px] text-[#8e8e93] mt-2">Université de Bath, 2025. FairShare rend ça visible.</p>
-        </div>
-      </section>
-
-      {/* Comment ça marche */}
-      <section className="py-20 px-6" id="how">
-        <div className="max-w-lg mx-auto text-center">
-          <p className="text-[14px] font-semibold text-[#34c759] uppercase tracking-wide mb-3">Simple</p>
-          <h2 className="text-[28px] font-bold text-[#1c1c1e] mb-10">
-            3 étapes pour commencer
+      {/* CTA final */}
+      <section className="py-24 px-6 text-center" style={{
+        background: 'linear-gradient(135deg, #0a1628, #1e3a5f)',
+      }}>
+        <div className="max-w-xl mx-auto">
+          <h2 className="text-[36px] font-black text-white mb-5 leading-tight">
+            Arrête de penser.<br />Commence à vivre.
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div>
-              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl text-[24px] mb-3" style={{ background: '#f0f4ff' }}>📝</div>
-              <h3 className="text-[15px] font-bold text-[#1c1c1e]">Décrivez vos tâches</h3>
-              <p className="text-[13px] text-[#8e8e93] mt-1">Tapez le nom, l&apos;app détecte le type et calcule le score</p>
-            </div>
-            <div>
-              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl text-[24px] mb-3" style={{ background: '#f0fff4' }}>✓</div>
-              <h3 className="text-[15px] font-bold text-[#1c1c1e]">Validez en 1 tap</h3>
-              <p className="text-[13px] text-[#8e8e93] mt-1">Un bouton FAIT et c&apos;est enregistré. Quick Log pour les tâches spontanées</p>
-            </div>
-            <div>
-              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl text-[24px] mb-3" style={{ background: '#fff8f0' }}>📊</div>
-              <h3 className="text-[15px] font-bold text-[#1c1c1e]">Comprenez et agissez</h3>
-              <p className="text-[13px] text-[#8e8e93] mt-1">Dashboard, tendances, suggestions d&apos;échanges. Des faits, pas des impressions</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-20 px-6 text-center" style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)' }}>
-        <div className="max-w-lg mx-auto">
-          <h2 className="text-[28px] font-bold text-white mb-4">
-            Arrêtez de deviner. Commencez à mesurer.
-          </h2>
-          <p className="text-[16px] text-white/80 mb-8">
-            Gratuit. Aucune carte bancaire requise.
+          <p className="text-[17px] text-white/70 mb-10">
+            Aura est gratuit. Aucune carte bancaire. Aucune limite dans le temps.
           </p>
           <Link href="/register"
-            className="inline-block rounded-2xl bg-white px-10 py-4 text-[17px] font-bold text-[#007aff] shadow-lg hover:shadow-xl transition-all">
-            Créer mon compte
+            className="inline-block rounded-2xl px-10 py-5 text-[18px] font-bold transition-all"
+            style={{
+              background: 'white',
+              color: '#0a1628',
+              boxShadow: '0 20px 60px rgba(255,255,255,0.15)',
+            }}>
+            Décharger ma tête →
           </Link>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-8 px-6 text-center">
+      <footer className="py-10 px-6 text-center bg-white">
         <p className="text-[13px] text-[#8e8e93]">
-          FairShare © {new Date().getFullYear()} — Mesurez, équilibrez, allégez
+          Aura © {new Date().getFullYear()} — Ne pense plus à tout ça.
         </p>
       </footer>
     </div>

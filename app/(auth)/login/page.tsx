@@ -41,10 +41,10 @@ export default function LoginPage() {
     <>
       <div className="text-center pt-8">
         <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-[20px] text-[32px] font-bold text-white mb-3" style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)' }}>
-          FS
+          A
         </div>
-        <h1 className="text-[28px] font-bold text-[#1c1c1e]">FairShare</h1>
-        <p className="text-[15px] text-[#8e8e93]">Mesurez, équilibrez, allégez</p>
+        <h1 className="text-[28px] font-bold text-[#1c1c1e]">Aura</h1>
+        <p className="text-[15px] text-[#8e8e93]">L&apos;agent qui planifie ton foyer</p>
       </div>
 
       <form onSubmit={handleSubmit}>

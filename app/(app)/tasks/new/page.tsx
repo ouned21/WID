@@ -51,10 +51,10 @@ export default function NewTaskPage() {
 
   // Charger le brouillon depuis l'URL ou localStorage
   useEffect(() => {
-    const draft = searchParams.get('draft') || localStorage.getItem('fairshare_task_draft');
+    const draft = searchParams.get('draft') || localStorage.getItem('aura_task_draft');
     if (draft) {
       setName(draft);
-      localStorage.removeItem('fairshare_task_draft');
+      localStorage.removeItem('aura_task_draft');
     }
     const dateParam = searchParams.get('date');
     if (dateParam) {

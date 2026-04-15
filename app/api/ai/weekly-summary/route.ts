@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
 
   const totalScore = Object.values(stats).reduce((s, v) => s + v.totalScore, 0);
 
-  const prompt = `Tu es l'assistant FairShare. Voici les données de la semaine pour ce foyer :
+  const prompt = `Tu es Aura, l'assistant du foyer. Voici les données de la semaine pour ce foyer :
 
 ${dataText}
 

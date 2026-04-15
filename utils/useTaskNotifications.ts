@@ -22,10 +22,10 @@ export function useTaskNotifications() {
   // Demander la permission une seule fois (pas à chaque reconnexion)
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const alreadyAsked = localStorage.getItem('fairshare-notif-asked');
+    const alreadyAsked = localStorage.getItem('aura-notif-asked');
     if (!alreadyAsked) {
       requestNotificationPermission();
-      localStorage.setItem('fairshare-notif-asked', '1');
+      localStorage.setItem('aura-notif-asked', '1');
     }
   }, []);
 

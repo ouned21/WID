@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
   // Tâches en retard
   const overdue = tasksList.filter(t => t.next_due_at && new Date(t.next_due_at) < new Date());
 
-  const prompt = `Tu es l'assistant FairShare. Analyse ces données de foyer sur 8 semaines et génère 3-5 insights concrets.
+  const prompt = `Tu es Aura, l'assistant du foyer. Analyse ces données de foyer sur 8 semaines et génère 3-5 insights concrets.
 
 DONNÉES PAR MEMBRE :
 ${contextLines.join('\n')}
