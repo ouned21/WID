@@ -2,14 +2,14 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 /**
- * Middleware Next.js : rafraichit la session Supabase sur chaque requete
- * et redirige en fonction de l'etat d'authentification.
+ * Proxy Next.js (anciennement Middleware) : rafraichit la session Supabase
+ * sur chaque requete et redirige en fonction de l'etat d'authentification.
  *
  * - Pas connecte -> /login
  * - Connecte sans foyer -> /household
  * - Connecte avec foyer -> /tasks (si sur /login ou /register ou /household)
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
