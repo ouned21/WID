@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { checkAndIncrementAiUsage } from '@/utils/aiRateLimit';
+import { getUserPreferences, formatPreferencesForPrompt } from '@/utils/userPreferences';
 
 /**
  * API Route : génération de sous-tâches par IA (Claude API)
@@ -51,7 +52,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'taskName requis (max 200 chars)' }, { status: 400 });
   }
 
-  const prompt = `Tu es un assistant de gestion de foyer. L'utilisateur crée la tâche "${taskName}"${dueDate ? ` prévue le ${dueDate}` : ''}.
+  // Charger les préférences du user pour personnaliser les suggestions
+  const userPrefs = await getUserPreferences(supabase as unknown as never, user.id);
+  const prefsText = formatPreferencesForPrompt(userPrefs);
+  const prefsBlock = prefsText ? `\n\n## Préférences de l'utilisateur (à prendre en compte)\n${prefsText}\n` : '';
+
+  const prompt = `Tu es un assistant de gestion de foyer. L'utilisateur crée la tâche "${taskName}"${dueDate ? ` prévue le ${dueDate}` : ''}.${prefsBlock}
 
 Génère 3 à 8 sous-tâches associées qui doivent être faites avant, pendant ou après cette tâche principale.
 

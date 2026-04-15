@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
-import { FREQUENCY_OPTIONS } from '@/utils/frequency';
+import { FREQUENCY_OPTIONS, frequencyLabel } from '@/utils/frequency';
 import {
   computeTaskScore,
   DURATION_OPTIONS,
@@ -21,7 +21,7 @@ import {
   type TaskCategory as ScoringCategory,
   type ScoreBreakdown,
 } from '@/utils/taskScoring';
-import { loadTo10, scoreColor10 } from '@/utils/designSystem';
+import { loadTo10, scoreColor10, taskLoad } from '@/utils/designSystem';
 import type { Frequency, TaskCategory } from '@/types/database';
 import { createClient } from '@/lib/supabase';
 
@@ -46,8 +46,11 @@ export default function NewTaskPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { profile } = useAuthStore();
-  const { createTask, creating } = useTaskStore();
+  const { createTask, creating, tasks } = useTaskStore();
   const { members, allMembers } = useHouseholdStore();
+
+  // Mode : aura (minimal, laisse l'IA inférer) | advanced (formulaire complet)
+  const [mode, setMode] = useState<'aura' | 'advanced'>('aura');
 
   // Charger le brouillon depuis l'URL ou localStorage
   useEffect(() => {
@@ -64,13 +67,13 @@ export default function NewTaskPage() {
 
   // Catégories DB + templates (pour autocomplétion)
   const [dbCategories, setDbCategories] = useState<TaskCategory[]>([]);
-  const [allTemplates, setAllTemplates] = useState<{ name: string; scoring_category: string | null; default_duration: string | null; default_physical: string | null }[]>([]);
+  const [allTemplates, setAllTemplates] = useState<{ name: string; scoring_category: string | null; default_duration: string | null; default_physical: string | null; default_frequency: string | null }[]>([]);
   useEffect(() => {
     async function load() {
       const supabase = createClient();
       const [catRes, tplRes] = await Promise.all([
         supabase.from('task_categories').select('*').order('sort_order'),
-        supabase.from('task_templates').select('name, scoring_category, default_duration, default_physical').order('name'),
+        supabase.from('task_templates').select('name, scoring_category, default_duration, default_physical, default_frequency').order('name'),
       ]);
       if (catRes.data) setDbCategories(catRes.data as TaskCategory[]);
       if (tplRes.data) setAllTemplates(tplRes.data);
@@ -147,6 +150,49 @@ export default function NewTaskPage() {
       setUserScore(algoScore10);
     }
   }, [algoScore10, userHasAdjusted]);
+
+  // Auto-assignation : membre le moins chargé (en comptant les load actuels)
+  const leastBusyMemberId = useMemo(() => {
+    if (members.length === 0) return '';
+    const loadByMember = new Map<string, number>();
+    for (const m of members) loadByMember.set(m.id, 0);
+    for (const t of tasks) {
+      if (!t.is_active) continue;
+      if (t.assigned_to && loadByMember.has(t.assigned_to)) {
+        loadByMember.set(t.assigned_to, (loadByMember.get(t.assigned_to) ?? 0) + taskLoad(t));
+      }
+    }
+    let minId = members[0].id;
+    let minLoad = loadByMember.get(minId) ?? 0;
+    for (const [id, load] of loadByMember) {
+      if (load < minLoad) { minId = id; minLoad = load; }
+    }
+    return minId;
+  }, [members, tasks]);
+
+  // Si Aura mode et rien d'assigné manuellement : auto-attribuer au moins chargé
+  useEffect(() => {
+    if (mode === 'aura' && !assignedTo && leastBusyMemberId) {
+      setAssignedTo(leastBusyMemberId);
+    }
+  }, [mode, leastBusyMemberId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Labels pour la preview Aura
+  const categoryLabel = useMemo(() => {
+    const opt = SCORING_CATEGORY_OPTIONS.find((o) => o.value === scoringCategory);
+    return opt ? `${opt.emoji} ${opt.label}` : scoringCategory;
+  }, [scoringCategory]);
+  const durationLabelText = useMemo(() => {
+    return DURATION_OPTIONS.find((o) => o.value === duration)?.label ?? duration;
+  }, [duration]);
+  const physicalLabelText = useMemo(() => {
+    return PHYSICAL_OPTIONS.find((o) => o.value === physical)?.label ?? physical;
+  }, [physical]);
+  const frequencyLabelText = useMemo(() => frequencyLabel(frequency), [frequency]);
+  const assigneeName = useMemo(() => {
+    if (!assignedTo) return null;
+    return allMembers.find((m) => m.id === assignedTo)?.display_name ?? null;
+  }, [assignedTo, allMembers]);
 
   // Mapper scoring category vers DB category
   const findDbCategoryId = (): string => {
@@ -315,6 +361,135 @@ export default function NewTaskPage() {
     score.global_score <= 24 ? '#ff9500' :
     '#ff3b30';
 
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // MODE AURA — Minimal : nom + inférence + preview
+  // ═══════════════════════════════════════════════════════════════════════════════
+  if (mode === 'aura' && !showSubTasks) {
+    const showPreview = name.trim().length >= 3;
+
+    return (
+      <div className="pt-4 pb-8">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 mb-6">
+          <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
+          <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Nouvelle tâche</h2>
+          <div className="w-16" />
+        </div>
+
+        {/* Input */}
+        <div className="mx-4 mb-6">
+          <label className="text-[13px] text-[#8e8e93] block mb-2">Qu&apos;est-ce que tu dois faire ?</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onFocus={() => setShowSuggestions(true)}
+            autoFocus
+            maxLength={100}
+            className="w-full text-[20px] font-semibold text-[#1c1c1e] bg-transparent outline-none border-b-2"
+            style={{ borderColor: showPreview ? '#007aff' : '#e5e5ea', paddingBottom: '8px' }}
+            placeholder="Ex : Repasser le linge" />
+
+          {/* Autocomplétion templates */}
+          {templateSuggestions.length > 0 && name.trim().length >= 2 && (
+            <div className="mt-3 rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+              {templateSuggestions.map((tpl, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => {
+                    setName(tpl.name);
+                    if (tpl.scoring_category) setScoringCategory(tpl.scoring_category as ScoringCategory);
+                    if (tpl.default_duration) setDuration(tpl.default_duration as DurationEstimate);
+                    if (tpl.default_physical) setPhysical(tpl.default_physical as PhysicalEffort);
+                    if (tpl.default_frequency) setFrequency(tpl.default_frequency as Frequency);
+                    setShowSuggestions(false);
+                  }}
+                  className="w-full px-4 py-3 text-left flex items-center justify-between text-[15px]"
+                  style={i < templateSuggestions.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
+                  <span className="text-[#1c1c1e] font-medium">{tpl.name}</span>
+                  <span className="text-[12px] text-[#8e8e93]">Modèle</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Preview card */}
+        {showPreview && (
+          <div className="mx-4 rounded-2xl bg-white overflow-hidden mb-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <div className="p-5 space-y-4">
+              {/* Header */}
+              <div className="flex items-center gap-2">
+                <span className="text-[20px]">🤖</span>
+                <p className="text-[12px] font-semibold text-[#8e8e93] uppercase tracking-wide">J&apos;ai compris :</p>
+              </div>
+
+              {/* Tâche */}
+              <div>
+                <h3 className="text-[20px] font-bold text-[#1c1c1e]">{name}</h3>
+                <p className="text-[13px] text-[#8e8e93] mt-2">
+                  {categoryLabel} · {frequencyLabelText} · {durationLabelText}
+                </p>
+              </div>
+
+              {/* Assignation */}
+              <div className="flex items-center gap-2 py-2 px-3 rounded-lg" style={{ background: '#f0f2f8' }}>
+                <span className="text-[16px]">👤</span>
+                <div>
+                  <p className="text-[12px] text-[#8e8e93]">Assigné à</p>
+                  <p className="text-[15px] font-semibold text-[#1c1c1e]">{assigneeName ?? 'Non assigné'}</p>
+                </div>
+              </div>
+
+              {/* Date */}
+              <div className="flex items-center gap-2 text-[13px] text-[#8e8e93]">
+                <span>📅</span>
+                <span>{dueDate ? new Date(`${dueDate}T09:00`).toLocaleDateString('fr-FR', { weekday: 'long', month: 'long', day: 'numeric' }) : 'Demain'}</span>
+              </div>
+
+              {/* Score aperçu */}
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-1.5 rounded-full" style={{ background: `linear-gradient(to right, #34c759 0%, #ff9500 50%, #ff3b30 100%)` }} />
+                <span className="text-[14px] font-bold" style={{ color: scoreColor10(userScore ?? algoScore10) }}>
+                  {userScore ?? algoScore10}<span className="text-[11px]">/10</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="px-5 py-4 space-y-3" style={{ borderTop: '0.5px solid var(--ios-separator)' }}>
+              <button
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await handleSubmit({ preventDefault: () => {} } as any);
+                }}
+                disabled={creating}
+                className="w-full rounded-xl py-3 text-[16px] font-semibold text-white disabled:opacity-50"
+                style={{ background: '#007aff' }}>
+                {creating ? 'Création...' : 'Parfait, crée-la'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('advanced')}
+                className="w-full rounded-xl py-3 text-[16px] font-semibold text-[#007aff]"
+                style={{ background: 'transparent' }}>
+                Ajuster les détails
+              </button>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="mx-4 rounded-xl px-4 py-3 text-[14px]" style={{ background: '#fff2f2', color: '#ff3b30' }}>{error}</div>
+        )}
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // MODE AVANCÉ — Formulaire complet
+  // ═══════════════════════════════════════════════════════════════════════════════
   // Overlay sous-tâches
   if (showSubTasks) {
     return (
@@ -370,13 +545,14 @@ export default function NewTaskPage() {
     );
   }
 
-  return (
-    <div className="pt-4">
-      <div className="flex items-center justify-between px-4 mb-4">
-        <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
-        <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Nouvelle tâche</h2>
-        <div className="w-16" />
-      </div>
+  if (mode === 'advanced') {
+    return (
+      <div className="pt-4">
+        <div className="flex items-center justify-between px-4 mb-4">
+          <button onClick={() => setMode('aura')} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Mode rapide</button>
+          <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Nouvelle tâche</h2>
+          <div className="w-16" />
+        </div>
 
       {error && (
         <div className="mx-4 mb-4 rounded-xl px-4 py-3 text-[14px]" style={{ background: '#fff2f2', color: '#ff3b30' }}>{error}</div>
@@ -651,9 +827,12 @@ export default function NewTaskPage() {
             {creating ? 'Création...' : 'Créer la tâche'}
           </button>
         </div>
-      </form>
-    </div>
-  );
+        </form>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function ScoreBar({ label, value, max, sublabel }: { label: string; value: number; max: number; sublabel: string }) {

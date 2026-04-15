@@ -42,6 +42,97 @@ export default function ProfilePage() {
   const [linkingPhantom, setLinkingPhantom] = useState<string | null>(null); // phantomId en cours de rattachement
   const [linkTargetId, setLinkTargetId] = useState(''); // realProfileId sélectionné
 
+  // Préférences explicites pour l'IA
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const [hatedInput, setHatedInput] = useState('');
+  const [lovedInput, setLovedInput] = useState('');
+  const [hatedTasks, setHatedTasks] = useState<string[]>([]);
+  const [lovedTasks, setLovedTasks] = useState<string[]>([]);
+  const [preferredTimeSlot, setPreferredTimeSlot] = useState<'morning' | 'evening' | 'weekend' | 'flexible'>('flexible');
+  const [unavailableDays, setUnavailableDays] = useState<number[]>([]);
+  const [loadPreference, setLoadPreference] = useState<'light' | 'balanced' | 'heavy'>('balanced');
+  const [freeformNote, setFreeformNote] = useState('');
+  const [savingPrefs, setSavingPrefs] = useState(false);
+
+  // Charger les préfs au montage
+  useEffect(() => {
+    async function loadPrefs() {
+      if (!profile?.id) return;
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('user_preferences')
+        .select('*')
+        .eq('user_id', profile.id)
+        .maybeSingle();
+      if (data) {
+        setHatedTasks(data.hated_tasks ?? []);
+        setLovedTasks(data.loved_tasks ?? []);
+        setPreferredTimeSlot(data.preferred_time_slot ?? 'flexible');
+        setUnavailableDays(data.unavailable_days ?? []);
+        setLoadPreference(data.load_preference ?? 'balanced');
+        setFreeformNote(data.freeform_note ?? '');
+      }
+      setPrefsLoaded(true);
+    }
+    loadPrefs();
+  }, [profile?.id]);
+
+  const savePrefs = async (overrides?: {
+    hatedTasks?: string[];
+    lovedTasks?: string[];
+    preferredTimeSlot?: 'morning' | 'evening' | 'weekend' | 'flexible';
+    unavailableDays?: number[];
+    loadPreference?: 'light' | 'balanced' | 'heavy';
+    freeformNote?: string;
+  }) => {
+    if (!profile?.id) return;
+    setSavingPrefs(true);
+    const supabase = createClient();
+    const payload = {
+      user_id: profile.id,
+      hated_tasks: overrides?.hatedTasks ?? hatedTasks,
+      loved_tasks: overrides?.lovedTasks ?? lovedTasks,
+      preferred_time_slot: overrides?.preferredTimeSlot ?? preferredTimeSlot,
+      unavailable_days: overrides?.unavailableDays ?? unavailableDays,
+      load_preference: overrides?.loadPreference ?? loadPreference,
+      freeform_note: overrides?.freeformNote ?? freeformNote ?? null,
+    };
+    await supabase.from('user_preferences').upsert(payload, { onConflict: 'user_id' });
+    setSavingPrefs(false);
+  };
+
+  const addHated = () => {
+    const v = hatedInput.trim();
+    if (!v || hatedTasks.includes(v)) return;
+    const next = [...hatedTasks, v];
+    setHatedTasks(next);
+    setHatedInput('');
+    savePrefs({ hatedTasks: next });
+  };
+  const removeHated = (v: string) => {
+    const next = hatedTasks.filter((x) => x !== v);
+    setHatedTasks(next);
+    savePrefs({ hatedTasks: next });
+  };
+  const addLoved = () => {
+    const v = lovedInput.trim();
+    if (!v || lovedTasks.includes(v)) return;
+    const next = [...lovedTasks, v];
+    setLovedTasks(next);
+    setLovedInput('');
+    savePrefs({ lovedTasks: next });
+  };
+  const removeLoved = (v: string) => {
+    const next = lovedTasks.filter((x) => x !== v);
+    setLovedTasks(next);
+    savePrefs({ lovedTasks: next });
+  };
+  const toggleUnavailableDay = (d: number) => {
+    const next = unavailableDays.includes(d) ? unavailableDays.filter((x) => x !== d) : [...unavailableDays, d];
+    setUnavailableDays(next);
+    savePrefs({ unavailableDays: next });
+  };
+
   const handleSignOut = async () => {
     if (!confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) return;
     await signOut();
@@ -344,6 +435,137 @@ export default function ProfilePage() {
           </div>
         </>
       )}
+
+      {/* Préférences Aura — Personnalisation IA */}
+      <div className="mx-4">
+        <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">
+          🤖 Ce qu&apos;Aura sait de toi
+        </p>
+        <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          {/* Tâches détestées */}
+          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <p className="text-[13px] font-semibold text-[#1c1c1e] mb-1">Tâches que tu détestes</p>
+            <p className="text-[11px] text-[#8e8e93] mb-2">Aura essaiera de ne pas te les assigner</p>
+            {hatedTasks.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {hatedTasks.map((t) => (
+                  <button key={t} onClick={() => removeHated(t)}
+                    className="rounded-full px-2.5 py-1 text-[11px] font-medium flex items-center gap-1"
+                    style={{ background: '#fff2f2', color: '#ff3b30' }}>
+                    {t} ✕
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input type="text" value={hatedInput} onChange={(e) => setHatedInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addHated()}
+                placeholder="Ex : Repasser"
+                className="flex-1 text-[14px] rounded-lg px-3 py-1.5 bg-[#f0f2f8] text-[#1c1c1e] outline-none placeholder:text-[#c7c7cc]" />
+              <button onClick={addHated} className="text-[14px] font-semibold" style={{ color: '#007aff' }}>Ajouter</button>
+            </div>
+          </div>
+
+          {/* Tâches préférées */}
+          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <p className="text-[13px] font-semibold text-[#1c1c1e] mb-1">Tâches que tu aimes bien</p>
+            <p className="text-[11px] text-[#8e8e93] mb-2">Aura te les proposera en priorité</p>
+            {lovedTasks.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {lovedTasks.map((t) => (
+                  <button key={t} onClick={() => removeLoved(t)}
+                    className="rounded-full px-2.5 py-1 text-[11px] font-medium flex items-center gap-1"
+                    style={{ background: '#e8f5e9', color: '#34c759' }}>
+                    {t} ✕
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input type="text" value={lovedInput} onChange={(e) => setLovedInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addLoved()}
+                placeholder="Ex : Cuisiner"
+                className="flex-1 text-[14px] rounded-lg px-3 py-1.5 bg-[#f0f2f8] text-[#1c1c1e] outline-none placeholder:text-[#c7c7cc]" />
+              <button onClick={addLoved} className="text-[14px] font-semibold" style={{ color: '#007aff' }}>Ajouter</button>
+            </div>
+          </div>
+
+          {/* Moment préféré */}
+          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <p className="text-[13px] font-semibold text-[#1c1c1e] mb-2">Quand préfères-tu faire les tâches ?</p>
+            <div className="grid grid-cols-4 gap-1.5">
+              {[
+                { v: 'morning', label: 'Matin', emoji: '☀️' },
+                { v: 'evening', label: 'Soir', emoji: '🌙' },
+                { v: 'weekend', label: 'Weekend', emoji: '🏖' },
+                { v: 'flexible', label: 'Peu importe', emoji: '🤷' },
+              ].map((opt) => (
+                <button key={opt.v} onClick={() => { setPreferredTimeSlot(opt.v as 'morning' | 'evening' | 'weekend' | 'flexible'); savePrefs({ preferredTimeSlot: opt.v as 'morning' | 'evening' | 'weekend' | 'flexible' }); }}
+                  className="rounded-lg py-2 text-[11px] font-medium flex flex-col items-center gap-0.5"
+                  style={preferredTimeSlot === opt.v ? { background: '#007aff', color: 'white' } : { background: '#f0f2f8', color: '#3c3c43' }}>
+                  <span className="text-[14px]">{opt.emoji}</span>
+                  <span>{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Jours non dispo */}
+          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <p className="text-[13px] font-semibold text-[#1c1c1e] mb-2">Jours où tu n&apos;es pas dispo</p>
+            <div className="flex gap-1">
+              {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((letter, i) => {
+                const active = unavailableDays.includes(i);
+                return (
+                  <button key={i} onClick={() => toggleUnavailableDay(i)}
+                    className="flex-1 rounded-lg py-2 text-[12px] font-semibold"
+                    style={active ? { background: '#ff3b30', color: 'white' } : { background: '#f0f2f8', color: '#3c3c43' }}>
+                    {letter}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Charge préférée */}
+          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <p className="text-[13px] font-semibold text-[#1c1c1e] mb-2">Ton niveau de charge souhaité</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {[
+                { v: 'light', label: 'Léger', desc: 'Moins possible' },
+                { v: 'balanced', label: 'Équilibré', desc: 'Ma juste part' },
+                { v: 'heavy', label: 'Élevé', desc: "J'en prends plus" },
+              ].map((opt) => (
+                <button key={opt.v} onClick={() => { setLoadPreference(opt.v as 'light' | 'balanced' | 'heavy'); savePrefs({ loadPreference: opt.v as 'light' | 'balanced' | 'heavy' }); }}
+                  className="rounded-lg py-2 px-2 text-left"
+                  style={loadPreference === opt.v ? { background: '#007aff', color: 'white' } : { background: '#f0f2f8', color: '#3c3c43' }}>
+                  <p className="text-[12px] font-bold">{opt.label}</p>
+                  <p className="text-[10px] opacity-80">{opt.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Note libre à Aura */}
+          <div className="px-4 py-3">
+            <p className="text-[13px] font-semibold text-[#1c1c1e] mb-1">Message à Aura</p>
+            <p className="text-[11px] text-[#8e8e93] mb-2">N&apos;importe quelle info pour mieux t&apos;aider</p>
+            <textarea
+              value={freeformNote}
+              onChange={(e) => setFreeformNote(e.target.value)}
+              onBlur={() => savePrefs()}
+              maxLength={500}
+              rows={3}
+              placeholder="Ex : Je travaille tard le jeudi, j'ai le dos fragile..."
+              className="w-full text-[14px] rounded-lg px-3 py-2 bg-[#f0f2f8] text-[#1c1c1e] outline-none placeholder:text-[#c7c7cc] resize-none"
+            />
+            {savingPrefs && <p className="text-[10px] text-[#8e8e93] mt-1">Enregistrement...</p>}
+          </div>
+        </div>
+        {!prefsLoaded && (
+          <p className="text-center text-[11px] text-[#c7c7cc] mt-2">Chargement des préférences...</p>
+        )}
+      </div>
 
       {/* Style du dashboard */}
       <div className="mx-4">

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { requirePremium } from '@/utils/aiRateLimit';
+import { getHouseholdPreferences, formatHouseholdPreferencesForPrompt } from '@/utils/userPreferences';
 
 /**
  * API Route : anticipation IA (premium)
@@ -91,9 +92,20 @@ export async function POST(request: NextRequest) {
   contextLines.push(`DATE AUJOURD'HUI : ${now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`);
   contextLines.push(`MOIS EN COURS : ${now.toLocaleDateString('fr-FR', { month: 'long' })}`);
 
+  // Charger préférences de tous les membres pour personnaliser les rappels
+  const { data: memberProfiles } = await supabase
+    .from('profiles')
+    .select('id, display_name')
+    .eq('household_id', householdId);
+  const memberNames = new Map<string, string>();
+  for (const p of memberProfiles ?? []) memberNames.set(p.id, p.display_name);
+  const memberIds = (memberProfiles ?? []).map((p: { id: string }) => p.id);
+  const householdPrefs = await getHouseholdPreferences(supabase as unknown as never, memberIds);
+  const prefsBlock = formatHouseholdPreferencesForPrompt(householdPrefs, memberNames);
+
   const prompt = `Tu es Aura, l'assistant proactif du foyer. Voici l'état du foyer :
 
-${contextLines.join('\n')}
+${contextLines.join('\n')}${prefsBlock}
 
 Génère 3-5 rappels proactifs et anticipations. Pense à :
 - Les tâches en retard qui s'accumulent

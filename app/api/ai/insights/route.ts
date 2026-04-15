@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { requirePremium } from '@/utils/aiRateLimit';
+import { getHouseholdPreferences, formatHouseholdPreferencesForPrompt } from '@/utils/userPreferences';
 
 /**
  * API Route : insights IA (premium)
@@ -94,13 +95,24 @@ export async function POST(request: NextRequest) {
   // Tâches en retard
   const overdue = tasksList.filter(t => t.next_due_at && new Date(t.next_due_at) < new Date());
 
+  // Charger les préférences de tous les membres du foyer
+  const { data: memberProfiles } = await supabase
+    .from('profiles')
+    .select('id, display_name')
+    .eq('household_id', householdId);
+  const memberNames = new Map<string, string>();
+  for (const p of memberProfiles ?? []) memberNames.set(p.id, p.display_name);
+  const memberIds = (memberProfiles ?? []).map((p: { id: string }) => p.id);
+  const householdPrefs = await getHouseholdPreferences(supabase as unknown as never, memberIds);
+  const prefsBlock = formatHouseholdPreferencesForPrompt(householdPrefs, memberNames);
+
   const prompt = `Tu es Aura, l'assistant du foyer. Analyse ces données de foyer sur 8 semaines et génère 3-5 insights concrets.
 
 DONNÉES PAR MEMBRE :
 ${contextLines.join('\n')}
 
 TÂCHES EN RETARD : ${overdue.length} (${overdue.slice(0, 5).map(t => t.name).join(', ')})
-TOTAL TÂCHES ACTIVES : ${tasksList.length}
+TOTAL TÂCHES ACTIVES : ${tasksList.length}${prefsBlock}
 
 Génère des insights en JSON. Chaque insight a :
 - type: "pattern" | "imbalance" | "anticipation" | "suggestion"

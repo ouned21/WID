@@ -134,6 +134,20 @@ export type HouseholdMember = {
   vacation_mode: boolean;
 };
 
+/** Préférences explicites d'un utilisateur (personnalisation IA) */
+export type UserPreferences = {
+  id: string;
+  user_id: string;
+  hated_tasks: string[];
+  loved_tasks: string[];
+  preferred_time_slot: 'morning' | 'evening' | 'weekend' | 'flexible';
+  unavailable_days: number[]; // 0=dim, 1=lun, ..., 6=sam
+  load_preference: 'light' | 'balanced' | 'heavy';
+  freeform_note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 // -----------------------------------------------------------------------------
 // Types denormalises pour l'UI (prets a afficher, pas de join cote composant)
 // -----------------------------------------------------------------------------

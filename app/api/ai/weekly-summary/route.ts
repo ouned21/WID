@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { requirePremium } from '@/utils/aiRateLimit';
+import { getHouseholdPreferences, formatHouseholdPreferencesForPrompt } from '@/utils/userPreferences';
 
 /**
  * API Route : résumé hebdomadaire IA (premium)
@@ -90,12 +91,17 @@ export async function POST(request: NextRequest) {
 
   const totalScore = Object.values(stats).reduce((s, v) => s + v.totalScore, 0);
 
+  // Préférences des membres (pour personnaliser les suggestions)
+  const memberIds = Array.from(memberMap.keys());
+  const householdPrefs = await getHouseholdPreferences(supabase as unknown as never, memberIds);
+  const prefsBlock = formatHouseholdPreferencesForPrompt(householdPrefs, memberMap);
+
   const prompt = `Tu es Aura, l'assistant du foyer. Voici les données de la semaine pour ce foyer :
 
 ${dataText}
 
 Score total foyer : ${totalScore}
-Nombre de membres : ${memberMap.size}
+Nombre de membres : ${memberMap.size}${prefsBlock}
 
 Rédige un résumé en français, 4-5 phrases maximum. Sois factuel, neutre, pas accusateur. Mentionne :
 1. Qui a fait le plus/moins et dans quelle proportion
