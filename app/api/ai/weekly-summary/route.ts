@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { requirePremium } from '@/utils/aiRateLimit';
 import { getHouseholdPreferences, formatHouseholdPreferencesForPrompt } from '@/utils/userPreferences';
+import { logAiUsage, extractUsageFromResponse } from '@/utils/aiLogger';
 
 /**
  * API Route : résumé hebdomadaire IA (premium)
@@ -12,6 +13,7 @@ import { getHouseholdPreferences, formatHouseholdPreferencesForPrompt } from '@/
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
   if (!ANTHROPIC_API_KEY) {
     return NextResponse.json({ summary: 'IA non configurée.' });
   }
@@ -125,12 +127,30 @@ Pas de formule de politesse. Pas de "Bonjour". Juste le résumé.`;
       }),
     });
 
-    if (!response.ok) return NextResponse.json({ summary: 'Erreur lors de la génération.' });
+    if (!response.ok) {
+      await logAiUsage(supabase as never, {
+        userId: user.id, householdId, endpoint: 'weekly-summary',
+        tokensInput: 0, tokensOutput: 0, durationMs: Date.now() - startTime, status: 'error',
+      });
+      return NextResponse.json({ summary: 'Erreur lors de la génération.' });
+    }
 
     const data = await response.json();
+    const usage = extractUsageFromResponse(data);
     const summary = data.content?.[0]?.text ?? 'Pas assez de données cette semaine.';
+
+    await logAiUsage(supabase as never, {
+      userId: user.id, householdId, endpoint: 'weekly-summary',
+      tokensInput: usage.tokensInput, tokensOutput: usage.tokensOutput,
+      durationMs: Date.now() - startTime, status: 'success',
+    });
+
     return NextResponse.json({ summary });
   } catch {
+    await logAiUsage(supabase as never, {
+      userId: user.id, householdId, endpoint: 'weekly-summary',
+      tokensInput: 0, tokensOutput: 0, durationMs: Date.now() - startTime, status: 'error',
+    });
     return NextResponse.json({ summary: 'Erreur lors de la génération.' });
   }
 }

@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { requirePremium } from '@/utils/aiRateLimit';
 import { getHouseholdPreferences, formatHouseholdPreferencesForPrompt } from '@/utils/userPreferences';
+import { logAiUsage, extractUsageFromResponse } from '@/utils/aiLogger';
 
 /**
  * API Route : insights IA (premium)
@@ -12,6 +13,7 @@ import { getHouseholdPreferences, formatHouseholdPreferencesForPrompt } from '@/
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
   if (!ANTHROPIC_API_KEY) return NextResponse.json({ insights: [] });
 
   const cookieStore = await cookies();
@@ -138,15 +140,33 @@ Réponds UNIQUEMENT en JSON :
       }),
     });
 
-    if (!response.ok) return NextResponse.json({ insights: [] });
+    if (!response.ok) {
+      await logAiUsage(supabase as never, {
+        userId: user.id, householdId, endpoint: 'insights',
+        tokensInput: 0, tokensOutput: 0, durationMs: Date.now() - startTime, status: 'error',
+      });
+      return NextResponse.json({ insights: [] });
+    }
 
     const data = await response.json();
     const text = data.content?.[0]?.text ?? '{"insights":[]}';
+    const usage = extractUsageFromResponse(data);
+
+    await logAiUsage(supabase as never, {
+      userId: user.id, householdId, endpoint: 'insights',
+      tokensInput: usage.tokensInput, tokensOutput: usage.tokensOutput,
+      durationMs: Date.now() - startTime, status: 'success',
+    });
+
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return NextResponse.json({ insights: [] });
 
     return NextResponse.json(JSON.parse(jsonMatch[0]));
   } catch {
+    await logAiUsage(supabase as never, {
+      userId: user.id, householdId, endpoint: 'insights',
+      tokensInput: 0, tokensOutput: 0, durationMs: Date.now() - startTime, status: 'error',
+    });
     return NextResponse.json({ insights: [] });
   }
 }
