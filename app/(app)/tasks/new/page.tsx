@@ -52,6 +52,8 @@ export default function NewTaskPage() {
 
   // Mode : aura (minimal, laisse l'IA inférer) | advanced (formulaire complet)
   const [mode, setMode] = useState<'aura' | 'advanced'>('aura');
+  // Étape dans le mode Aura : 'input' = saisie + preview, 'assign' = swipe assignation
+  const [auraStep, setAuraStep] = useState<'input' | 'assign'>('input');
 
   // Charger le brouillon depuis l'URL ou localStorage
   useEffect(() => {
@@ -342,150 +344,186 @@ export default function NewTaskPage() {
     '#ff3b30';
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // MODE AURA — Minimal : nom + inférence + preview
+  // MODE AURA — 2 étapes : input+preview → swipe assignation
   // ═══════════════════════════════════════════════════════════════════════════════
   if (mode === 'aura' && !showSubTasks) {
     const showPreview = name.trim().length >= 3;
+    const realMembers = allMembers.filter((m) => !m.isPhantom);
 
-    return (
-      <div className="pt-4 pb-8">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 mb-6">
-          <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
-          <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Nouvelle tâche</h2>
-          <div className="w-16" />
-        </div>
+    // ─── ÉTAPE 1 : Input + Preview ────────────────────────────────────────────
+    if (auraStep === 'input') {
+      return (
+        <div className="pt-4 pb-8">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 mb-6">
+            <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
+            <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Nouvelle tâche</h2>
+            <div className="w-16" />
+          </div>
 
-        {/* Input */}
-        <div className="mx-4 mb-6">
-          <label className="text-[13px] text-[#8e8e93] block mb-2">Qu&apos;est-ce que tu dois faire ?</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onFocus={() => setShowSuggestions(true)}
-            autoFocus
-            maxLength={100}
-            className="w-full text-[20px] font-semibold text-[#1c1c1e] bg-transparent outline-none border-b-2"
-            style={{ borderColor: showPreview ? '#007aff' : '#e5e5ea', paddingBottom: '8px' }}
-            placeholder="Ex : Repasser le linge" />
+          {/* Input */}
+          <div className="mx-4 mb-6">
+            <label className="text-[13px] text-[#8e8e93] block mb-2">Qu&apos;est-ce que tu dois faire ?</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onFocus={() => setShowSuggestions(true)}
+              autoFocus
+              maxLength={100}
+              className="w-full text-[20px] font-semibold text-[#1c1c1e] bg-transparent outline-none border-b-2"
+              style={{ borderColor: showPreview ? '#007aff' : '#e5e5ea', paddingBottom: '8px' }}
+              placeholder="Ex : Repasser le linge" />
 
-          {/* Autocomplétion templates */}
-          {templateSuggestions.length > 0 && name.trim().length >= 2 && (
-            <div className="mt-3 rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-              {templateSuggestions.map((tpl, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => {
-                    setName(tpl.name);
-                    if (tpl.scoring_category) setScoringCategory(tpl.scoring_category as ScoringCategory);
-                    if (tpl.default_duration) setDuration(tpl.default_duration as DurationEstimate);
-                    if (tpl.default_physical) setPhysical(tpl.default_physical as PhysicalEffort);
-                    if (tpl.default_frequency) setFrequency(tpl.default_frequency as Frequency);
-                    setShowSuggestions(false);
-                  }}
-                  className="w-full px-4 py-3 text-left flex items-center justify-between text-[15px]"
-                  style={i < templateSuggestions.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
-                  <span className="text-[#1c1c1e] font-medium">{tpl.name}</span>
-                  <span className="text-[12px] text-[#8e8e93]">Modèle</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Preview card */}
-        {showPreview && (
-          <div className="mx-4 rounded-2xl bg-white overflow-hidden mb-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            <div className="p-5 space-y-4">
-              {/* Header */}
-              <div className="flex items-center gap-2">
-                <span className="text-[20px]">🤖</span>
-                <p className="text-[12px] font-semibold text-[#8e8e93] uppercase tracking-wide">J&apos;ai compris :</p>
+            {/* Autocomplétion templates */}
+            {templateSuggestions.length > 0 && name.trim().length >= 2 && (
+              <div className="mt-3 rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+                {templateSuggestions.map((tpl, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      setName(tpl.name);
+                      if (tpl.scoring_category) setScoringCategory(tpl.scoring_category as ScoringCategory);
+                      if (tpl.default_duration) setDuration(tpl.default_duration as DurationEstimate);
+                      if (tpl.default_physical) setPhysical(tpl.default_physical as PhysicalEffort);
+                      if (tpl.default_frequency) setFrequency(tpl.default_frequency as Frequency);
+                      setShowSuggestions(false);
+                    }}
+                    className="w-full px-4 py-3 text-left flex items-center justify-between text-[15px]"
+                    style={i < templateSuggestions.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
+                    <span className="text-[#1c1c1e] font-medium">{tpl.name}</span>
+                    <span className="text-[12px] text-[#8e8e93]">Modèle</span>
+                  </button>
+                ))}
               </div>
+            )}
+          </div>
 
-              {/* Tâche */}
-              <div>
-                <h3 className="text-[20px] font-bold text-[#1c1c1e]">{name}</h3>
-                <p className="text-[13px] text-[#8e8e93] mt-2">
-                  {categoryLabel} · {frequencyLabelText} · {durationLabelText}
-                </p>
-              </div>
+          {/* Preview card : ce qu'Aura a compris */}
+          {showPreview && (
+            <div className="mx-4 rounded-2xl bg-white overflow-hidden mb-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+              <div className="p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-[20px]">🤖</span>
+                  <p className="text-[12px] font-semibold text-[#8e8e93] uppercase tracking-wide">J&apos;ai compris :</p>
+                </div>
 
-              {/* Assignation — choix explicite */}
-              <div>
-                <p className="text-[12px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2">
-                  👤 Qui s&apos;en occupe ?
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {allMembers.filter((m) => !m.isPhantom).map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => setAssignedTo(m.id)}
-                      className="rounded-xl p-2.5 text-center transition-all"
-                      style={assignedTo === m.id
-                        ? { background: '#007aff', color: 'white' }
-                        : { background: '#f0f2f8', color: '#1c1c1e', border: '1px solid transparent' }
-                      }
-                    >
-                      <div className="flex items-center justify-center gap-1.5">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold text-white flex-shrink-0"
-                          style={{ background: assignedTo === m.id ? 'rgba(255,255,255,0.3)' : '#007aff' }}>
-                          {m.display_name.charAt(0).toUpperCase()}
-                        </span>
-                        <span className="text-[13px] font-semibold truncate">{m.display_name}</span>
-                      </div>
-                    </button>
-                  ))}
+                <div>
+                  <h3 className="text-[20px] font-bold text-[#1c1c1e]">{name}</h3>
+                  <p className="text-[13px] text-[#8e8e93] mt-2">
+                    {categoryLabel} · {frequencyLabelText} · {durationLabelText}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 text-[13px] text-[#8e8e93]">
+                  <span>📅</span>
+                  <span>{dueDate ? new Date(`${dueDate}T09:00`).toLocaleDateString('fr-FR', { weekday: 'long', month: 'long', day: 'numeric' }) : 'Demain'}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 rounded-full" style={{ background: `linear-gradient(to right, #34c759 0%, #ff9500 50%, #ff3b30 100%)` }} />
+                  <span className="text-[14px] font-bold" style={{ color: scoreColor10(userScore ?? algoScore10) }}>
+                    {userScore ?? algoScore10}<span className="text-[11px]">/10</span>
+                  </span>
                 </div>
               </div>
 
-              {/* Date */}
-              <div className="flex items-center gap-2 text-[13px] text-[#8e8e93]">
-                <span>📅</span>
-                <span>{dueDate ? new Date(`${dueDate}T09:00`).toLocaleDateString('fr-FR', { weekday: 'long', month: 'long', day: 'numeric' }) : 'Demain'}</span>
-              </div>
-
-              {/* Score aperçu */}
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-1.5 rounded-full" style={{ background: `linear-gradient(to right, #34c759 0%, #ff9500 50%, #ff3b30 100%)` }} />
-                <span className="text-[14px] font-bold" style={{ color: scoreColor10(userScore ?? algoScore10) }}>
-                  {userScore ?? algoScore10}<span className="text-[11px]">/10</span>
-                </span>
+              <div className="px-5 py-4 space-y-3" style={{ borderTop: '0.5px solid var(--ios-separator)' }}>
+                <button
+                  type="button"
+                  onClick={() => setAuraStep('assign')}
+                  className="w-full rounded-xl py-3 text-[16px] font-semibold text-white"
+                  style={{ background: '#007aff' }}>
+                  Suivant : qui s&apos;en occupe ? →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('advanced')}
+                  className="w-full rounded-xl py-3 text-[16px] font-semibold text-[#007aff]"
+                  style={{ background: 'transparent' }}>
+                  Ajuster les détails
+                </button>
               </div>
             </div>
+          )}
 
-            {/* Actions */}
-            <div className="px-5 py-4 space-y-3" style={{ borderTop: '0.5px solid var(--ios-separator)' }}>
-              <button
-                onClick={async (e) => {
-                  e.preventDefault();
-                  if (!assignedTo) return;
-                  await handleSubmit({ preventDefault: () => {} } as unknown as React.FormEvent);
-                }}
-                disabled={creating || !assignedTo}
-                className="w-full rounded-xl py-3 text-[16px] font-semibold text-white disabled:opacity-50"
-                style={{ background: '#007aff' }}>
-                {creating ? 'Création...' : !assignedTo ? 'Choisis qui s\'en occupe' : 'Parfait, crée-la'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('advanced')}
-                className="w-full rounded-xl py-3 text-[16px] font-semibold text-[#007aff]"
-                style={{ background: 'transparent' }}>
-                Ajuster les détails
-              </button>
-            </div>
+          {error && (
+            <div className="mx-4 rounded-xl px-4 py-3 text-[14px]" style={{ background: '#fff2f2', color: '#ff3b30' }}>{error}</div>
+          )}
+        </div>
+      );
+    }
+
+    // ─── ÉTAPE 2 : Swipe assignation ───────────────────────────────────────────
+    if (auraStep === 'assign') {
+      return (
+        <div className="pt-4 pb-8">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 mb-6">
+            <button onClick={() => setAuraStep('input')} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
+            <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Qui s&apos;en occupe ?</h2>
+            <div className="w-16" />
           </div>
-        )}
 
-        {error && (
-          <div className="mx-4 rounded-xl px-4 py-3 text-[14px]" style={{ background: '#fff2f2', color: '#ff3b30' }}>{error}</div>
-        )}
-      </div>
-    );
+          {/* Carte tâche */}
+          <div className="mx-4 rounded-3xl p-6 text-center min-h-[220px] flex flex-col justify-center mb-6" style={{
+            background: 'linear-gradient(135deg, #ffffff, #f6f8ff)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+          }}>
+            <div className="text-[40px] mb-2">{SCORING_CATEGORY_OPTIONS.find((o) => o.value === scoringCategory)?.emoji ?? '📋'}</div>
+            <p className="text-[22px] font-black text-[#1c1c1e] mb-2">{name}</p>
+            <p className="text-[13px] text-[#8e8e93]">{frequencyLabelText} · {durationLabelText}</p>
+          </div>
+
+          {/* Swipe / boutons membres réels */}
+          <div className="mx-4 space-y-2">
+            {realMembers.length === 0 && (
+              <p className="text-center text-[13px] text-[#8e8e93] py-4">
+                Aucun membre dans ce foyer. Invite quelqu&apos;un depuis ton profil.
+              </p>
+            )}
+            {realMembers.map((member) => (
+              <button
+                key={member.id}
+                onClick={async () => {
+                  setAssignedTo(member.id);
+                  // Créer la tâche directement après sélection
+                  setTimeout(async () => {
+                    await handleSubmit({ preventDefault: () => {} } as unknown as React.FormEvent);
+                  }, 100);
+                }}
+                disabled={creating}
+                className="w-full rounded-2xl py-[14px] text-[16px] font-bold text-white transition-transform active:scale-[0.97] disabled:opacity-50"
+                style={{
+                  background: 'linear-gradient(135deg, #007aff, #5856d6)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                }}
+              >
+                {creating && assignedTo === member.id ? 'Création...' : member.display_name}
+              </button>
+            ))}
+            <button
+              onClick={async () => {
+                setAssignedTo('');
+                setTimeout(async () => {
+                  await handleSubmit({ preventDefault: () => {} } as unknown as React.FormEvent);
+                }, 100);
+              }}
+              disabled={creating}
+              className="w-full rounded-2xl py-[14px] text-[15px] font-semibold bg-white disabled:opacity-50"
+              style={{ color: '#8e8e93', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
+            >
+              Passer (non assigné)
+            </button>
+          </div>
+
+          {error && (
+            <div className="mx-4 mt-4 rounded-xl px-4 py-3 text-[14px]" style={{ background: '#fff2f2', color: '#ff3b30' }}>{error}</div>
+          )}
+        </div>
+      );
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
