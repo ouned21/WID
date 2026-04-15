@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { requirePremium } from '@/utils/aiRateLimit';
 
 /**
  * API Route : résumé hebdomadaire IA (premium)
@@ -22,6 +23,16 @@ export async function POST(request: NextRequest) {
   );
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+
+  // Feature premium uniquement
+  const premium = await requirePremium(supabase, user.id);
+  if (!premium.isPremium) {
+    return NextResponse.json({
+      error: 'Premium requis',
+      code: 'PREMIUM_REQUIRED',
+      message: 'Le résumé IA est une fonctionnalité Premium.',
+    }, { status: 403 });
+  }
 
   const { householdId } = await request.json();
   if (!householdId) return NextResponse.json({ error: 'householdId requis' }, { status: 400 });

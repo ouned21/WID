@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { checkAndIncrementAiUsage } from '@/utils/aiRateLimit';
 
 /**
  * API Route : génération de sous-tâches par IA (Claude API)
- * Authentifiée, rate-limitée (simple), input validé.
+ * Authentifiée, rate-limitée via profiles.ai_calls_this_month pour les gratuits.
  */
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
-// Rate limit simple en mémoire (par userId, max 10 appels par minute)
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-
 export async function POST(request: NextRequest) {
   if (!ANTHROPIC_API_KEY) {
-    return NextResponse.json({ subtasks: [] }); // Dégradation gracieuse, pas d'erreur 500
+    return NextResponse.json({ subtasks: [] }); // Dégradation gracieuse
   }
 
   // Auth check
@@ -29,16 +27,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
   }
 
-  // Rate limiting (10 appels/minute par user)
-  const now = Date.now();
-  const userLimit = rateLimitMap.get(user.id);
-  if (userLimit && userLimit.resetAt > now && userLimit.count >= 10) {
-    return NextResponse.json({ error: 'Trop de requêtes' }, { status: 429 });
-  }
-  if (!userLimit || userLimit.resetAt <= now) {
-    rateLimitMap.set(user.id, { count: 1, resetAt: now + 60000 });
-  } else {
-    userLimit.count++;
+  // Rate limit mensuel (5 appels/mois pour les gratuits, illimité premium)
+  const rate = await checkAndIncrementAiUsage(supabase, user.id);
+  if (!rate.allowed) {
+    return NextResponse.json({
+      error: 'Limite IA atteinte',
+      code: 'AI_LIMIT_REACHED',
+      message: 'Tu as atteint ta limite mensuelle. Passe en Premium pour un accès illimité.',
+      remaining: rate.remaining,
+    }, { status: 429 });
   }
 
   let body: { taskName?: unknown; dueDate?: unknown };

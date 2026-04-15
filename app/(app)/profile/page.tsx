@@ -457,12 +457,58 @@ export default function ProfilePage() {
       </div>
 
       {/* Déconnexion */}
-      <div className="mx-4 pb-8">
+      <div className="mx-4">
         <button onClick={handleSignOut}
           className="w-full rounded-xl bg-white py-3 text-[17px] font-medium"
           style={{ color: '#ff3b30', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
           Se déconnecter
         </button>
+      </div>
+
+      {/* Suppression du compte (RGPD) */}
+      <div className="mx-4 mt-3">
+        <button
+          onClick={async () => {
+            const confirmed = confirm(
+              'Supprimer définitivement ton compte ?\n\nToutes tes données seront effacées sous 30 jours (tâches, historique, préférences). Cette action est irréversible.',
+            );
+            if (!confirmed) return;
+            const sure = confirm('Dernière confirmation : es-tu vraiment sûr(e) ?');
+            if (!sure) return;
+
+            const supabase = createClient();
+            // Soft delete : marque le profil pour suppression, vraie suppression côté backend
+            await supabase
+              .from('profiles')
+              .update({
+                left_at: new Date().toISOString(),
+                household_id: null,
+                display_name: 'Compte supprimé',
+              })
+              .eq('id', profile?.id ?? '');
+            await signOut();
+            router.push('/login');
+          }}
+          className="w-full rounded-xl py-3 text-[13px] font-medium"
+          style={{ color: '#ff3b30', background: 'transparent' }}
+        >
+          Supprimer mon compte et mes données
+        </button>
+        <p className="text-center text-[11px] text-[#c7c7cc] mt-1">
+          Conformément au RGPD · <a href="/legal/privacy" style={{ color: '#8e8e93' }}>Politique de confidentialité</a>
+        </p>
+      </div>
+
+      {/* Liens légaux */}
+      <div className="mx-4 mt-6 pb-8 text-center">
+        <div className="flex gap-4 justify-center text-[12px] text-[#8e8e93]">
+          <a href="/legal/cgu">CGU</a>
+          <span>·</span>
+          <a href="/legal/privacy">Confidentialité</a>
+          <span>·</span>
+          <a href="mailto:privacy@aura.app">Contact</a>
+        </div>
+        <p className="text-[11px] text-[#c7c7cc] mt-2">Aura © {new Date().getFullYear()}</p>
       </div>
     </div>
   );

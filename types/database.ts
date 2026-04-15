@@ -33,6 +33,11 @@ export type Profile = {
   vacation_mode: boolean;
   vacation_started_at: string | null;
   target_share_percent: number | null; // Objectif de répartition (ex: 50 = vise 50%)
+  // ── Premium + rate limit IA ──
+  is_premium: boolean;
+  premium_until: string | null;
+  ai_calls_this_month: number;
+  ai_calls_month_reset: string | null;
   created_at: string;
   updated_at: string;
 };

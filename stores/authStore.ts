@@ -19,6 +19,9 @@ type AuthState = {
   signIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   signOut: () => Promise<void>;
   clearError: () => void;
+
+  // Helpers premium
+  isPremium: () => boolean;
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -154,4 +157,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+
+  isPremium: () => {
+    const profile = get().profile;
+    if (!profile?.is_premium) return false;
+    if (profile.premium_until && new Date(profile.premium_until) < new Date()) return false;
+    return true;
+  },
 }));

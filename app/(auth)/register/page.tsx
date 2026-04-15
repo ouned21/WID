@@ -12,6 +12,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [success, setSuccess] = useState(false);
   const [showPw, setShowPw] = useState(false);
+  const [consentCgu, setConsentCgu] = useState(false);
 
   useEffect(() => {
     if (!isInitialized) initialize();
@@ -24,6 +25,7 @@ export default function RegisterPage() {
     clearError();
     if (displayName.trim().length < 2) return;
     if (!isPasswordStrong) return;
+    if (!consentCgu) return;
     const result = await signUp(email, password, displayName.trim());
     if (result.ok) setSuccess(true);
   };
@@ -118,7 +120,23 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        <button type="submit" disabled={loading || !isPasswordStrong}
+        {/* Case consentement CGU + privacy */}
+        <label className="flex items-start gap-3 mt-4 px-1 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={consentCgu}
+            onChange={(e) => setConsentCgu(e.target.checked)}
+            className="mt-0.5"
+            style={{ width: 18, height: 18, accentColor: '#007aff' }}
+          />
+          <span className="text-[12px] text-[#8e8e93] leading-relaxed">
+            J&apos;accepte les <a href="/legal/cgu" target="_blank" className="font-semibold" style={{ color: '#007aff' }}>CGU</a>
+            {' '}et la <a href="/legal/privacy" target="_blank" className="font-semibold" style={{ color: '#007aff' }}>politique de confidentialité</a>.
+            Mes données sont traitées conformément au RGPD.
+          </span>
+        </label>
+
+        <button type="submit" disabled={loading || !isPasswordStrong || !consentCgu}
           className="w-full mt-4 rounded-xl py-[14px] text-[17px] font-semibold text-white disabled:opacity-50" style={{ background: '#007aff' }}>
           {loading ? 'Création...' : 'Créer mon compte'}
         </button>
