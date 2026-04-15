@@ -148,6 +148,71 @@ export type UserPreferences = {
   updated_at: string;
 };
 
+/** Entrée de journal conversationnel (raconte-moi ta journée) */
+export type UserJournal = {
+  id: string;
+  user_id: string;
+  household_id: string;
+  raw_text: string;
+  input_method: 'text' | 'voice';
+  parsed_completions: ParsedCompletion[];
+  unmatched_items: string[];
+  ai_response: string | null;
+  tokens_input: number;
+  tokens_output: number;
+  cost_usd: number;
+  model_used: string;
+  processing_time_ms: number;
+  error: string | null;
+  mood_tone: 'happy' | 'tired' | 'overwhelmed' | 'satisfied' | 'frustrated' | 'neutral' | null;
+  created_at: string;
+};
+
+/** Complétion parsée depuis un journal */
+export type ParsedCompletion = {
+  task_id: string;
+  task_name: string;
+  completed_by: string | null;        // user_id si match, null = fantôme
+  completed_by_phantom_id?: string | null;
+  duration_minutes: number | null;
+  note: string | null;
+  confidence: number;                  // 0.0 à 1.0
+};
+
+/** Log d'appel IA (pour tracking coûts et usage) */
+export type AiTokenUsage = {
+  id: string;
+  user_id: string;
+  household_id: string | null;
+  endpoint: string;
+  model: string;
+  tokens_input: number;
+  tokens_output: number;
+  cost_usd: number;
+  duration_ms: number;
+  status: 'success' | 'error' | 'rate_limited' | 'premium_required';
+  error_message: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
+/** Patterns appris sur un utilisateur */
+export type UserPatterns = {
+  id: string;
+  user_id: string;
+  preferred_completion_hour: number | null;
+  avg_tasks_per_day: number | null;
+  most_active_day: number | null;
+  category_affinity: Record<string, number>;
+  avg_duration_by_category: Record<string, number>;
+  completion_streak_days: number;
+  longest_streak_days: number;
+  ai_memory_summary: string | null;
+  ai_memory_updated_at: string | null;
+  updated_at: string;
+  created_at: string;
+};
+
 // -----------------------------------------------------------------------------
 // Types denormalises pour l'UI (prets a afficher, pas de join cote composant)
 // -----------------------------------------------------------------------------

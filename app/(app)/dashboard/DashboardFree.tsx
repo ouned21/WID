@@ -166,6 +166,28 @@ export default function DashboardFree() {
         </div>
       </div>
 
+      {/* ═══════ JOURNAL AURA ═══════ */}
+      <button
+        onClick={() => router.push('/journal')}
+        className="mx-4 rounded-3xl p-5 text-left transition-transform active:scale-[0.98]"
+        style={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          boxShadow: '0 8px 24px rgba(118, 75, 162, 0.25)',
+        }}
+      >
+        <div className="flex items-center gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full text-[28px] flex-shrink-0" style={{ background: 'rgba(255,255,255,0.25)' }}>
+            🤖
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.15em] font-bold text-white/70 mb-0.5">Parler à Aura</p>
+            <p className="text-[17px] font-bold text-white leading-tight">Raconte-moi ta journée</p>
+            <p className="text-[12px] text-white/80 mt-0.5">J&apos;enregistre tout ce que tu as fait en une phrase</p>
+          </div>
+          <div className="text-[20px] text-white/60">→</div>
+        </div>
+      </button>
+
       {/* ═══════ SCORE PAYWALLÉ ═══════ */}
       <button
         onClick={() => router.push('/upgrade?feature=score')}

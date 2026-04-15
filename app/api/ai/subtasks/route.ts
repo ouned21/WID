@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { checkAndIncrementAiUsage } from '@/utils/aiRateLimit';
 import { getUserPreferences, formatPreferencesForPrompt } from '@/utils/userPreferences';
+import { logAiUsage, extractUsageFromResponse } from '@/utils/aiLogger';
 
 /**
  * API Route : génération de sous-tâches par IA (Claude API)
@@ -73,6 +74,7 @@ Réponds UNIQUEMENT en JSON valide, format :
 Si la tâche ne nécessite pas de sous-tâches (tâche simple comme "passer l'aspirateur"), réponds :
 { "subtasks": [] }`;
 
+  const startTime = Date.now();
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -91,11 +93,23 @@ Si la tâche ne nécessite pas de sous-tâches (tâche simple comme "passer l'as
     if (!response.ok) {
       const err = await response.text();
       console.error('[ai/subtasks] Claude API error:', err);
+      await logAiUsage(supabase as never, {
+        userId: user.id, endpoint: 'subtasks', tokensInput: 0, tokensOutput: 0,
+        durationMs: Date.now() - startTime, status: 'error', errorMessage: err,
+      });
       return NextResponse.json({ error: 'Erreur IA' }, { status: 502 });
     }
 
     const data = await response.json();
     const text = data.content?.[0]?.text ?? '{"subtasks":[]}';
+    const usage = extractUsageFromResponse(data);
+
+    await logAiUsage(supabase as never, {
+      userId: user.id, endpoint: 'subtasks',
+      tokensInput: usage.tokensInput, tokensOutput: usage.tokensOutput,
+      durationMs: Date.now() - startTime, status: 'success',
+      metadata: { taskName, dueDate },
+    });
 
     // Extraire le JSON de la réponse
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -107,6 +121,11 @@ Si la tâche ne nécessite pas de sous-tâches (tâche simple comme "passer l'as
     return NextResponse.json(parsed);
   } catch (err) {
     console.error('[ai/subtasks] Error:', err);
+    await logAiUsage(supabase as never, {
+      userId: user.id, endpoint: 'subtasks', tokensInput: 0, tokensOutput: 0,
+      durationMs: Date.now() - startTime, status: 'error',
+      errorMessage: err instanceof Error ? err.message : 'Unknown',
+    });
     return NextResponse.json({ subtasks: [] });
   }
 }
