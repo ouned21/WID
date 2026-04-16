@@ -105,7 +105,6 @@ INSERT INTO task_associations (trigger_type, trigger_value, suggested_name, sugg
 ('equipment', 'plaque_cuisson', 'Nettoyer les plaques de cuisson', 'cleaning', 'weekly', 'short', 'light', 2, 0, 'Après chaque utilisation intensive', 1),
 ('equipment', 'hotte', 'Nettoyer les filtres de la hotte', 'cleaning', 'quarterly', 'short', 'light', 3, 0, 'Dégraisser ou remplacer', 1),
 ('equipment', 'refrigerateur', 'Nettoyer le réfrigérateur', 'cleaning', 'monthly', 'medium', 'medium', 4, 0, 'Intérieur, tiroirs, joints', 1),
-('equipment', 'refrigerateur', 'Vérifier les dates de péremption', 'meals', 'weekly', 'short', 'none', 2, 0, 'Éviter le gaspillage', 2),
 ('equipment', 'refrigerateur', 'Dégivrer le congélateur', 'cleaning', 'semiannual', 'long', 'medium', 4, 0, 'Si givre > 5mm', 3),
 ('equipment', 'lave_vaisselle', 'Vider le lave-vaisselle', 'cleaning', 'daily', 'short', 'light', 2, 0, 'Ranger la vaisselle propre', 1),
 ('equipment', 'lave_vaisselle', 'Nettoyer le filtre du lave-vaisselle', 'cleaning', 'monthly', 'short', 'light', 2, 0, 'Retirer et rincer le filtre', 2),
@@ -123,7 +122,6 @@ INSERT INTO task_associations (trigger_type, trigger_value, suggested_name, sugg
 ('equipment', 'douche', 'Détartrer le pommeau de douche', 'hygiene', 'quarterly', 'short', 'light', 2, 0, 'Vinaigre blanc une nuit', 2),
 ('equipment', 'baignoire', 'Nettoyer la baignoire', 'hygiene', 'weekly', 'short', 'medium', 2, 0, 'Émail, robinetterie, joints', 1),
 ('equipment', 'toilettes', 'Nettoyer les toilettes', 'hygiene', 'weekly', 'short', 'medium', 2, 0, 'Cuvette, abattant, sol autour', 1),
-('equipment', 'toilettes', 'Remplacer le rouleau de papier', 'hygiene', 'weekly', 'very_short', 'none', 1, 0, 'Stock à vérifier', 2),
 ('equipment', 'lavabo', 'Nettoyer le lavabo', 'hygiene', 'weekly', 'very_short', 'light', 1, 0, 'Vasque, robinet, miroir', 1),
 ('equipment', 'lavabo', 'Déboucher le siphon', 'hygiene', 'quarterly', 'short', 'light', 2, 0, 'Retirer les cheveux, bicarbonate', 2),
 
