@@ -26,8 +26,11 @@ export function filterTasks(
     if (filters.categoryId !== 'all' && task.category_id !== filters.categoryId) {
       return false;
     }
-    if (filters.assignment === 'mine' && task.assigned_to !== currentUserId) {
-      return false;
+    if (filters.assignment === 'mine') {
+      // "Mes tâches" = assignée à moi OU non assignée (pool commun visible par tous)
+      const isAssignedToMe = task.assigned_to === currentUserId;
+      const isUnassigned = !task.assigned_to && !task.assigned_to_phantom_id;
+      if (!isAssignedToMe && !isUnassigned) return false;
     }
     return true;
   });
