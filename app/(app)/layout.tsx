@@ -68,8 +68,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setQuickName('');
   }, [quickName]);
 
-  // Ne pas afficher le FAB sur la page de création
-  const showFab = !pathname.startsWith('/tasks/new');
+  // Ne pas afficher le FAB sur la page de création ni pendant l'onboarding
+  const showFab = !pathname.startsWith('/tasks/new') && !pathname.startsWith('/onboarding');
 
   useEffect(() => {
     if (!isInitialized) initialize();

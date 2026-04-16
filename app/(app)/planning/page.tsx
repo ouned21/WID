@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
@@ -307,6 +307,332 @@ function MonthView({ tasks, monthStart }: { tasks: TaskListItem[]; monthStart: D
   );
 }
 
+// ── Bottom sheet "Toutes les tâches" ─────────────────────────────────────────
+
+type TaskActionSheetProps = {
+  tasks: TaskListItem[];
+  onClose: () => void;
+  onArchive: (taskId: string) => void;
+  onAssign: (taskId: string, memberId: string | null, isPhantom: boolean) => void;
+};
+
+// Carte tâche avec actions (assigner + retirer)
+function ActionTaskRow({
+  task,
+  onArchive,
+  onAssign,
+  localAssigneeName,
+}: {
+  task: TaskListItem;
+  onArchive: (id: string) => void;
+  onAssign: (id: string, memberId: string | null, name: string, isPhantom: boolean) => void;
+  localAssigneeName: string | null;
+}) {
+  const { allMembers } = useHouseholdStore();
+  const [isAssigning, setIsAssigning] = useState(false);
+  const emoji = CATEGORY_EMOJI[task.scoring_category ?? ''] ?? '📌';
+  const catColor = task.category?.color_hex ?? '#8e8e93';
+  const assigneeName = localAssigneeName ?? task.assignee?.display_name ?? null;
+
+  return (
+    <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.07)' }}>
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex items-center justify-center rounded-xl flex-shrink-0 text-[18px]"
+          style={{ width: 40, height: 40, background: `${catColor}18` }}>
+          {emoji}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[14px] font-semibold text-[#1c1c1e] truncate">{task.name}</p>
+          <p className="text-[12px] text-[#8e8e93] mt-0.5">
+            {task.next_due_at ? format(new Date(task.next_due_at), 'd MMM', { locale: fr }) : 'Non planifié'}
+            {assigneeName && <span className="ml-2">· 👤 {assigneeName}</span>}
+          </p>
+        </div>
+      </div>
+
+      {!isAssigning ? (
+        <div className="flex border-t" style={{ borderColor: '#f0f2f8' }}>
+          <button onClick={() => setIsAssigning(true)}
+            className="flex-1 py-2.5 text-[13px] font-semibold text-center"
+            style={{ color: '#007aff', borderRight: '0.5px solid #f0f2f8' }}>
+            👤 Assigner
+          </button>
+          <button onClick={() => onArchive(task.id)}
+            className="flex-1 py-2.5 text-[13px] font-semibold text-center"
+            style={{ color: '#ff3b30' }}>
+            🗑 Retirer
+          </button>
+        </div>
+      ) : (
+        <div className="border-t px-4 py-3" style={{ borderColor: '#f0f2f8', background: '#fafafa' }}>
+          <p className="text-[12px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2">
+            Qui s&apos;en occupe ?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {allMembers.map((m) => (
+              <button key={m.id}
+                onClick={() => { onAssign(task.id, m.id, m.display_name, m.isPhantom); setIsAssigning(false); }}
+                className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-semibold"
+                style={{
+                  background: m.isPhantom ? 'linear-gradient(135deg, #8e8e93, #636366)' : 'linear-gradient(135deg, #007aff, #5856d6)',
+                  color: 'white',
+                }}>
+                {m.isPhantom ? '👻' : '👤'} {m.display_name}
+              </button>
+            ))}
+            <button onClick={() => { onAssign(task.id, null, '—', false); setIsAssigning(false); }}
+              className="rounded-xl px-3 py-2 text-[13px] font-semibold"
+              style={{ background: '#f0f2f8', color: '#8e8e93' }}>
+              Non assigné
+            </button>
+            <button onClick={() => setIsAssigning(false)}
+              className="rounded-xl px-3 py-2 text-[13px] font-semibold"
+              style={{ background: '#fff0f0', color: '#ff3b30' }}>
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Ligne simple sans actions (tâches lointaines)
+function SimpleTaskRow({ task }: { task: TaskListItem }) {
+  const emoji = CATEGORY_EMOJI[task.scoring_category ?? ''] ?? '📌';
+  const catColor = task.category?.color_hex ?? '#8e8e93';
+  return (
+    <div className="flex items-center gap-3 px-4 py-3"
+      style={{ borderBottom: '0.5px solid #f0f2f8' }}>
+      <div className="flex items-center justify-center rounded-xl flex-shrink-0 text-[16px]"
+        style={{ width: 36, height: 36, background: `${catColor}15` }}>
+        {emoji}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-semibold text-[#1c1c1e] truncate">{task.name}</p>
+        {task.next_due_at && (
+          <p className="text-[12px] text-[#8e8e93]">
+            {format(new Date(task.next_due_at), 'd MMM', { locale: fr })}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TaskActionSheet({ tasks, onClose, onArchive, onAssign }: TaskActionSheetProps) {
+  const now = new Date();
+  const in7Days = addDays(now, 7);
+  const in30Days = addDays(now, 30);
+
+  const [archived, setArchived] = useState<Set<string>>(new Set());
+  const [assignedNames, setAssignedNames] = useState<Record<string, string>>({});
+  const [showLater, setShowLater] = useState(false);
+
+  const visible = tasks.filter((t) => !archived.has(t.id) && t.next_due_at);
+
+  // 3 groupes selon l'urgence
+  const soon   = visible.filter((t) => new Date(t.next_due_at!) <= in7Days);
+  const thisMonth = visible.filter((t) => { const d = new Date(t.next_due_at!); return d > in7Days && d <= in30Days; });
+  const later  = visible.filter((t) => new Date(t.next_due_at!) > in30Days);
+
+  const handleArchive = useCallback((id: string) => {
+    setArchived((p) => new Set([...p, id]));
+    onArchive(id);
+  }, [onArchive]);
+
+  const handleAssign = useCallback((id: string, memberId: string | null, name: string, isPhantom: boolean) => {
+    setAssignedNames((p) => ({ ...p, [id]: name }));
+    onAssign(id, memberId, isPhantom);
+  }, [onAssign]);
+
+  return (
+    <div className="fixed inset-0 z-[70] flex flex-col justify-end">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative rounded-t-[28px] bg-[#f6f8ff] w-full max-h-[88vh] flex flex-col"
+        style={{ boxShadow: '0 -8px 40px rgba(0,0,0,0.15)' }}>
+
+        {/* Handle + header */}
+        <div className="flex-shrink-0 px-5 pt-3 pb-4 bg-white rounded-t-[28px]">
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={{ background: '#e5e5ea' }} />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[18px] font-bold text-[#1c1c1e]">Personnalise ton planning</p>
+              <p className="text-[13px] text-[#8e8e93]">{visible.length} tâches · assigne celles qui arrivent bientôt</p>
+            </div>
+            <button onClick={onClose}
+              className="flex items-center justify-center rounded-full h-8 w-8 text-[15px] font-bold"
+              style={{ background: '#f0f2f8', color: '#8e8e93' }}>
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {/* Contenu scrollable */}
+        <div className="flex-1 overflow-y-auto px-4 pb-10 pt-4 space-y-5">
+
+          {/* ── Groupe 1 : Cette semaine (ACTIF) ── */}
+          <div>
+            <p className="text-[12px] font-bold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">
+              🔥 Cette semaine · {soon.length} tâche{soon.length > 1 ? 's' : ''}
+            </p>
+            {soon.length === 0 ? (
+              <div className="rounded-2xl bg-white px-4 py-5 text-center"
+                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                <p className="text-[13px] text-[#8e8e93]">Rien de prévu cette semaine 🎉</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {soon.map((t) => (
+                  <ActionTaskRow
+                    key={t.id}
+                    task={t}
+                    onArchive={handleArchive}
+                    onAssign={handleAssign}
+                    localAssigneeName={assignedNames[t.id] ?? null}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Groupe 2 : Ce mois (liste simple, pas d'actions) ── */}
+          {thisMonth.length > 0 && (
+            <div>
+              <p className="text-[12px] font-bold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">
+                📅 Dans les 30 jours · {thisMonth.length} tâches
+              </p>
+              <div className="rounded-2xl bg-white overflow-hidden"
+                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                {thisMonth.map((t) => <SimpleTaskRow key={t.id} task={t} />)}
+              </div>
+            </div>
+          )}
+
+          {/* ── Groupe 3 : Plus tard (collapsed) ── */}
+          {later.length > 0 && (
+            <div>
+              <button
+                onClick={() => setShowLater((p) => !p)}
+                className="w-full flex items-center justify-between px-1 mb-2"
+              >
+                <p className="text-[12px] font-bold text-[#8e8e93] uppercase tracking-wide">
+                  🗓 Plus tard · {later.length} tâches
+                </p>
+                <span className="text-[12px] text-[#8e8e93]">{showLater ? '▲ Masquer' : '▼ Voir'}</span>
+              </button>
+              {showLater && (
+                <div className="rounded-2xl bg-white overflow-hidden"
+                  style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                  {later.map((t) => <SimpleTaskRow key={t.id} task={t} />)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Section "Toutes les tâches à venir" (planning page) ──────────────────────
+
+function AllTasksSection({ tasks }: { tasks: TaskListItem[] }) {
+  const { archiveTask, updateTask } = useTaskStore();
+  const [showSheet, setShowSheet] = useState(false);
+  const PREVIEW_COUNT = 8;
+
+  const sorted = useMemo(() =>
+    [...tasks]
+      .filter((t) => t.next_due_at)
+      .sort((a, b) => new Date(a.next_due_at!).getTime() - new Date(b.next_due_at!).getTime()),
+    [tasks],
+  );
+
+  // Preview : priorité aux tâches de la semaine
+  const now = new Date();
+  const in7Days = addDays(now, 7);
+  const soonTasks = sorted.filter((t) => new Date(t.next_due_at!) <= in7Days);
+  const preview = soonTasks.length >= 3
+    ? sorted.slice(0, PREVIEW_COUNT)   // si on a des tâches urgentes, montrer les premières
+    : sorted.slice(0, PREVIEW_COUNT);  // sinon pareil (les plus proches)
+  const remaining = sorted.length - PREVIEW_COUNT;
+
+  const handleArchive = useCallback(async (taskId: string) => {
+    await archiveTask(taskId);
+  }, [archiveTask]);
+
+  const handleAssign = useCallback(async (taskId: string, memberId: string | null, isPhantom: boolean) => {
+    await updateTask(taskId, {
+      assigned_to: isPhantom ? null : memberId,
+      assigned_to_phantom_id: isPhantom ? memberId : null,
+    });
+  }, [updateTask]);
+
+  if (sorted.length === 0) return null;
+
+  return (
+    <>
+      <div className="px-4 mt-2">
+        {/* Header section */}
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-[12px] font-bold text-[#8e8e93] uppercase tracking-wide">Ton planning</p>
+            <p className="text-[20px] font-black text-[#1c1c1e]">Aura a tout organisé pour toi.</p>
+          </div>
+        </div>
+
+        {/* Preview list */}
+        <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          {preview.map((task, i) => {
+            const emoji = CATEGORY_EMOJI[task.scoring_category ?? ''] ?? '📌';
+            const catColor = task.category?.color_hex ?? '#8e8e93';
+            return (
+              <div key={task.id} className="flex items-center gap-3 px-4 py-3"
+                style={i < preview.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}>
+                <div className="flex items-center justify-center rounded-xl flex-shrink-0 text-[16px]"
+                  style={{ width: 38, height: 38, background: `${catColor}18` }}>
+                  {emoji}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-semibold text-[#1c1c1e] truncate">{task.name}</p>
+                  <p className="text-[12px] text-[#8e8e93]">
+                    {format(new Date(task.next_due_at!), 'EEE d MMM', { locale: fr })}
+                    {task.assignee?.display_name && (
+                      <span className="ml-2">· 👤 {task.assignee.display_name}</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Bouton "+ N autres" */}
+          {remaining > 0 && (
+            <button
+              onClick={() => setShowSheet(true)}
+              className="w-full py-3.5 text-[14px] font-semibold text-center"
+              style={{ color: '#007aff', borderTop: '0.5px solid #f0f2f8' }}
+            >
+              + {remaining} autres
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom sheet */}
+      {showSheet && (
+        <TaskActionSheet
+          tasks={sorted}
+          onClose={() => setShowSheet(false)}
+          onArchive={handleArchive}
+          onAssign={handleAssign}
+        />
+      )}
+    </>
+  );
+}
+
 // ── Page principale ───────────────────────────────────────────────────────────
 
 export default function PlanningPage() {
@@ -412,10 +738,15 @@ export default function PlanningPage() {
             + Créer une tâche
           </Link>
         </div>
-      ) : viewMode === 'week' ? (
-        <WeekView tasks={tasks} weekStart={weekStart} />
       ) : (
-        <MonthView tasks={tasks} monthStart={monthStart} />
+        <>
+          {viewMode === 'week' ? (
+            <WeekView tasks={tasks} weekStart={weekStart} />
+          ) : (
+            <MonthView tasks={tasks} monthStart={monthStart} />
+          )}
+          <AllTasksSection tasks={tasks} />
+        </>
       )}
     </div>
   );
