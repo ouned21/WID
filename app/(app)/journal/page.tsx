@@ -15,10 +15,19 @@ type ParsedCompletion = {
   confidence: number;
 };
 
+type SuggestedTask = {
+  name: string;
+  category: string;
+  frequency: string;
+  duration: string;
+  reason: string;
+};
+
 type ParseResponse = {
   journalId?: string;
   completions: ParsedCompletion[];
   unmatched: string[];
+  suggested_tasks?: SuggestedTask[];
   ai_response: string;
   mood_tone: string | null;
   error?: string;
@@ -200,7 +209,7 @@ export default function JournalPage() {
 
           {/* Items non matchés */}
           {result.unmatched.length > 0 && (
-            <div className="px-5 py-4">
+            <div className="px-5 py-4" style={result.suggested_tasks && result.suggested_tasks.length > 0 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
               <p className="text-[11px] font-bold text-[#ff9500] uppercase tracking-wide mb-2">
                 ? Non compris
               </p>
@@ -209,9 +218,35 @@ export default function JournalPage() {
                   <p key={i} className="text-[13px] text-[#8e8e93] italic">&laquo; {u} &raquo;</p>
                 ))}
               </div>
-              <p className="text-[11px] text-[#c7c7cc] mt-2">
-                Si ce sont des tâches connues, crée-les pour qu&apos;Aura les reconnaisse la prochaine fois.
+            </div>
+          )}
+
+          {/* Tâches suggérées à créer */}
+          {result.suggested_tasks && result.suggested_tasks.length > 0 && (
+            <div className="px-5 py-4">
+              <p className="text-[11px] font-bold text-[#007aff] uppercase tracking-wide mb-3">
+                💡 Aura suggère de créer
               </p>
+              <div className="space-y-2">
+                {result.suggested_tasks.map((t, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3 rounded-xl p-3"
+                    style={{ background: '#f0f6ff' }}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14px] font-semibold text-[#1c1c1e]">{t.name}</p>
+                      <p className="text-[11px] text-[#8e8e93] mt-0.5">{t.reason}</p>
+                    </div>
+                    <button
+                      onClick={() => router.push(
+                        `/tasks/new?name=${encodeURIComponent(t.name)}&category=${t.category}&frequency=${t.frequency}&duration=${t.duration}`
+                      )}
+                      className="flex-shrink-0 rounded-xl px-3 py-1.5 text-[12px] font-bold text-white"
+                      style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)' }}
+                    >
+                      Créer
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

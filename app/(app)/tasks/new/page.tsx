@@ -85,10 +85,21 @@ export default function NewTaskPage() {
       setName(draft);
       localStorage.removeItem('aura_task_draft');
     }
+    const nameParam = searchParams.get('name');
+    if (nameParam) setName(nameParam);
+
     const dateParam = searchParams.get('date');
-    if (dateParam) {
-      setDueDate(dateParam);
-    }
+    if (dateParam) setDueDate(dateParam);
+
+    // Pré-remplissage depuis le journal Aura (suggested_tasks)
+    const categoryParam = searchParams.get('category') as ScoringCategory | null;
+    if (categoryParam) setScoringCategory(categoryParam);
+
+    const frequencyParam = searchParams.get('frequency') as Frequency | null;
+    if (frequencyParam) setFrequency(frequencyParam);
+
+    const durationParam = searchParams.get('duration') as DurationEstimate | null;
+    if (durationParam) setDurationEstimate(durationParam);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- montage uniquement (draft/date URL)
 
   // Catégories DB + templates (pour autocomplétion)

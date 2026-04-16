@@ -32,9 +32,18 @@ type ParsedCompletion = {
   confidence: number;
 };
 
+type SuggestedTask = {
+  name: string;
+  category: string;
+  frequency: string;
+  duration: string;
+  reason: string;
+};
+
 type ParsedResult = {
   completions: ParsedCompletion[];
   unmatched: string[];
+  suggested_tasks?: SuggestedTask[];
   ai_response: string;
   mood_tone: string | null;
 };
@@ -159,12 +168,11 @@ ${text}
 2. Identifie QUI a fait la tâche. Par défaut c'est ${userName} (la personne qui raconte). Si elle/il mentionne explicitement un autre membre ("Barbara a rangé", "les enfants ont aidé"), utilise cet ID.
 3. Extrait les durées si mentionnées ("en 20 minutes", "pendant 1h") → en minutes.
 4. Pour chaque complétion, donne un confidence score : 1.0 = match certain, 0.5 = incertain, 0.3 = très incertain.
-5. Liste les items que tu ne peux PAS matcher (événements non liés à une tâche connue) dans unmatched.
+5. Pour les actions que tu NE peux PAS matcher à une tâche existante : mets-les dans "unmatched" ET propose-les dans "suggested_tasks" si c'est une vraie tâche récurrente du foyer (pas un événement ponctuel comme "j'ai regardé un film").
 6. Détecte l'émotion dominante : happy | tired | overwhelmed | satisfied | frustrated | neutral.
-7. Génère une réponse de 1-2 phrases : empathique, factuelle, jamais de leçon de morale. Exemples :
-   - "Bien joué 💪 J'ai noté tout ça. Demain tu as 3 tâches prévues."
+7. Génère une réponse de 1-2 phrases : empathique, factuelle, jamais de leçon de morale. Si tu as des suggestions de tâches, mentionne-le brièvement. Exemples :
+   - "Bien joué 💪 J'ai noté tout ça. J'ai aussi repéré 2 tâches à créer pour mieux te suivre."
    - "Bonne journée chargée, repose-toi bien. J'ai crédité Barbara pour la cuisine."
-   - "Journée difficile ? Je décale 2 tâches au weekend, ça te soulagera."
 
 ## Format de réponse — STRICT JSON
 
@@ -181,11 +189,24 @@ ${text}
       "confidence": 0.9
     }
   ],
-  "unmatched": ["phrase non matchée 1", "phrase non matchée 2"],
+  "unmatched": ["phrase non matchée 1"],
+  "suggested_tasks": [
+    {
+      "name": "Préparer le petit déjeuner",
+      "category": "meals",
+      "frequency": "daily",
+      "duration": "short",
+      "reason": "Tu le mentionnes souvent, ça vaut le coup de le suivre"
+    }
+  ],
   "ai_response": "Ta réponse empathique en 1-2 phrases",
   "mood_tone": "happy"
 }
 \`\`\`
+
+Catégories disponibles : cleaning, tidying, shopping, laundry, meals, children, admin, transport, household_management, outdoor, hygiene, pets, vehicle, misc
+Fréquences : daily, weekly, biweekly, monthly, once
+Durées : very_short (5min), short (15min), medium (30min), long (1h), very_long (2h+)
 
 Réponds UNIQUEMENT avec ce JSON, rien d'autre.`;
 
@@ -312,6 +333,7 @@ Réponds UNIQUEMENT avec ce JSON, rien d'autre.`;
       journalId: journalRow?.id,
       completions,
       unmatched,
+      suggested_tasks: Array.isArray(parsed.suggested_tasks) ? parsed.suggested_tasks : [],
       ai_response: parsed.ai_response ?? 'Bien joué. Tout noté.',
       mood_tone: parsed.mood_tone,
     });
