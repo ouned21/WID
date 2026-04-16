@@ -216,7 +216,23 @@ export default function OnboardingPage() {
 
       const allAssoc = [...(equipAssoc ?? []), ...(childAssoc ?? [])];
 
-      // Catégorie par défaut
+      // Catégorie : mapping scoring_category → UUID (UUIDs fixes définis dans reset_part1)
+      const SCORING_TO_CAT_ID: Record<string, string> = {
+        cleaning:             '11111111-1111-1111-1111-111111111111',
+        tidying:              '22222222-2222-2222-2222-222222222222',
+        shopping:             '33333333-3333-3333-3333-333333333333',
+        laundry:              '44444444-4444-4444-4444-444444444444',
+        children:             '55555555-5555-5555-5555-555555555555',
+        meals:                '66666666-6666-6666-6666-666666666666',
+        admin:                '77777777-7777-7777-7777-777777777777',
+        outdoor:              '88888888-8888-8888-8888-888888888888',
+        hygiene:              '99999999-9999-9999-9999-999999999999',
+        pets:                 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        vehicle:              'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+        household_management: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+        transport:            'dddddddd-dddd-dddd-dddd-dddddddddddd',
+      };
+
       const { data: categories } = await supabase.from('task_categories').select('*').order('sort_order');
       const catMap = new Map<string, { id: string; name: string; icon: string; color_hex: string }>();
       for (const cat of (categories ?? [])) catMap.set(cat.id, cat);
@@ -240,7 +256,9 @@ export default function OnboardingPage() {
         if (seen.has(key)) continue;
         seen.add(key);
 
-        const catId = assoc.suggested_category_id || defaultCatId;
+        const catId = assoc.suggested_category_id
+          || SCORING_TO_CAT_ID[assoc.suggested_scoring_category ?? '']
+          || defaultCatId;
         const cat = catMap.get(catId);
 
         // Calculer next_due_at selon la fréquence (pas aléatoire dans 30 jours pour tout)
