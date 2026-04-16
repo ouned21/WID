@@ -3,6 +3,8 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { logAiUsage, extractUsageFromResponse } from '@/utils/aiLogger';
 
+export const maxDuration = 60; // secondes (Vercel Pro/Hobby étendu)
+
 /**
  * API Route : génération de tâches ménagères IA lors de l'onboarding.
  * Appelle Claude Haiku via l'API REST Anthropic.
@@ -85,7 +87,7 @@ export async function POST(request: NextRequest) {
 Tu réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans backticks markdown.
 Le JSON doit être un tableau d'objets directement, sans clé racine.`;
 
-  const userPrompt = `Génère entre 20 et 40 tâches ménagères récurrentes adaptées à ce foyer.
+  const userPrompt = `Génère entre 15 et 25 tâches ménagères récurrentes adaptées à ce foyer.
 
 ## Équipements du foyer
 ${equipmentList}
@@ -125,7 +127,7 @@ ${familyDescription}
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4096,
+        max_tokens: 2048,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
       }),

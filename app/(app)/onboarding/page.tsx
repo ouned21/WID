@@ -181,25 +181,33 @@ export default function OnboardingPage() {
     try {
       const supabase = createClient();
 
-      // Appel IA : générer les tâches via Claude
-      const response = await fetch('/api/onboarding/generate-tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          equipment: [...selectedEquipment],
-          family: family,
-        }),
-      });
+      type TaskInput = { name: string; scoring_category: string; frequency: string; duration_estimate: string; physical_effort: string; mental_load_score: number; description?: string };
 
-      if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status}`);
+      // Appel IA : générer les tâches via Claude
+      // Timeout 25s pour éviter le blocage si Claude est lent
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      let aiTasks: TaskInput[] = [];
+      try {
+        const response = await fetch('/api/onboarding/generate-tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ equipment: [...selectedEquipment], family }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (response.ok) {
+          const json = await response.json();
+          aiTasks = Array.isArray(json.tasks) ? json.tasks : [];
+        }
+      } catch {
+        clearTimeout(timeoutId);
+        // Timeout ou erreur réseau → fallback catalogue statique ci-dessous
       }
 
-      const { tasks: aiTasks } = await response.json();
-
       // Fallback sur le catalogue statique si Claude échoue ou retourne vide
-      type TaskInput = { name: string; scoring_category: string; frequency: string; duration_estimate: string; physical_effort: string; mental_load_score: number; description?: string };
-      let tasksToInsert: TaskInput[] = Array.isArray(aiTasks) ? aiTasks : [];
+      let tasksToInsert: TaskInput[] = aiTasks;
 
       if (tasksToInsert.length === 0) {
         const { data: fallbackAssoc } = await supabase
