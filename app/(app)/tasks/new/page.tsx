@@ -99,7 +99,7 @@ export default function NewTaskPage() {
     if (frequencyParam) setFrequency(frequencyParam);
 
     const durationParam = searchParams.get('duration') as DurationEstimate | null;
-    if (durationParam) setDurationEstimate(durationParam);
+    if (durationParam) setDuration(durationParam);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- montage uniquement (draft/date URL)
 
   // Catégories DB + templates (pour autocomplétion)
