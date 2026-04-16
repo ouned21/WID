@@ -78,9 +78,20 @@ CREATE TABLE public.profiles (
   created_at             timestamptz DEFAULT now()
 );
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- Fonction SECURITY DEFINER pour briser la récursion RLS de profiles_select
+CREATE OR REPLACE FUNCTION public.get_my_household_id()
+RETURNS uuid
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT household_id FROM public.profiles WHERE id = auth.uid() LIMIT 1;
+$$;
+
 CREATE POLICY "profiles_select" ON public.profiles FOR SELECT
-  USING (id = auth.uid() OR household_id IN (
-    SELECT household_id FROM public.profiles WHERE id = auth.uid()));
+  USING (id = auth.uid() OR household_id = public.get_my_household_id());
 CREATE POLICY "profiles_insert" ON public.profiles FOR INSERT
   WITH CHECK (id = auth.uid());
 CREATE POLICY "profiles_update" ON public.profiles FOR UPDATE
@@ -88,9 +99,9 @@ CREATE POLICY "profiles_update" ON public.profiles FOR UPDATE
 CREATE INDEX idx_profiles_household ON public.profiles(household_id);
 CREATE INDEX idx_profiles_premium   ON public.profiles(is_premium);
 
--- Politique households_select ajoutée ici car elle référence profiles
+-- Politique households_select (utilise aussi la fonction pour cohérence)
 CREATE POLICY "households_select" ON public.households FOR SELECT
-  USING (id IN (SELECT household_id FROM public.profiles WHERE id = auth.uid()));
+  USING (id = public.get_my_household_id() OR created_by = auth.uid());
 
 -- Trigger auto-création de profil
 CREATE OR REPLACE FUNCTION public.handle_new_user()

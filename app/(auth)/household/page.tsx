@@ -20,7 +20,7 @@ export default function HouseholdPage() {
     e.preventDefault(); clearError();
     if (!householdName.trim()) return;
     const result = await createHousehold(householdName.trim());
-    if (result.ok) router.push('/dashboard');
+    if (result.ok) router.push('/onboarding');
   };
 
   const handleJoin = async (e: React.FormEvent) => {
