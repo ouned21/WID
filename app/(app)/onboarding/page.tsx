@@ -259,63 +259,74 @@ export default function OnboardingPage() {
         (existingTasks ?? []).map((t: { name: string }) => t.name.toLowerCase()),
       );
 
+      const freqWindow: Record<string, number> = {
+        daily: 1, weekly: 7, biweekly: 14, monthly: 30,
+        quarterly: 90, semiannual: 180, yearly: 365,
+      };
+
+      // Préparer toutes les lignes à insérer en une seule fois
+      type TaskRow = {
+        household_id: string; name: string; category_id: string; frequency: string;
+        mental_load_score: number; scoring_category: string; duration_estimate: string;
+        physical_effort: string; is_active: boolean; is_fixed_assignment: boolean;
+        notifications_enabled: boolean; created_by: string; assigned_to: null; next_due_at: string;
+      };
+      type CreatedTask = { catId: string; cat: { id: string; name: string; icon: string; color_hex: string } | undefined; nextDueIso: string };
+      const rowsToInsert: TaskRow[] = [];
+      const metaByName: Record<string, CreatedTask> = {};
+
       for (const aiTask of tasksToInsert) {
         const key = aiTask.name.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
 
         const catId = SCORING_TO_CAT_ID[aiTask.scoring_category ?? ''] || defaultCatId;
-        const cat = catMap.get(catId);
-
-        // Calculer next_due_at selon la fréquence
         const freq = aiTask.frequency || 'weekly';
-        const freqWindow: Record<string, number> = {
-          daily: 1,
-          weekly: 7,
-          biweekly: 14,
-          monthly: 30,
-          quarterly: 90,
-          semiannual: 180,
-          yearly: 365,
-        };
         const freqDays = freqWindow[freq] ?? 30;
-        // Répartir aléatoirement dans la fenêtre de la fréquence
-        // (mais au moins aujourd'hui pour les tâches quotidiennes)
         const dayOffset = freq === 'daily' ? 0 : Math.floor(Math.random() * freqDays);
         const nextDue = new Date(Date.now() + dayOffset * 86400000);
         nextDue.setHours(9, 0, 0, 0);
+        const nextDueIso = nextDue.toISOString();
 
-        const { data: taskData } = await supabase
+        rowsToInsert.push({
+          household_id: householdId,
+          name: aiTask.name,
+          category_id: catId,
+          frequency: freq,
+          mental_load_score: aiTask.mental_load_score || 3,
+          scoring_category: aiTask.scoring_category,
+          duration_estimate: aiTask.duration_estimate,
+          physical_effort: aiTask.physical_effort,
+          is_active: true,
+          is_fixed_assignment: false,
+          notifications_enabled: true,
+          created_by: userId,
+          assigned_to: null,
+          next_due_at: nextDueIso,
+        });
+        metaByName[aiTask.name] = { catId, cat: catMap.get(catId), nextDueIso };
+      }
+
+      // Un seul insert groupé au lieu de N inserts séquentiels
+      if (rowsToInsert.length > 0) {
+        const { data: insertedTasks } = await supabase
           .from('household_tasks')
-          .insert({
-            household_id: householdId,
-            name: aiTask.name,
-            category_id: catId,
-            frequency: aiTask.frequency || 'weekly',
-            mental_load_score: aiTask.mental_load_score || 3,
-            scoring_category: aiTask.scoring_category,
-            duration_estimate: aiTask.duration_estimate,
-            physical_effort: aiTask.physical_effort,
-            is_active: true,
-            is_fixed_assignment: false,
-            notifications_enabled: true,
-            created_by: userId,
-            assigned_to: null,
-            next_due_at: nextDue.toISOString(),
-          })
-          .select('id, name')
-          .single();
+          .insert(rowsToInsert)
+          .select('id, name');
 
-        if (taskData) {
-          created.push({
-            id: taskData.id,
-            name: taskData.name,
-            category_id: catId,
-            category_name: cat?.name,
-            category_icon: cat?.icon,
-            category_color: cat?.color_hex,
-            next_due_at: nextDue.toISOString(),
-          });
+        for (const t of (insertedTasks ?? [])) {
+          const meta = metaByName[t.name];
+          if (meta) {
+            created.push({
+              id: t.id,
+              name: t.name,
+              category_id: meta.catId,
+              category_name: meta.cat?.name,
+              category_icon: meta.cat?.icon,
+              category_color: meta.cat?.color_hex,
+              next_due_at: meta.nextDueIso,
+            });
+          }
         }
       }
 
