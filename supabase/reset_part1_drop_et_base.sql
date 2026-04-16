@@ -32,6 +32,9 @@ DROP FUNCTION IF EXISTS public.update_user_preferences_updated_at() CASCADE;
 CREATE TABLE public.households (
   id                      uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   name                    text        NOT NULL,
+  invite_code             text        UNIQUE,
+  invite_code_expires_at  timestamptz DEFAULT NULL,
+  is_active               boolean     DEFAULT true,
   created_by              uuid        NOT NULL,
   total_completions_count integer     DEFAULT 0,
   health_score            numeric(4,2) DEFAULT NULL,
@@ -51,12 +54,18 @@ CREATE TABLE public.profiles (
   household_id           uuid REFERENCES public.households(id) ON DELETE SET NULL,
   display_name           text,
   avatar_url             text,
+  role                   text        DEFAULT NULL,
+  joined_at              timestamptz DEFAULT NULL,
+  left_at                timestamptz DEFAULT NULL,
+  notification_token     text        DEFAULT NULL,
+  vacation_started_at    timestamptz DEFAULT NULL,
   target_share_percent   smallint    DEFAULT 50,
   vacation_mode          boolean     DEFAULT false,
   is_premium             boolean     DEFAULT false,
   premium_until          timestamptz DEFAULT NULL,
   ai_calls_this_month    integer     DEFAULT 0,
   ai_calls_month_reset   timestamptz DEFAULT (now() + interval '1 month'),
+  ai_journal_consent_at  timestamptz DEFAULT NULL,
   ai_tokens_this_month   integer     DEFAULT 0,
   ai_tokens_lifetime     integer     DEFAULT 0,
   ai_cost_this_month_usd numeric(10,6) DEFAULT 0,
@@ -65,6 +74,7 @@ CREATE TABLE public.profiles (
   journal_streak_days    integer     DEFAULT 0,
   total_tasks_completed  integer     DEFAULT 0,
   last_active_at         timestamptz DEFAULT now(),
+  updated_at             timestamptz DEFAULT now(),
   created_at             timestamptz DEFAULT now()
 );
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;

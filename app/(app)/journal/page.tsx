@@ -51,7 +51,7 @@ const MOOD_EMOJI: Record<string, string> = {
 
 export default function JournalPage() {
   const router = useRouter();
-  const { profile } = useAuthStore();
+  const { profile, refreshProfile } = useAuthStore();
   const { fetchTasks } = useTaskStore();
 
   const [text, setText] = useState('');
@@ -59,6 +59,34 @@ export default function JournalPage() {
   const [result, setResult] = useState<ParseResponse | null>(null);
   const [history, setHistory] = useState<PastJournal[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+
+  // ── Consentement RGPD ──
+  // null = pas encore chargé, false = refusé/pas de consentement, true = consentement donné
+  const [consentGiven, setConsentGiven] = useState<boolean | null>(null);
+  const [consentLoading, setConsentLoading] = useState(false);
+
+  // Dériver l'état de consentement depuis le profil
+  useEffect(() => {
+    if (profile === null) return; // profil pas encore chargé
+    setConsentGiven(!!profile.ai_journal_consent_at);
+  }, [profile?.ai_journal_consent_at]);
+
+  const handleAcceptConsent = async () => {
+    if (!profile?.id) return;
+    setConsentLoading(true);
+    const supabase = createClient();
+    await supabase
+      .from('profiles')
+      .update({ ai_journal_consent_at: new Date().toISOString() })
+      .eq('id', profile.id);
+    await refreshProfile();
+    setConsentGiven(true);
+    setConsentLoading(false);
+  };
+
+  const handleRefuseConsent = () => {
+    router.back();
+  };
 
   // Charger l'historique
   useEffect(() => {
@@ -108,6 +136,90 @@ export default function JournalPage() {
       send();
     }
   };
+
+  // ── Consentement modal (bloque le rendu principal) ──
+  if (consentGiven === null) {
+    // Profil pas encore chargé → squelette neutre
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-8 h-8 rounded-full border-2 border-[#007aff] border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (consentGiven === false) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12" style={{ background: '#f2f2f7' }}>
+        <div className="w-full max-w-sm rounded-3xl overflow-hidden" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
+          {/* En-tête coloré */}
+          <div
+            className="px-6 pt-8 pb-6 text-center"
+            style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+          >
+            <div
+              className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full text-[32px]"
+              style={{ background: 'rgba(255,255,255,0.2)' }}
+            >
+              🤖
+            </div>
+            <h1 className="text-[22px] font-bold text-white mb-1">Aura — Journal IA</h1>
+            <p className="text-[13px] text-white/80">Consentement requis avant utilisation</p>
+          </div>
+
+          {/* Corps */}
+          <div className="bg-white px-6 py-6">
+            <p className="text-[15px] text-[#1c1c1e] font-semibold mb-3">
+              Comment ça fonctionne&nbsp;?
+            </p>
+            <p className="text-[14px] text-[#3c3c43] leading-relaxed mb-4">
+              Quand tu décris ta journée, ton texte est envoyé à l&apos;IA <strong>Anthropic Claude</strong>
+              {' '}(hébergée aux États-Unis) pour identifier les tâches effectuées.
+              Aucun de ces textes n&apos;est utilisé pour entraîner des modèles d&apos;IA.
+            </p>
+
+            <div className="rounded-2xl p-4 mb-5" style={{ background: '#f2f2f7' }}>
+              <p className="text-[13px] text-[#3c3c43] leading-relaxed">
+                📍 <strong>Données envoyées :</strong> ton texte libre + la liste de tes tâches (sans noms réels des membres)<br />
+                🔒 <strong>Données conservées :</strong> résultat uniquement, sur serveurs Supabase (UE)<br />
+                🗑️ <strong>Suppression :</strong> avec ton compte, depuis Profil → Mes données
+              </p>
+            </div>
+
+            <p className="text-[12px] text-[#8e8e93] mb-5 text-center">
+              Conformément au RGPD Art. 7, tu peux retirer ce consentement à tout moment depuis ton profil.
+            </p>
+
+            <button
+              onClick={handleAcceptConsent}
+              disabled={consentLoading}
+              className="w-full rounded-2xl py-[14px] text-[16px] font-bold text-white mb-3 disabled:opacity-50"
+              style={{
+                background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                boxShadow: '0 4px 16px rgba(118,75,162,0.25)',
+              }}
+            >
+              {consentLoading ? 'Enregistrement...' : "J'accepte et je continue"}
+            </button>
+
+            <button
+              onClick={handleRefuseConsent}
+              className="w-full rounded-2xl py-[14px] text-[15px] font-medium text-[#8e8e93]"
+              style={{ background: '#f2f2f7' }}
+            >
+              Refuser — revenir en arrière
+            </button>
+          </div>
+        </div>
+
+        <p className="mt-6 text-[12px] text-[#8e8e93] text-center max-w-xs">
+          Ce consentement est enregistré une seule fois et ne te sera plus demandé.{' '}
+          <a href="/legal/privacy" className="underline" style={{ color: '#007aff' }}>
+            Politique de confidentialité
+          </a>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="pt-4 pb-8" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

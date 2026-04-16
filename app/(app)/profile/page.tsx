@@ -32,7 +32,7 @@ function DashboardStyleButton({ value, label, desc, emoji }: { value: DashboardS
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { profile, signOut } = useAuthStore();
+  const { profile, signOut, refreshProfile } = useAuthStore();
   const { household, members, phantomMembers, renameHousehold, addPhantomMember, removePhantomMember, linkPhantomToReal } = useHouseholdStore();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
@@ -784,6 +784,41 @@ export default function ProfilePage() {
               Données hébergées par <strong>Supabase</strong> (EU — Frankfurt) · Traitées par <strong>Anthropic</strong> (US) pour l&apos;IA journal
             </p>
           </div>
+
+          {/* Retrait du consentement journal IA */}
+          <button
+            onClick={async () => {
+              if (!profile?.id) return;
+              const confirmed = confirm(
+                'Retirer ton consentement journal IA ?\n\nTu ne pourras plus utiliser le journal conversationnel tant que tu ne l\'auras pas réactivé. Tes données existantes ne sont pas supprimées.',
+              );
+              if (!confirmed) return;
+              const supabase = createClient();
+              await supabase
+                .from('profiles')
+                .update({ ai_journal_consent_at: null })
+                .eq('id', profile.id);
+              await refreshProfile();
+              alert('Consentement retiré. Le journal IA est désactivé.');
+            }}
+            className="w-full px-4 py-3 text-left"
+            style={{ borderBottom: '0.5px solid var(--ios-separator)', opacity: profile?.ai_journal_consent_at ? 1 : 0.4 }}
+            disabled={!profile?.ai_journal_consent_at}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-[18px]">🤖</span>
+              <div>
+                <p className="text-[15px] text-[#1c1c1e]">
+                  {profile?.ai_journal_consent_at ? 'Retirer le consentement journal IA' : 'Consentement journal IA non donné'}
+                </p>
+                <p className="text-[12px] text-[#8e8e93]">
+                  {profile?.ai_journal_consent_at
+                    ? `Consenti le ${new Date(profile.ai_journal_consent_at).toLocaleDateString('fr-FR')} — Art. 7 RGPD`
+                    : 'Accède au journal pour activer'}
+                </p>
+              </div>
+            </div>
+          </button>
 
           {/* Suppression du compte */}
           <button

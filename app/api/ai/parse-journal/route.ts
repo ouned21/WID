@@ -123,7 +123,18 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: profile } = await supabase
-    .from('profiles').select('household_id, display_name').eq('id', user.id).maybeSingle();
+    .from('profiles').select('household_id, display_name, ai_journal_consent_at').eq('id', user.id).maybeSingle();
+
+  // Vérification du consentement RGPD (Art. 6 & 7 RGPD)
+  // L'utilisateur doit avoir explicitement accepté que ses entrées de journal
+  // soient envoyées à l'API Anthropic (hébergée aux États-Unis).
+  if (!profile?.ai_journal_consent_at) {
+    return NextResponse.json({
+      error: 'Consentement requis',
+      code: 'CONSENT_REQUIRED',
+      message: 'Tu dois accepter que tes données soient traitées par Aura avant de pouvoir utiliser le journal IA.',
+    }, { status: 403 });
+  }
   if (!profile?.household_id) return NextResponse.json({ error: 'Pas de foyer associé' }, { status: 400 });
 
   const householdId = profile.household_id;

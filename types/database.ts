@@ -38,6 +38,8 @@ export type Profile = {
   premium_until: string | null;
   ai_calls_this_month: number;
   ai_calls_month_reset: string | null;
+  // ── Consentement RGPD ──
+  ai_journal_consent_at: string | null; // Date du consentement explicite pour le journal IA
   created_at: string;
   updated_at: string;
 };
