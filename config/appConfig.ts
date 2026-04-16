@@ -1,0 +1,26 @@
+// /config/appConfig.ts
+export const LIMITS = {
+  FREE_AI_MONTHLY_CALLS: 5,
+  MAX_HOUSEHOLD_MEMBERS_FREE: 2,
+  PREMIUM_PRICE_ANNUAL_EUR: 29,
+  EXPORT_COOLDOWN_HOURS: 24,
+  ACCOUNT_DELETION_DELAY_DAYS: 30,
+} as const;
+
+export const SCORING = {
+  GLOBAL_SCORE_MAX: 36,
+  GLOBAL_SCORE_MIN: 2,
+  WEIGHTED_SCORE_MAX: 43, // 8 + 4.8 + 27 + 4 (avant normalisation)
+  MENTAL_WEIGHT: 1.5,
+  PHYSICAL_WEIGHT: 0.8,
+  TIME_WEIGHT: 1.0,
+  IMPACT_WEIGHT: 1.0,
+} as const;
+
+export const AI = {
+  TIMEOUT_MS: 15000,
+  MODEL: 'claude-haiku-4-5-20251001',
+  MAX_TOKENS: 2048,
+  JOURNAL_MAX_CHARS: 2000,
+  JOURNAL_MIN_CHARS: 3,
+} as const;

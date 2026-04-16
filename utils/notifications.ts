@@ -1,5 +1,5 @@
 /**
- * Gestion des notifications web pour Aura.
+ * Gestion des notifications web pour Yova.
  * Utilise l'API Notification du navigateur pour les rappels de tâches.
  */
 
@@ -39,7 +39,7 @@ export function scheduleTaskNotification(
   if (delay <= 0 || delay > 24 * 60 * 60 * 1000) return null;
 
   const timerId = window.setTimeout(() => {
-    new Notification(`Aura — ${taskName}`, {
+    new Notification(`Yova — ${taskName}`, {
       body: householdName
         ? `Tâche prévue maintenant · ${householdName}`
         : 'Tâche prévue maintenant',

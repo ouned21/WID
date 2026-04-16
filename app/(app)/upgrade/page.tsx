@@ -10,8 +10,8 @@ type Feature = {
 };
 
 const FEATURES: Feature[] = [
-  { id: 'journal', emoji: '📓', title: 'Journal Aura illimité', description: 'Envoie autant d\'entrées que tu veux chaque mois — sans limite de tokens IA' },
-  { id: 'insights', emoji: '🧠', title: 'Insights IA hebdomadaires', description: 'Chaque dimanche, Aura analyse ta semaine et détecte les déséquilibres' },
+  { id: 'journal', emoji: '📓', title: 'Journal Yova illimité', description: 'Envoie autant d\'entrées que tu veux chaque mois — sans limite de tokens IA' },
+  { id: 'insights', emoji: '🧠', title: 'Insights IA hebdomadaires', description: 'Chaque dimanche, Yova analyse ta semaine et détecte les déséquilibres' },
   { id: 'ghost', emoji: '👻', title: 'Membres fantômes illimités', description: 'Suis les tâches de membres absents ou sans compte (gratuit limité à 1)' },
   { id: 'stats', emoji: '📊', title: 'Statistiques avancées', description: 'Évolution, répartition, tendances — données complètes sur 12 mois' },
   { id: 'repartition', emoji: '⚖️', title: 'Répartition du foyer', description: 'Vois qui fait quoi et dans quelle proportion, en temps réel' },
@@ -67,7 +67,7 @@ export default function UpgradePage() {
         />
         <div className="relative z-10">
           <p className="text-[12px] font-bold text-white/60 uppercase tracking-[0.25em] mb-3">
-            Aura Premium
+            Yova Premium
           </p>
           <h1
             className="text-[34px] font-black text-white leading-none mb-4"
@@ -201,8 +201,8 @@ export default function UpgradePage() {
         </button>
         <p className="text-center text-[12px] text-[#8e8e93] mt-3">
           Des questions ?{' '}
-          <a href="mailto:hello@aura.app" style={{ color: '#007aff' }}>
-            hello@aura.app
+          <a href="mailto:hello@yova.app" style={{ color: '#007aff' }}>
+            hello@yova.app
           </a>
         </p>
       </div>

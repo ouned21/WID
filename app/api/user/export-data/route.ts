@@ -14,7 +14,7 @@ import { cookies } from 'next/headers';
  * - Préférences
  * - Patterns comportementaux
  *
- * Header : Content-Disposition: attachment; filename="mes-donnees-aura.json"
+ * Header : Content-Disposition: attachment; filename="mes-donnees-yova.json"
  */
 export async function GET() {
   const cookieStore = await cookies();
@@ -30,6 +30,30 @@ export async function GET() {
   }
 
   const userId = user.id;
+
+  // Rate limit : un export par 24h (RGPD Art. 12 — délai raisonnable de réponse)
+  // TODO: add last_export_at column to profiles
+  try {
+    const { data: exportCheckProfile } = await supabase
+      .from('profiles')
+      .select('last_export_at')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (exportCheckProfile && (exportCheckProfile as Record<string, unknown>).last_export_at) {
+      const lastExport = new Date((exportCheckProfile as Record<string, unknown>).last_export_at as string);
+      const hoursSince = (Date.now() - lastExport.getTime()) / (1000 * 60 * 60);
+      if (hoursSince < 24) {
+        const hoursRemaining = Math.ceil(24 - hoursSince);
+        return NextResponse.json(
+          { error: `Export disponible une fois par 24h (disponible dans ${hoursRemaining}h)` },
+          { status: 429 },
+        );
+      }
+    }
+  } catch {
+    // Si la colonne n'existe pas encore, on continue sans bloquer l'export
+  }
 
   try {
     // Récupérer toutes les données en parallèle
@@ -95,9 +119,10 @@ export async function GET() {
     ]);
 
     // Récupérer les tâches du foyer créées par cet utilisateur
+    // Inclure les complétions pour un export RGPD complet (droit à la portabilité)
     const tasksRes = await supabase
       .from('household_tasks')
-      .select('id, name, category_id, frequency, duration_estimate, physical_effort, mental_load_score, scoring_category, assigned_to, is_active, next_due_at, created_at')
+      .select('id, name, category_id, frequency, duration_estimate, physical_effort, mental_load_score, scoring_category, assigned_to, is_active, next_due_at, created_at, task_completions(id, completed_at, duration_minutes, note)')
       .eq('created_by', userId)
       .order('created_at', { ascending: false });
 
@@ -106,8 +131,8 @@ export async function GET() {
         exported_at: new Date().toISOString(),
         export_version: '1.0',
         rgpd_reference: 'Article 20 du Règlement (UE) 2016/679 (RGPD) — Droit à la portabilité',
-        app: 'Aura — suivi des tâches ménagères',
-        contact: 'privacy@fairshare.app',
+        app: 'Yova — suivi des tâches ménagères',
+        contact: 'privacy@yova.app',
       },
       account: {
         email: user.email,
@@ -132,7 +157,18 @@ export async function GET() {
     };
 
     const json = JSON.stringify(exportData, null, 2);
-    const filename = `mes-donnees-aura-${new Date().toISOString().split('T')[0]}.json`;
+    const filename = `mes-donnees-yova-${new Date().toISOString().split('T')[0]}.json`;
+
+    // Mettre à jour la date du dernier export (rate limiting 24h)
+    // TODO: add last_export_at column to profiles
+    try {
+      await supabase
+        .from('profiles')
+        .update({ last_export_at: new Date().toISOString() } as Record<string, unknown>)
+        .eq('id', userId);
+    } catch {
+      // Si la colonne n'existe pas encore, on ignore silencieusement
+    }
 
     return new NextResponse(json, {
       status: 200,

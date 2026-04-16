@@ -55,11 +55,11 @@ Après 2 semaines, comparez : qui a fait quoi, combien ça a pesé au total, et 
 
 ## Un outil pour automatiser tout ça
 
-FairShare fait exactement ce travail : il mesure le poids de chaque tâche, compare la répartition entre les membres, et propose des échanges concrets quand c'est déséquilibré.
+Yova fait exactement ce travail : il mesure le poids de chaque tâche, compare la répartition entre les membres, et propose des échanges concrets quand c'est déséquilibré.
 
 L'app génère même les tâches automatiquement à partir de vos équipements (four → nettoyer le four, lave-vaisselle → ajouter du sel...) et de vos enfants (âge → tâches adaptées).
 
-**Essayer gratuitement** → [FairShare](https://wid-eight.vercel.app/register)
+**Essayer gratuitement** → [Yova](https://wid-eight.vercel.app/register)
 
 ---
 

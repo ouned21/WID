@@ -50,10 +50,10 @@ export default function NewTaskPage() {
   const { createTask, creating } = useTaskStore();
   const { allMembers } = useHouseholdStore();
 
-  // Mode : aura (minimal, laisse l'IA inférer) | advanced (formulaire complet)
-  const [mode, setMode] = useState<'aura' | 'advanced'>('aura');
-  // Étape dans le mode Aura : 'input' = saisie + preview, 'assign' = swipe assignation
-  const [auraStep, setAuraStep] = useState<'input' | 'assign'>('input');
+  // Mode : yova (minimal, laisse l'IA inférer) | advanced (formulaire complet)
+  const [mode, setMode] = useState<'yova' | 'advanced'>('yova');
+  // Étape dans le mode Yova : 'input' = saisie + preview, 'assign' = swipe assignation
+  const [yovaStep, setYovaStep] = useState<'input' | 'assign'>('input');
 
   // Batch : tâches en attente d'assignation (saisies successivement, assignées en masse)
   type PendingTask = {
@@ -80,10 +80,10 @@ export default function NewTaskPage() {
 
   // Charger le brouillon depuis l'URL ou localStorage
   useEffect(() => {
-    const draft = searchParams.get('draft') || localStorage.getItem('aura_task_draft');
+    const draft = searchParams.get('draft') || localStorage.getItem('yova_task_draft');
     if (draft) {
       setName(draft);
-      localStorage.removeItem('aura_task_draft');
+      localStorage.removeItem('yova_task_draft');
     }
     const nameParam = searchParams.get('name');
     if (nameParam) setName(nameParam);
@@ -91,7 +91,7 @@ export default function NewTaskPage() {
     const dateParam = searchParams.get('date');
     if (dateParam) setDueDate(dateParam);
 
-    // Pré-remplissage depuis le journal Aura (suggested_tasks)
+    // Pré-remplissage depuis le journal Yova (suggested_tasks)
     const categoryParam = searchParams.get('category') as ScoringCategory | null;
     if (categoryParam) setScoringCategory(categoryParam);
 
@@ -193,7 +193,7 @@ export default function NewTaskPage() {
 
   // Pas d'auto-assignation : l'utilisateur choisit explicitement qui fait la tâche.
 
-  // Labels pour la preview Aura
+  // Labels pour la preview Yova
   const categoryLabel = useMemo(() => {
     const opt = SCORING_CATEGORY_OPTIONS.find((o) => o.value === scoringCategory);
     return opt ? `${opt.emoji} ${opt.label}` : scoringCategory;
@@ -413,7 +413,7 @@ export default function NewTaskPage() {
       setPendingTasks((prev) => [...prev, newPending]);
     }
     setSwipeIndex(0);
-    setAuraStep('assign');
+    setYovaStep('assign');
   }, [name, scoringCategory, frequency, duration, physical, userScore, score.global_score, dueDate, dueTime]);
 
   // Assignation d'une tâche du batch à un membre → passage à la suivante ou création finale
@@ -509,12 +509,12 @@ export default function NewTaskPage() {
   // ═══════════════════════════════════════════════════════════════════════════════
   // MODE AURA — 2 étapes : input+preview → swipe assignation
   // ═══════════════════════════════════════════════════════════════════════════════
-  if (mode === 'aura' && !showSubTasks) {
+  if (mode === 'yova' && !showSubTasks) {
     const showPreview = name.trim().length >= 3;
     const realMembers = allMembers.filter((m) => !m.isPhantom);
 
     // ─── ÉTAPE 1 : Input + Preview ────────────────────────────────────────────
-    if (auraStep === 'input') {
+    if (yovaStep === 'input') {
       return (
         <div className="pt-4 pb-8">
           {/* Header */}
@@ -585,7 +585,7 @@ export default function NewTaskPage() {
             )}
           </div>
 
-          {/* Preview card : ce qu'Aura a compris */}
+          {/* Preview card : ce qu'Yova a compris */}
           {showPreview && (
             <div className="mx-4 rounded-2xl bg-white overflow-hidden mb-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
               <div className="p-5 space-y-4">
@@ -651,7 +651,7 @@ export default function NewTaskPage() {
     }
 
     // ─── ÉTAPE 2 : Swipe assignation du batch ─────────────────────────────────
-    if (auraStep === 'assign') {
+    if (yovaStep === 'assign') {
       const currentPending = pendingTasks[swipeIndex];
 
       // Si aucune tâche en attente ou déjà toutes assignées : fallback
@@ -661,7 +661,7 @@ export default function NewTaskPage() {
             <div className="text-[48px] mb-4">📭</div>
             <p className="text-[17px] font-semibold text-[#1c1c1e] mb-2">Aucune tâche à assigner</p>
             <button
-              onClick={() => setAuraStep('input')}
+              onClick={() => setYovaStep('input')}
               className="mt-4 rounded-xl px-6 py-3 text-[15px] font-semibold text-white"
               style={{ background: '#007aff' }}
             >
@@ -753,7 +753,7 @@ export default function NewTaskPage() {
           {/* Header + progression */}
           <div className="px-4 mb-4">
             <div className="flex items-center justify-between mb-2">
-              <button onClick={() => setAuraStep('input')} className="text-[15px] font-medium" style={{ color: '#007aff' }}>
+              <button onClick={() => setYovaStep('input')} className="text-[15px] font-medium" style={{ color: '#007aff' }}>
                 ← Retour
               </button>
               <span className="text-[13px] text-[#8e8e93]">
@@ -946,7 +946,7 @@ export default function NewTaskPage() {
     return (
       <div className="pt-4">
         <div className="flex items-center justify-between px-4 mb-4">
-          <button onClick={() => setMode('aura')} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Mode rapide</button>
+          <button onClick={() => setMode('yova')} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Mode rapide</button>
           <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Nouvelle tâche</h2>
           <div className="w-16" />
         </div>

@@ -12,6 +12,32 @@ import { logAiUsage, extractUsageFromResponse } from '@/utils/aiLogger';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
+/**
+ * POST /api/ai/insights
+ *
+ * Génère 3 à 5 insights IA sur les habitudes du foyer à partir des 8 dernières
+ * semaines de données. Détecte les patterns (jour actif, catégories dominantes),
+ * les déséquilibres et les tâches en retard.
+ *
+ * @requires auth Session Supabase valide
+ * @requires premium Compte premium actif
+ * @requires data Minimum 5 complétions sur 8 semaines (sinon retourne tableau vide)
+ *
+ * @param body - Corps vide ou ignoré (householdId lu depuis le profil en DB pour éviter IDOR)
+ *
+ * @returns {200} {
+ *   insights: Array<{
+ *     type: "pattern" | "imbalance" | "anticipation" | "suggestion",
+ *     emoji: string,
+ *     title: string,   // max 40 chars
+ *     body: string     // 1-2 phrases
+ *   }>,
+ *   message?: string   // présent si pas assez de données
+ * }
+ * @returns {400} Pas de foyer associé au profil
+ * @returns {401} Non authentifié
+ * @returns {403} Compte non premium
+ */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   if (!ANTHROPIC_API_KEY) return NextResponse.json({ insights: [] });
@@ -68,6 +94,17 @@ export async function POST(request: NextRequest) {
   const completionsList = completions.data ?? [];
   const tasksList = tasks.data ?? [];
 
+  // Ne pas appeler Claude si pas assez de données (min 5 complétions)
+  if (completionsList.length < 5) {
+    return NextResponse.json({
+      insights: [],
+      message: 'Pas assez de données pour générer des insights (minimum 5 complétions).',
+    });
+  }
+
+  // Construire une Map pour O(1) lookup (évite O(n²) dans la boucle ci-dessous)
+  const taskMap = new Map(tasksList.map(t => [t.id, t]));
+
   // Agréger par membre, par jour de la semaine, par catégorie
   const byMemberDay: Record<string, Record<number, number>> = {};
   const byMemberCat: Record<string, Record<string, number>> = {};
@@ -75,7 +112,7 @@ export async function POST(request: NextRequest) {
   for (const c of completionsList) {
     const mid = (c.completed_by_phantom_id as string) || c.completed_by;
     const dow = new Date(c.completed_at).getDay();
-    const task = tasksList.find(t => t.id === c.task_id);
+    const task = taskMap.get(c.task_id);
     const cat = task?.scoring_category ?? 'misc';
 
     if (!byMemberDay[mid]) byMemberDay[mid] = {};
@@ -112,7 +149,7 @@ export async function POST(request: NextRequest) {
   const householdPrefs = await getHouseholdPreferences(supabase as unknown as never, memberIds);
   const prefsBlock = formatHouseholdPreferencesForPrompt(householdPrefs, memberNames);
 
-  const prompt = `Tu es Aura, l'assistant du foyer. Analyse ces données de foyer sur 8 semaines et génère 3-5 insights concrets.
+  const prompt = `Tu es Yova, l'assistant du foyer. Analyse ces données de foyer sur 8 semaines et génère 3-5 insights concrets.
 
 DONNÉES PAR MEMBRE :
 ${contextLines.join('\n')}

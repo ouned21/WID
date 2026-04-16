@@ -558,7 +558,7 @@ export default function RecapPage() {
           style={{ background: 'rgba(118,75,162,0.08)', color: '#764ba2' }}
         >
           <span>🤖</span>
-          <span>Plutôt dicter à Aura ?</span>
+          <span>Plutôt dicter à Yova ?</span>
           <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#764ba2', color: 'white' }}>Premium</span>
         </button>
 

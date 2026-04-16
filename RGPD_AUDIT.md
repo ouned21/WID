@@ -1,8 +1,8 @@
-# Audit RGPD — FairShare / WID / Aura
+# Audit RGPD — Yova / WID / Yova
 **Date de l'audit** : 16 avril 2026  
 **Auditeur** : Analyse automatisée (Claude)  
 **Responsable de traitement** : Jonathan (fondateur solo)  
-**Application** : Aura — suivi des tâches ménagères pour couples/familles  
+**Application** : Yova — suivi des tâches ménagères pour couples/familles  
 **Stack** : Next.js 16, Supabase (PostgreSQL), Claude API (Anthropic), Vercel  
 
 ---
@@ -54,7 +54,7 @@
 
 ### État actuel
 La page `/legal/privacy` existait mais était **incomplète** sur les points suivants :
-- ❌ Identité et coordonnées du responsable de traitement non précisées (juste "Aura" sans nom/adresse)
+- ❌ Identité et coordonnées du responsable de traitement non précisées (juste "Yova" sans nom/adresse)
 - ❌ Bases légales non détaillées par traitement
 - ❌ Durées de conservation non spécifiées
 - ❌ Coordonnées DPO/contact RGPD non formalisées

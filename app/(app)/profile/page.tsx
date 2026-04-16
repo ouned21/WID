@@ -270,7 +270,7 @@ export default function ProfilePage() {
                     style={{ background: member.role === 'admin' ? '#007aff' : '#34c759' }}>
                     {member.display_name?.charAt(0)?.toUpperCase() ?? '?'}
                   </div>
-                  <span className="flex-1 text-[17px] text-[#1c1c1e]">{member.display_name}</span>
+                  <span className="flex-1 text-[17px] text-[#1c1c1e]">{member.display_name || '(Anonyme)'}</span>
                   <span className="text-[13px] text-[#8e8e93]">
                     {member.role === 'admin' ? 'Admin' : 'Membre'}
                   </span>
@@ -285,7 +285,7 @@ export default function ProfilePage() {
                       style={{ background: '#e5e5ea' }}>
                       👻
                     </div>
-                    <span className="flex-1 text-[17px] text-[#1c1c1e]">{phantom.display_name}</span>
+                    <span className="flex-1 text-[17px] text-[#1c1c1e]">{phantom.display_name || '(Anonyme)'}</span>
                     <div className="flex gap-2">
                       {/* Rattacher à un vrai membre */}
                       {members.length > 0 && (
@@ -411,16 +411,16 @@ export default function ProfilePage() {
         </>
       )}
 
-      {/* Préférences Aura — Personnalisation IA */}
+      {/* Préférences Yova — Personnalisation IA */}
       <div className="mx-4">
         <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">
-          🤖 Ce qu&apos;Aura sait de toi
+          🤖 Ce qu&apos;Yova sait de toi
         </p>
         <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
           {/* Tâches détestées */}
           <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
             <p className="text-[13px] font-semibold text-[#1c1c1e] mb-1">Tâches que tu détestes</p>
-            <p className="text-[11px] text-[#8e8e93] mb-2">Aura essaiera de ne pas te les assigner</p>
+            <p className="text-[11px] text-[#8e8e93] mb-2">Yova essaiera de ne pas te les assigner</p>
             {hatedTasks.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {hatedTasks.map((t) => (
@@ -444,7 +444,7 @@ export default function ProfilePage() {
           {/* Tâches préférées */}
           <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
             <p className="text-[13px] font-semibold text-[#1c1c1e] mb-1">Tâches que tu aimes bien</p>
-            <p className="text-[11px] text-[#8e8e93] mb-2">Aura te les proposera en priorité</p>
+            <p className="text-[11px] text-[#8e8e93] mb-2">Yova te les proposera en priorité</p>
             {lovedTasks.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {lovedTasks.map((t) => (
@@ -521,9 +521,9 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Note libre à Aura */}
+          {/* Note libre à Yova */}
           <div className="px-4 py-3">
-            <p className="text-[13px] font-semibold text-[#1c1c1e] mb-1">Message à Aura</p>
+            <p className="text-[13px] font-semibold text-[#1c1c1e] mb-1">Message à Yova</p>
             <p className="text-[11px] text-[#8e8e93] mb-2">N&apos;importe quelle info pour mieux t&apos;aider</p>
             <textarea
               value={freeformNote}
@@ -715,7 +715,7 @@ export default function ProfilePage() {
                 const a = document.createElement('a');
                 const today = new Date().toISOString().split('T')[0];
                 a.href = url;
-                a.download = `mes-donnees-aura-${today}.json`;
+                a.download = `mes-donnees-yova-${today}.json`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -798,22 +798,16 @@ export default function ProfilePage() {
           {/* Suppression du compte */}
           <button
             onClick={async () => {
-              const confirmed = confirm(
-                'Supprimer définitivement ton compte ?\n\nToutes tes données seront effacées immédiatement (tâches, historique, préférences, journaux). Cette action est irréversible.',
-              );
-              if (!confirmed) return;
-              const sure = confirm('Dernière confirmation : es-tu vraiment sûr(e) ? Cette action ne peut pas être annulée.');
-              if (!sure) return;
+              if (!confirm('Es-tu sûr ? Cette action est irréversible après 30 jours de délai de rétractation.')) return;
 
               try {
-                const res = await fetch('/api/account/delete', { method: 'POST' });
+                const res = await fetch('/api/account/request-deletion', { method: 'POST' });
                 if (!res.ok) {
                   const data = await res.json().catch(() => ({}));
-                  alert(`Erreur lors de la suppression : ${data.message ?? data.error ?? 'inconnue'}`);
+                  alert(`Erreur lors de la demande : ${data.message ?? data.error ?? 'inconnue'}`);
                   return;
                 }
-                await signOut();
-                router.push('/login');
+                alert('Email de confirmation envoyé. Tu as 30 jours pour annuler.');
               } catch (err) {
                 alert(`Erreur réseau : ${err instanceof Error ? err.message : 'inconnue'}`);
               }
@@ -838,9 +832,9 @@ export default function ProfilePage() {
           <span>·</span>
           <a href="/legal/privacy">Confidentialité</a>
           <span>·</span>
-          <a href="mailto:privacy@fairshare.app">Contact RGPD</a>
+          <a href="mailto:privacy@yova.app">Contact RGPD</a>
         </div>
-        <p className="text-[11px] text-[#c7c7cc] mt-2">Aura © {new Date().getFullYear()}</p>
+        <p className="text-[11px] text-[#c7c7cc] mt-2">Yova © {new Date().getFullYear()}</p>
       </div>
     </div>
   );

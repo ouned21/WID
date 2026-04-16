@@ -1,4 +1,4 @@
-# FairShare
+# Yova
 
 Application web de suivi et rééquilibrage des tâches domestiques.
 Mesurez, équilibrez, allégez.

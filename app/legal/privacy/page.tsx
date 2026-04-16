@@ -2,8 +2,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Politique de confidentialité — Aura',
-  description: 'Comment Aura collecte, utilise et protège vos données personnelles.',
+  title: 'Politique de confidentialité — Yova',
+  description: 'Comment Yova collecte, utilise et protège vos données personnelles.',
 };
 
 export default function PrivacyPage() {
@@ -22,12 +22,12 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-[20px] font-bold text-[#1c1c1e] mb-3">1. Responsable du traitement</h2>
           <div className="rounded-xl p-4" style={{ background: '#f2f2f7' }}>
-            <p><strong>Jonathan (fondateur d&apos;Aura)</strong></p>
-            <p className="mt-1">Application : Aura (anciennement FairShare / WID)</p>
-            <p className="mt-1">Contact RGPD : <a href="mailto:privacy@fairshare.app" style={{ color: '#007aff' }}>privacy@fairshare.app</a></p>
+            <p><strong>Jonathan (fondateur d&apos;Yova)</strong></p>
+            <p className="mt-1">Application : Yova (anciennement Yova / WID)</p>
+            <p className="mt-1">Contact RGPD : <a href="mailto:privacy@yova.app" style={{ color: '#007aff' }}>privacy@yova.app</a></p>
           </div>
           <p className="mt-3 text-[13px] text-[#8e8e93]">
-            Aura est une application de suivi et d&apos;équilibrage des tâches ménagères pour couples et familles,
+            Yova est une application de suivi et d&apos;équilibrage des tâches ménagères pour couples et familles,
             opérée à titre personnel par son fondateur. Aucune société n&apos;est constituée à ce jour.
           </p>
         </section>
@@ -200,8 +200,8 @@ export default function PrivacyPage() {
               { right: 'Droit de rectification (Art. 16)', desc: 'Modifier vos informations personnelles', how: 'Directement dans l\'application (profil, préférences)' },
               { right: 'Droit à l\'effacement (Art. 17)', desc: 'Supprimer votre compte et toutes vos données', how: 'Profil → "Supprimer mon compte et mes données"' },
               { right: 'Droit à la portabilité (Art. 20)', desc: 'Recevoir vos données dans un format structuré (JSON)', how: 'Profil → "Télécharger mes données"' },
-              { right: 'Droit d\'opposition (Art. 21)', desc: 'Vous opposer aux traitements fondés sur l\'intérêt légitime', how: 'Par email à privacy@fairshare.app' },
-              { right: 'Droit à la limitation (Art. 18)', desc: 'Limiter temporairement le traitement de vos données', how: 'Par email à privacy@fairshare.app' },
+              { right: 'Droit d\'opposition (Art. 21)', desc: 'Vous opposer aux traitements fondés sur l\'intérêt légitime', how: 'Par email à privacy@yova.app' },
+              { right: 'Droit à la limitation (Art. 18)', desc: 'Limiter temporairement le traitement de vos données', how: 'Par email à privacy@yova.app' },
             ].map((item, i) => (
               <div key={i} className="rounded-xl p-4" style={{ background: '#f2f2f7' }}>
                 <p className="font-semibold text-[#1c1c1e] text-[14px]">{item.right}</p>
@@ -218,7 +218,7 @@ export default function PrivacyPage() {
             </p>
           </div>
           <p className="mt-3 text-[13px]">
-            Pour exercer vos droits par email : <a href="mailto:privacy@fairshare.app" style={{ color: '#007aff' }}>privacy@fairshare.app</a>
+            Pour exercer vos droits par email : <a href="mailto:privacy@yova.app" style={{ color: '#007aff' }}>privacy@yova.app</a>
           </p>
           <p className="mt-2 text-[13px] text-[#8e8e93]">
             Vous avez également le droit d&apos;introduire une réclamation auprès de la{' '}
@@ -269,7 +269,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-[20px] font-bold text-[#1c1c1e] mb-3">10. Protection des enfants</h2>
           <p>
-            Aura est destiné aux adultes (18 ans et plus). Les informations concernant les enfants
+            Yova est destiné aux adultes (18 ans et plus). Les informations concernant les enfants
             (prénom, présence dans le foyer) saisies par les parents adultes sont traitées sous
             leur responsabilité parentale. Nous ne collectons aucune donnée directement auprès des enfants.
           </p>
@@ -290,9 +290,9 @@ export default function PrivacyPage() {
           <h2 className="text-[20px] font-bold text-[#1c1c1e] mb-3">12. Contact</h2>
           <div className="rounded-xl p-4" style={{ background: '#f2f2f7' }}>
             <p className="font-semibold text-[#1c1c1e] mb-1">Responsable de traitement</p>
-            <p className="text-[14px]">Jonathan — Aura</p>
+            <p className="text-[14px]">Jonathan — Yova</p>
             <p className="text-[14px] mt-1">
-              Email RGPD : <a href="mailto:privacy@fairshare.app" style={{ color: '#007aff' }}>privacy@fairshare.app</a>
+              Email RGPD : <a href="mailto:privacy@yova.app" style={{ color: '#007aff' }}>privacy@yova.app</a>
             </p>
           </div>
           <p className="mt-3 text-[13px] text-[#8e8e93]">
@@ -313,9 +313,9 @@ export default function PrivacyPage() {
           <span>·</span>
           <span style={{ color: '#1c1c1e', fontWeight: 600 }}>Confidentialité</span>
           <span>·</span>
-          <a href="mailto:privacy@fairshare.app">Contact</a>
+          <a href="mailto:privacy@yova.app">Contact</a>
         </div>
-        <p className="text-[11px] text-[#c7c7cc] text-center mt-2">Aura © {new Date().getFullYear()}</p>
+        <p className="text-[11px] text-[#c7c7cc] text-center mt-2">Yova © {new Date().getFullYear()}</p>
       </div>
     </div>
   );

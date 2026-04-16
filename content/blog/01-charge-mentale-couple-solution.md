@@ -30,7 +30,7 @@ Prenez 30 minutes en couple. Vous serez surpris par le nombre de tâches "invisi
 
 Toutes les tâches ne se valent pas. Une tâche quotidienne qui demande de l'anticipation, qui a des conséquences si elle est oubliée, et qui interrompt ce qu'on est en train de faire, pèse beaucoup plus qu'une tâche mensuelle simple.
 
-FairShare calcule automatiquement ce poids sur 4 axes :
+Yova calcule automatiquement ce poids sur 4 axes :
 - **Temps** : combien de temps ça prend
 - **Physique** : l'effort corporel demandé
 - **Mental** : anticipation, décisions, conséquences, rigidité horaire
@@ -56,9 +56,9 @@ Un récap hebdomadaire de 5 minutes suffit : "Cette semaine, qui a fait quoi, co
 
 Les données remplacent les impressions. Plus de "j'ai l'impression que..." — des faits.
 
-## Comment FairShare aide concrètement
+## Comment Yova aide concrètement
 
-FairShare est la première application qui mesure le poids réel des tâches domestiques. En 2 minutes, vous sélectionnez vos équipements et vos enfants, et l'app génère automatiquement vos tâches avec leurs scores.
+Yova est la première application qui mesure le poids réel des tâches domestiques. En 2 minutes, vous sélectionnez vos équipements et vos enfants, et l'app génère automatiquement vos tâches avec leurs scores.
 
 Chaque soir à 21h, un récap rapide permet de cocher en 15 secondes ce qui a été fait. Le dashboard montre en temps réel la répartition entre les membres du foyer.
 

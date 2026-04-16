@@ -578,7 +578,7 @@ function AllTasksSection({ tasks }: { tasks: TaskListItem[] }) {
         <div className="flex items-center justify-between mb-3">
           <div>
             <p className="text-[12px] font-bold text-[#8e8e93] uppercase tracking-wide">Ton planning</p>
-            <p className="text-[20px] font-black text-[#1c1c1e]">Aura a tout organisé pour toi.</p>
+            <p className="text-[20px] font-black text-[#1c1c1e]">Yova a tout organisé pour toi.</p>
           </div>
         </div>
 

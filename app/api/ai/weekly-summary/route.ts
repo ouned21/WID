@@ -12,6 +12,25 @@ import { logAiUsage, extractUsageFromResponse } from '@/utils/aiLogger';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
+/**
+ * POST /api/ai/weekly-summary
+ *
+ * Génère un résumé en langage naturel de l'activité du foyer sur les 7 derniers jours.
+ * Mention qui a fait quoi, les catégories déséquilibrées et une suggestion pour la semaine
+ * suivante. Le ton est factuel et non accusateur.
+ *
+ * @requires auth Session Supabase valide
+ * @requires premium Compte premium actif
+ *
+ * @param body - Corps vide ou ignoré (householdId lu depuis le profil en DB pour éviter IDOR)
+ *
+ * @returns {200} {
+ *   summary: string  // Résumé en français, 4-5 phrases
+ * }
+ * @returns {400} Pas de foyer associé au profil
+ * @returns {401} Non authentifié
+ * @returns {403} Compte non premium
+ */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   if (!ANTHROPIC_API_KEY) {
@@ -102,7 +121,7 @@ export async function POST(request: NextRequest) {
   const householdPrefs = await getHouseholdPreferences(supabase as unknown as never, memberIds);
   const prefsBlock = formatHouseholdPreferencesForPrompt(householdPrefs, memberMap);
 
-  const prompt = `Tu es Aura, l'assistant du foyer. Voici les données de la semaine pour ce foyer :
+  const prompt = `Tu es Yova, l'assistant du foyer. Voici les données de la semaine pour ce foyer :
 
 ${dataText}
 

@@ -25,7 +25,7 @@ Le burn-out parental est rarement causé par UNE tâche. C'est l'accumulation : 
 ## 3 actions immédiates
 
 ### 1. Mesurer pour objectiver
-Listez tout ce que vous faites. Pas pour accuser — pour voir. FairShare le fait automatiquement : sélectionnez vos équipements et enfants, et l'app génère la liste complète.
+Listez tout ce que vous faites. Pas pour accuser — pour voir. Yova le fait automatiquement : sélectionnez vos équipements et enfants, et l'app génère la liste complète.
 
 ### 2. Déléguer sans culpabiliser
 Déléguer ne veut pas dire "mal fait". Identifiez les tâches variables (pas besoin que ce soit toujours vous) et proposez des échanges.
@@ -33,7 +33,7 @@ Déléguer ne veut pas dire "mal fait". Identifiez les tâches variables (pas be
 ### 3. Automatiser l'organisation
 Chaque décision consomme de l'énergie mentale. Un outil qui décide à votre place (rappels, planning, suggestions) libère de la capacité cognitive.
 
-**Alléger sa charge** → [FairShare (gratuit)](https://wid-eight.vercel.app/register)
+**Alléger sa charge** → [Yova (gratuit)](https://wid-eight.vercel.app/register)
 
 ---
 

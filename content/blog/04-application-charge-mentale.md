@@ -36,12 +36,12 @@ Gratuit. Chaque tâche rapporte des points, leaderboard. Simple mais pas de scor
 ### EvenUS — Finances + tâches
 Tente de combiner la gestion financière et les tâches. Intéressant mais complexe, risque de dilution.
 
-### FairShare — Le scoring intelligent
+### Yova — Le scoring intelligent
 Score sur 4 axes (temps, physique, mental, impact). Onboarding qui génère les tâches automatiquement depuis vos équipements. Membre fantôme pour utiliser l'app seul(e). Suggestions de sous-tâches par IA. Planning avec rééquilibrage automatique.
 
 ## Comparatif résumé
 
-| Critère | Sweepy | Nipto | Cozi | FairShare |
+| Critère | Sweepy | Nipto | Cozi | Yova |
 |---------|--------|-------|------|-----------|
 | Scoring multi-axes | Non | Non | Non | Oui (4 axes) |
 | Charge mentale mesurée | Non | Non | Non | Oui (6 dimensions) |
@@ -56,6 +56,6 @@ Score sur 4 axes (temps, physique, mental, impact). Onboarding qui génère les 
 
 Si votre problème principal est le ménage → **Sweepy**
 Si vous voulez motiver les enfants → **Cozi** ou **OurHome**
-Si vous voulez mesurer et rééquilibrer la charge globale du foyer → **FairShare**
+Si vous voulez mesurer et rééquilibrer la charge globale du foyer → **Yova**
 
-**Essayer FairShare gratuitement** → [Créer mon compte](https://wid-eight.vercel.app/register)
+**Essayer Yova gratuitement** → [Créer mon compte](https://wid-eight.vercel.app/register)

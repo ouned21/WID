@@ -1,6 +1,13 @@
 'use client';
 
-import { taskLoad } from '@/utils/designSystem';
+import {
+  groupCompletionsByMemberDay,
+  computeTrend,
+  computeTrendArrow,
+  computeImbalance,
+  computeMemberLoad,
+  computeMemberLoadPercent,
+} from '@/utils/distributionAnalytics';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
@@ -22,7 +29,8 @@ export default function DistributionPage() {
   const { profile } = useAuthStore();
   const { period, memberAnalytics, categoryBreakdown, loading, setPeriod, fetchAnalytics } = useAnalyticsStore();
   const { tasks } = useTaskStore();
-  const { members, allMembers } = useHouseholdStore();
+  const { allMembers } = useHouseholdStore();
+  const allMemberIds = allMembers.map((m) => m.id);
 
   // Historique des complétions par jour pour la tendance
   const [dailyHistory, setDailyHistory] = useState<Record<string, number[]>>({});
@@ -52,54 +60,21 @@ export default function DistributionPage() {
       }
       if (!data) return;
 
-      // Grouper par membre par jour
-      const history: Record<string, number[]> = {};
-      const dayMap: Record<string, Record<string, number>> = {};
-
-      for (const c of data) {
-        const day = c.completed_at.split('T')[0];
-        const memberId = (c as Record<string, unknown>).completed_by_phantom_id as string || c.completed_by;
-        if (!dayMap[memberId]) dayMap[memberId] = {};
-        dayMap[memberId][day] = (dayMap[memberId][day] ?? 0) + 1;
-      }
-
-      // Convertir en tableau pour les N derniers jours
-      const days: string[] = [];
-      for (let i = period - 1; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        days.push(d.toISOString().split('T')[0]);
-      }
-
-      for (const memberId of Object.keys(dayMap)) {
-        history[memberId] = days.map((day) => dayMap[memberId][day] ?? 0);
-      }
-
-      setDailyHistory(history);
+      // Déléguer le calcul à distributionAnalytics (logique réutilisable)
+      setDailyHistory(groupCompletionsByMemberDay(data, period));
     }
     loadHistory();
   }, [profile?.household_id, period]);
 
-  const percentages = memberAnalytics.map((m) => m.taskPercentage);
-  const maxPct = Math.max(...percentages, 0);
-  const minPct = Math.min(...percentages, 0);
-  const imbalance = maxPct - minPct;
-
-  const badgeColor = imbalance <= 10 ? '#34c759' : imbalance <= 25 ? '#ff9500' : '#ff3b30';
-  const badgeLabel = imbalance <= 10 ? 'Équilibré' : imbalance <= 25 ? 'Léger déséquilibre' : 'Déséquilibre';
   const totalCompletions = memberAnalytics.reduce((s, m) => s + m.taskCount, 0);
 
-  // Tendance : comparer la 1ère moitié de la période vs la 2ème
+  // Déséquilibre entre membres (via distributionAnalytics)
+  const imbalance = computeImbalance(memberAnalytics.map((m) => m.taskPercentage));
+
+  // Tendance personnelle (via distributionAnalytics)
   const trend = useMemo(() => {
-    if (Object.keys(dailyHistory).length === 0 || !profile?.id) return null;
-    const myHistory = dailyHistory[profile.id];
-    if (!myHistory || myHistory.length < 4) return null;
-    const mid = Math.floor(myHistory.length / 2);
-    const firstHalf = myHistory.slice(0, mid).reduce((s, v) => s + v, 0);
-    const secondHalf = myHistory.slice(mid).reduce((s, v) => s + v, 0);
-    if (firstHalf === 0 && secondHalf === 0) return null;
-    const diff = secondHalf - firstHalf;
-    return { diff, label: diff > 0 ? 'En hausse' : diff < 0 ? 'En baisse' : 'Stable', color: diff > 0 ? '#ff9500' : diff < 0 ? '#34c759' : '#8e8e93' };
+    if (!profile?.id) return null;
+    return computeTrend(dailyHistory[profile.id]);
   }, [dailyHistory, profile?.id]);
 
   return (
@@ -107,8 +82,8 @@ export default function DistributionPage() {
       <div className="flex items-center justify-between px-4">
         <h2 className="text-[28px] font-bold text-[#1c1c1e]">Statistiques</h2>
         {totalCompletions > 0 && (
-          <span className="rounded-full px-3 py-1 text-[12px] font-semibold text-white" style={{ background: badgeColor }}>
-            {badgeLabel}
+          <span className="rounded-full px-3 py-1 text-[12px] font-semibold text-white" style={{ background: imbalance.color }}>
+            {imbalance.label}
           </span>
         )}
       </div>
@@ -186,16 +161,7 @@ export default function DistributionPage() {
               {memberAnalytics.map((m, i) => {
                 const color = MEMBER_COLORS[i % MEMBER_COLORS.length];
                 // Tendance par membre
-                const memberHist = dailyHistory[m.memberId];
-                let memberTrend = '';
-                if (memberHist && memberHist.length >= 4) {
-                  const mid = Math.floor(memberHist.length / 2);
-                  const first = memberHist.slice(0, mid).reduce((s, v) => s + v, 0);
-                  const second = memberHist.slice(mid).reduce((s, v) => s + v, 0);
-                  if (second > first) memberTrend = '↑';
-                  else if (second < first) memberTrend = '↓';
-                  else memberTrend = '→';
-                }
+                const memberTrend = computeTrendArrow(dailyHistory[m.memberId]);
                 return (
                   <div key={m.memberId} className="space-y-1.5">
                     <div className="flex items-center justify-between">
@@ -245,13 +211,8 @@ export default function DistributionPage() {
               <div className="rounded-xl bg-white p-4 space-y-3" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
                 {allMembers.map((m, i) => {
                   const color = MEMBER_COLORS[i % MEMBER_COLORS.length];
-                  const myTasks = tasks.filter((t) => t.assigned_to === m.id || t.assigned_to_phantom_id === m.id);
-                  const totalLoad = myTasks.reduce((sum, t) => sum + taskLoad(t), 0);
-                  const maxLoad = Math.max(...allMembers.map((mb) => {
-                    const ts = tasks.filter((t) => t.assigned_to === mb.id || t.assigned_to_phantom_id === mb.id);
-                    return ts.reduce((s, t) => s + taskLoad(t), 0);
-                  }), 1);
-                  const pct = Math.round((totalLoad / maxLoad) * 100);
+                  const totalLoad = computeMemberLoad(tasks, m.id);
+                  const pct = computeMemberLoadPercent(tasks, m.id, allMemberIds);
                   return (
                     <div key={m.id} className="space-y-1">
                       <div className="flex justify-between text-[13px]">

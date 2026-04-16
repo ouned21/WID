@@ -1,5 +1,5 @@
 /**
- * Notifications Push Web pour Aura.
+ * Notifications Push Web pour Yova.
  *
  * - Demande la permission au premier lancement
  * - Programme une notification quotidienne à 21h (récap du soir)
@@ -39,7 +39,7 @@ export function sendNotification(title: string, body: string, url?: string): voi
     body,
     icon: '/icon-192x192.png',
     badge: '/icon-192x192.png',
-    tag: 'aura',
+    tag: 'yova',
   });
 
   if (url) {
@@ -88,7 +88,7 @@ export function scheduleEveningRecap(): void {
 export function checkDraftReminder(): void {
   if (!canNotify()) return;
 
-  const draft = localStorage.getItem('aura_task_draft');
+  const draft = localStorage.getItem('yova_task_draft');
   if (draft && draft.trim()) {
     sendNotification(
       'Tâche en brouillon',

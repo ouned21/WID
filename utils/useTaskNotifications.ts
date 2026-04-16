@@ -22,10 +22,10 @@ export function useTaskNotifications() {
   // Demander la permission une seule fois (pas à chaque reconnexion)
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const alreadyAsked = localStorage.getItem('aura-notif-asked');
+    const alreadyAsked = localStorage.getItem('yova-notif-asked');
     if (!alreadyAsked) {
       requestNotificationPermission();
-      localStorage.setItem('aura-notif-asked', '1');
+      localStorage.setItem('yova-notif-asked', '1');
     }
   }, []);
 

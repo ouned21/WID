@@ -15,7 +15,7 @@ export type UseNotificationsReturn = {
   disableJournalReminder: () => void;
 };
 
-const JOURNAL_PREF_KEY = 'aura_journal_reminder_enabled';
+const JOURNAL_PREF_KEY = 'yova_journal_reminder_enabled';
 
 export function useNotifications(): UseNotificationsReturn {
   const isSupported =

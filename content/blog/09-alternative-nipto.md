@@ -18,9 +18,9 @@ Nipto est une app populaire (500K+ téléchargements) qui transforme le ménage 
 - Pas de rééquilibrage intelligent
 - Pas de gestion des sous-tâches
 
-## FairShare vs Nipto
+## Yova vs Nipto
 
-| | Nipto | FairShare |
+| | Nipto | Yova |
 |---|---|---|
 | Score par tâche | Points égaux | Score sur 4 axes (temps, physique, mental, impact) |
 | Charge mentale mesurée | Non | Oui (6 dimensions) |
@@ -34,6 +34,6 @@ Nipto est une app populaire (500K+ téléchargements) qui transforme le ménage 
 ## Pour qui ?
 
 **Nipto** si vous voulez une compétition simple et fun.
-**FairShare** si vous voulez comprendre et résoudre le déséquilibre.
+**Yova** si vous voulez comprendre et résoudre le déséquilibre.
 
-**Essayer FairShare** → [Créer mon compte](https://wid-eight.vercel.app/register)
+**Essayer Yova** → [Créer mon compte](https://wid-eight.vercel.app/register)

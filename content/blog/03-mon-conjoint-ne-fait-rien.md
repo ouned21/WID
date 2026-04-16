@@ -33,7 +33,7 @@ Au lieu de dire "je fais tout", montrez les chiffres. Pas pour accuser — pour 
 ### La méthode en 3 temps
 
 **Semaine 1 : Mesurer sans rien dire**
-Utilisez une app (comme FairShare) pour logger chaque tâche que vous faites — et celles que votre partenaire fait. Le mode "membre fantôme" permet de tracker les deux même si l'autre ne s'inscrit pas.
+Utilisez une app (comme Yova) pour logger chaque tâche que vous faites — et celles que votre partenaire fait. Le mode "membre fantôme" permet de tracker les deux même si l'autre ne s'inscrit pas.
 
 **Semaine 2 : Montrer les résultats**
 "Ce mois-ci, j'ai fait 74% du poids total des tâches. Toi 26%. Voilà les chiffres." Pas de reproche — des faits.
@@ -43,7 +43,7 @@ Utilisez une app (comme FairShare) pour logger chaque tâche que vous faites —
 
 ## Le membre fantôme : utiliser l'app seul(e)
 
-Le problème numéro 1 des apps de couple : l'autre ne veut pas s'inscrire. FairShare a résolu ça avec le "membre fantôme" — vous ajoutez votre partenaire avec juste son prénom (pas besoin de compte) et vous loguez ses tâches à sa place.
+Le problème numéro 1 des apps de couple : l'autre ne veut pas s'inscrire. Yova a résolu ça avec le "membre fantôme" — vous ajoutez votre partenaire avec juste son prénom (pas besoin de compte) et vous loguez ses tâches à sa place.
 
 Au bout de 2 semaines, vous avez des données objectives. Si votre partenaire conteste les chiffres — il/elle va vouloir s'inscrire pour "corriger". Et là, vous avez gagné.
 
@@ -51,7 +51,7 @@ Au bout de 2 semaines, vous avez des données objectives. Si votre partenaire co
 
 Les couples qui utilisent un système structuré rapportent une **réduction de 60% des disputes** liées au ménage en 3 mois. Pas parce que la répartition est parfaite — mais parce que les deux voient la même réalité.
 
-**Commencer maintenant** → [FairShare (gratuit)](https://wid-eight.vercel.app/register)
+**Commencer maintenant** → [Yova (gratuit)](https://wid-eight.vercel.app/register)
 
 ---
 

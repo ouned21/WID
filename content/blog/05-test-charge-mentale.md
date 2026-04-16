@@ -90,11 +90,11 @@ Vous portez la quasi-totalité de la charge mentale du foyer. Ce n'est pas tenab
 
 ## Et maintenant ?
 
-Quel que soit votre score, l'important est de **mesurer** pour pouvoir **agir**. FairShare fait exactement ça : il mesure le poids réel de chaque tâche et montre la répartition entre les membres du foyer.
+Quel que soit votre score, l'important est de **mesurer** pour pouvoir **agir**. Yova fait exactement ça : il mesure le poids réel de chaque tâche et montre la répartition entre les membres du foyer.
 
 Même si votre partenaire ne veut pas s'inscrire, le mode "membre fantôme" vous permet d'utiliser l'app seul(e) et de tracker les tâches de chacun.
 
-**Mesurer ma charge mentale** → [FairShare (gratuit)](https://wid-eight.vercel.app/register)
+**Mesurer ma charge mentale** → [Yova (gratuit)](https://wid-eight.vercel.app/register)
 
 ---
 

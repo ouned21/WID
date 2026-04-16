@@ -1,6 +1,6 @@
 {
-  "name": "Aura",
-  "short_name": "Aura",
+  "name": "Yova",
+  "short_name": "Yova",
   "description": "L'agent qui planifie ton foyer à ta place",
   "start_url": "/dashboard",
   "display": "standalone",

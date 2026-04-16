@@ -26,6 +26,11 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
   loading: false,
   error: null,
 
+  /**
+   * Change la période d'analyse (7, 30 ou 90 jours) et déclenche automatiquement
+   * un rechargement des données si un foyer est actif. Sans effet si la période est identique.
+   * @param period - Nombre de jours à analyser
+   */
   setPeriod: (period) => {
     const current = get().period;
     if (period === current) return;
@@ -35,6 +40,12 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
     if (householdId) get().fetchAnalytics(householdId);
   },
 
+  /**
+   * Charge les analytics du foyer pour la période courante.
+   * Calcule la répartition des complétions par membre (réel + fantôme) et par catégorie.
+   * L'ajustement d'arrondi garantit que la somme des pourcentages fait toujours 100%.
+   * @param householdId - UUID du foyer à analyser
+   */
   fetchAnalytics: async (householdId) => {
     set({ loading: true, error: null });
     const supabase = createClient();
@@ -143,6 +154,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
     set({ memberAnalytics, categoryBreakdown, loading: false });
   },
 
+  /** Réinitialise le store analytics (ex: après déconnexion ou changement de foyer). */
   reset: () => set({
     period: 7,
     memberAnalytics: [],

@@ -170,7 +170,7 @@ export default function DashboardCommand() {
             🤖
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.15em] font-bold text-white/70 mb-0.5">Parler à Aura</p>
+            <p className="text-[11px] uppercase tracking-[0.15em] font-bold text-white/70 mb-0.5">Parler à Yova</p>
             <p className="text-[17px] font-bold text-white leading-tight">Raconte-moi ta journée</p>
             <p className="text-[12px] text-white/80 mt-0.5">J&apos;enregistre tout ce que tu as fait en une phrase</p>
           </div>

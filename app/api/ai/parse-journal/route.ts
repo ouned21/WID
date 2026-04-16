@@ -38,6 +38,25 @@ const FREQUENCY_NEXT_DUE: Record<string, number> = {
   daily: 1, weekly: 7, biweekly: 14, monthly: 30, quarterly: 90, once: 365,
 };
 
+/**
+ * Sanitise le texte utilisateur pour prévenir les tentatives d'injection de prompt.
+ * Remplace les patterns courants d'injection par [filtré] et tronque à 2000 chars.
+ */
+function sanitizeUserInput(input: string): string {
+  return input
+    // Supprimer les tentatives de prompt injection courantes
+    .replace(/ignore\s+(previous|all|prior)\s+instructions?/gi, '[filtré]')
+    .replace(/forget\s+(everything|all|what|your)/gi, '[filtré]')
+    .replace(/you\s+are\s+now\s+/gi, '[filtré]')
+    .replace(/pretend\s+(you\s+are|to\s+be)/gi, '[filtré]')
+    .replace(/act\s+as\s+(a|an|if)/gi, '[filtré]')
+    .replace(/system\s*:/gi, '[filtré]')
+    .replace(/\[system\]/gi, '[filtré]')
+    // Limite la longueur (déjà validé mais double sécurité)
+    .slice(0, 2000)
+    .trim();
+}
+
 function normalizeTaskName(name: string): string {
   return name.toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -86,6 +105,33 @@ type ParsedResult = {
   mood_tone: string | null;
 };
 
+/**
+ * POST /api/ai/parse-journal
+ *
+ * Analyse un texte libre (journal de journée) en langage naturel et en extrait
+ * les tâches ménagères accomplies. Crée automatiquement les tâches inconnues et
+ * insère les complétions en base.
+ *
+ * @requires auth Session Supabase valide + consentement RGPD (`ai_journal_consent_at`)
+ * @requires rate-limit Quota mensuel IA (freemium : 5 appels/mois)
+ *
+ * @param body.text       - Texte du journal (3–2000 caractères)
+ * @param body.inputMethod - "text" | "voice" (facultatif, défaut "text")
+ *
+ * @returns {200} {
+ *   journalId: string,
+ *   completions: ParsedCompletion[],    // tâches existantes matchées
+ *   auto_created: { name, task_id }[],  // nouvelles tâches créées + complétées
+ *   unmatched: string[],                // éléments non-tâches (émotions, loisirs)
+ *   ai_response: string,                // message empathique de Yova
+ *   mood_tone: string | null            // humeur détectée
+ * }
+ * @returns {400} Texte invalide ou foyer manquant
+ * @returns {401} Non authentifié
+ * @returns {403} Consentement RGPD manquant ou compte non premium
+ * @returns {429} Limite IA mensuelle atteinte
+ * @returns {500} Erreur technique
+ */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
@@ -121,6 +167,8 @@ export async function POST(request: NextRequest) {
   if (!text || text.length < 3 || text.length > 2000) {
     return NextResponse.json({ error: 'Texte requis (3 à 2000 caractères)' }, { status: 400 });
   }
+  // Sanitiser le texte avant toute injection dans un prompt Claude
+  const sanitizedText = sanitizeUserInput(text);
 
   const { data: profile } = await supabase
     .from('profiles').select('household_id, display_name, ai_journal_consent_at').eq('id', user.id).maybeSingle();
@@ -132,7 +180,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       error: 'Consentement requis',
       code: 'CONSENT_REQUIRED',
-      message: 'Tu dois accepter que tes données soient traitées par Aura avant de pouvoir utiliser le journal IA.',
+      message: 'Tu dois accepter que tes données soient traitées par Yova avant de pouvoir utiliser le journal IA.',
     }, { status: 403 });
   }
   if (!profile?.household_id) return NextResponse.json({ error: 'Pas de foyer associé' }, { status: 400 });
@@ -185,7 +233,7 @@ export async function POST(request: NextRequest) {
     ...phantoms.map((p: { id: string; display_name: string }) => `- [phantom:${p.id}] ${p.display_name} (fantôme)`),
   ].join('\n');
 
-  const prompt = `Tu es Aura, l'assistant IA spécialisé UNIQUEMENT dans le suivi des tâches ménagères et familiales d'un foyer. Tu ne réponds à RIEN d'autre. Si le message ne contient aucune tâche du foyer et ressemble à une question générale, un conseil de vie, une recette, ou tout sujet hors-foyer → retourne un JSON avec completions et auto_create vides, et dans ai_response dis : "Je suis Aura, spécialisée dans le suivi de ton foyer 🏠 Raconte-moi ce que tu as fait à la maison aujourd'hui !"
+  const prompt = `Tu es Yova, l'assistant IA spécialisé UNIQUEMENT dans le suivi des tâches ménagères et familiales d'un foyer. Tu ne réponds à RIEN d'autre. Si le message ne contient aucune tâche du foyer et ressemble à une question générale, un conseil de vie, une recette, ou tout sujet hors-foyer → retourne un JSON avec completions et auto_create vides, et dans ai_response dis : "Je suis Yova, spécialisée dans le suivi de ton foyer 🏠 Raconte-moi ce que tu as fait à la maison aujourd'hui !"
 
 ${userName} vient de te raconter sa journée. Ton job : extraire TOUTES les tâches ménagères/familiales mentionnées et les enregistrer.
 
@@ -198,7 +246,7 @@ ${prefsBlock}
 
 ## Ce que ${userName} raconte
 """
-${text}
+${sanitizedText}
 """
 
 ## Ta mission

@@ -26,8 +26,8 @@ Faites le total. La répartition en nombre de tâches peut être 50/50 alors que
 
 ## Automatiser l'exercice
 
-FairShare fait exactement ça : il liste, pèse et compare. L'onboarding génère vos tâches en 2 minutes. Le score est calculé automatiquement. Le dashboard montre la répartition en temps réel.
+Yova fait exactement ça : il liste, pèse et compare. L'onboarding génère vos tâches en 2 minutes. Le score est calculé automatiquement. Le dashboard montre la répartition en temps réel.
 
 Pas besoin de refaire l'exercice chaque mois — l'app le fait en continu.
 
-**Essayer →** [FairShare](https://wid-eight.vercel.app/register)
+**Essayer →** [Yova](https://wid-eight.vercel.app/register)

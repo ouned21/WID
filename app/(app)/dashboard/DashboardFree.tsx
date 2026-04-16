@@ -12,7 +12,7 @@ import { taskLoad, loadTo10 } from '@/utils/designSystem';
  * Dashboard pour les utilisateurs GRATUITS.
  *
  * - Météo du foyer (état émotionnel visuel, pas de niveau)
- * - Feed de vie (actions Aura + rappels + aujourd'hui)
+ * - Feed de vie (actions Yova + rappels + aujourd'hui)
  * - Score VISIBLE mais PAYWALLÉ (clic → /upgrade?feature=score)
  *
  * Pas de : barres de comparaison, insights, stats détaillées, évolution chiffrée
@@ -89,7 +89,7 @@ export default function DashboardFree() {
     return h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
   })();
 
-  // Feed : les actions d'Aura
+  // Feed : les actions d'Yova
   const feedItems = useMemo(() => {
     const items: { emoji: string; title: string; body: string; action?: { label: string; href: string } }[] = [];
 
@@ -123,7 +123,7 @@ export default function DashboardFree() {
       items.push({
         emoji: '🗓',
         title: `Cette semaine : ${d.thisWeek.length} tâche${d.thisWeek.length > 1 ? 's' : ''}`,
-        body: 'Aura les a planifiées pour toi',
+        body: 'Yova les a planifiées pour toi',
         action: { label: 'Voir le planning', href: '/planning' },
       });
     }

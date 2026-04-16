@@ -157,6 +157,12 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     return (data ?? []) as TaskCompletion[];
   },
 
+  /**
+   * Crée une nouvelle tâche dans le foyer et recharge la liste.
+   * Valide localement avant d'appeler Supabase (nom requis, catégorie requise, scores dans les bornes).
+   * @param householdId - ID du foyer cible
+   * @param payload - Données de la tâche (voir CreateTaskPayload)
+   */
   createTask: async (householdId, payload) => {
     // Validation
     if (!payload.name.trim()) return { ok: false, error: 'Le nom est obligatoire.' };
@@ -206,6 +212,17 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     return { ok: true };
   },
 
+  /**
+   * Marque une tâche comme complétée :
+   * 1. Insère une entrée dans task_completions
+   * 2. Recalcule et met à jour next_due_at selon la fréquence
+   * 3. Recharge toutes les tâches du foyer
+   *
+   * @param taskId - UUID de la tâche à compléter
+   * @param payload.phantom_member_id - Si fourni, la complétion est attribuée à un membre fantôme
+   * @param payload.duration_minutes  - Durée réelle en minutes (facultatif)
+   * @param payload.note              - Note libre (facultatif)
+   */
   completeTask: async (taskId, payload = {}) => {
     set({ completing: true, error: null });
     const supabase = createClient();
@@ -253,6 +270,12 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     return { ok: true };
   },
 
+  /**
+   * Met à jour les champs modifiables d'une tâche.
+   * Si la fréquence change, recalcule automatiquement next_due_at.
+   * @param taskId  - UUID de la tâche à modifier
+   * @param payload - Champs à modifier (voir UpdateTaskPayload)
+   */
   updateTask: async (taskId, payload) => {
     set({ updating: true, error: null });
     const supabase = createClient();
@@ -283,6 +306,11 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     return { ok: true };
   },
 
+  /**
+   * Archive une tâche (is_active = false) sans la supprimer.
+   * L'historique des complétions est préservé. La tâche disparaît de la vue principale.
+   * @param taskId - UUID de la tâche à archiver
+   */
   archiveTask: async (taskId) => {
     set({ archiving: true, error: null });
     const supabase = createClient();
@@ -306,6 +334,11 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     return { ok: true };
   },
 
+  /**
+   * Supprime définitivement une tâche et TOUTES ses complétions associées.
+   * Irréversible — préférer archiveTask() si on veut conserver l'historique.
+   * @param taskId - UUID de la tâche à supprimer
+   */
   deleteTask: async (taskId) => {
     const supabase = createClient();
 
@@ -324,12 +357,19 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     return { ok: true };
   },
 
+  /**
+   * Met à jour partiellement les filtres actifs (merge avec les filtres existants).
+   * @param partial - Champs de filtres à modifier (categoryId, assignment)
+   */
   setFilters: (partial) => set((state) => ({
     filters: { ...state.filters, ...partial },
   })),
 
+  /** Sélectionne une tâche pour afficher son détail (ou null pour fermer). */
   setSelectedTask: (task) => set({ selectedTask: task }),
+  /** Efface l'erreur courante sans changer l'état des données. */
   clearError: () => set({ error: null }),
+  /** Réinitialise complètement le store (ex: après déconnexion). */
   reset: () => set({
     tasks: [],
     selectedTask: null,

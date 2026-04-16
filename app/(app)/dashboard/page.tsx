@@ -20,7 +20,7 @@ export const useDashboardStyle = create<{
       style: 'command',
       setStyle: (style) => set({ style }),
     }),
-    { name: 'aura-dashboard-style' },
+    { name: 'yova-dashboard-style' },
   ),
 );
 

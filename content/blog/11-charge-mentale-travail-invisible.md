@@ -28,13 +28,13 @@ La charge mentale n'est pas un bloc unique. Elle se décompose en :
 5. **Rigidité** — est-ce à heure fixe ?
 6. **Responsabilité** — qui est "coupable" si c'est mal fait ?
 
-FairShare mesure chacune de ces 6 dimensions pour chaque tâche. Le score qui en résulte n'est pas une impression — c'est une mesure.
+Yova mesure chacune de ces 6 dimensions pour chaque tâche. Le score qui en résulte n'est pas une impression — c'est une mesure.
 
 ## Rendre visible l'invisible
 
 Le premier pas pour alléger la charge mentale, c'est de la rendre visible. Pas pour accuser — pour que les deux partenaires voient la même réalité.
 
-**Mesurer ma charge mentale** → [FairShare (gratuit)](https://wid-eight.vercel.app/register)
+**Mesurer ma charge mentale** → [Yova (gratuit)](https://wid-eight.vercel.app/register)
 
 ---
 

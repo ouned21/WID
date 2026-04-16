@@ -30,7 +30,7 @@ type FamilyMember = {
 type Step =
   | 'equipment'   // Écran 1 : Sélection des équipements
   | 'family'      // Écran 2 : Composition familiale
-  | 'thinking'    // Animation "Aura réfléchit..."
+  | 'thinking'    // Animation "Yova réfléchit..."
   | 'results';    // Écran résultats : liste des tâches créées
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -80,7 +80,7 @@ function AnimatedThinking({ steps, onDone, isReady }: { steps: string[]; onDone:
   return (
     <div className="flex flex-col justify-center items-center min-h-[60vh] px-6">
       <div className="text-[48px] mb-6 animate-pulse">🤖</div>
-      <p className="text-[18px] font-bold text-white mb-6">Aura analyse ton foyer</p>
+      <p className="text-[18px] font-bold text-white mb-6">Yova analyse ton foyer</p>
       <div className="space-y-3 text-left max-w-sm">
         {steps.map((step, i) => (
           <div key={i} className="flex items-center gap-3 text-[15px] transition-opacity duration-300" style={{
@@ -112,6 +112,7 @@ export default function OnboardingPage() {
   const [generatedTasks, setGeneratedTasks] = useState<{ id: string; name: string; category_id: string; category_name?: string; category_icon?: string; category_color?: string; next_due_at?: string | null }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [generationDone, setGenerationDone] = useState(false);
+  const [aiConsent, setAiConsent] = useState(false);
 
   const householdId = profile?.household_id;
   const userId = profile?.id;
@@ -180,6 +181,11 @@ export default function OnboardingPage() {
 
     try {
       const supabase = createClient();
+
+      // Enregistrer le consentement IA
+      await supabase.from('profiles').update({
+        ai_journal_consent_at: new Date().toISOString()
+      }).eq('id', userId);
 
       type TaskInput = { name: string; scoring_category: string; frequency: string; duration_estimate: string; physical_effort: string; mental_load_score: number; description?: string };
 
@@ -523,7 +529,8 @@ export default function OnboardingPage() {
               setStep('thinking');
               await generateTasks();
             }}
-            className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white"
+            disabled={!aiConsent}
+            className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white disabled:opacity-40"
             style={{
               background: 'linear-gradient(135deg, #007aff, #5856d6)',
               boxShadow: '0 8px 24px rgba(0,122,255,0.3)',
@@ -531,16 +538,24 @@ export default function OnboardingPage() {
           >
             Créer mes tâches et mon planning →
           </button>
-          <p className="text-center text-[11px] text-[#8e8e93] mt-2 leading-relaxed">
-            En continuant, tu acceptes qu&apos;une IA analyse ton foyer pour générer tes tâches.{' '}
-            <a href="/legal/privacy" target="_blank" style={{ color: '#007aff' }}>Confidentialité</a>
-          </p>
+          <label className="flex items-start gap-3 mt-3 px-1 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={aiConsent}
+              onChange={(e) => setAiConsent(e.target.checked)}
+              className="mt-1 w-4 h-4 rounded accent-[#007aff] flex-shrink-0"
+            />
+            <span className="text-[12px] text-[#8e8e93] leading-relaxed">
+              J&apos;accepte qu&apos;une IA (Claude d&apos;Anthropic) analyse les informations de mon foyer pour générer mes tâches. Ces données ne servent pas à entraîner l&apos;IA.{' '}
+              <a href="/legal/privacy" target="_blank" style={{ color: '#007aff' }}>En savoir plus</a>
+            </span>
+          </label>
         </div>
       </div>
     );
   }
 
-  // ─── Écran 5 : Animation "Aura réfléchit" ───
+  // ─── Écran 5 : Animation "Yova réfléchit" ───
   if (step === 'thinking') {
     const steps = [
       `${selectedEquipment.size} équipements analysés`,
@@ -589,7 +604,7 @@ export default function OnboardingPage() {
         <div className="px-4 mb-6 text-center">
           <div className="text-[52px] mb-3">✅</div>
           <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
-            Aura a créé<br />{generatedTasks.length} tâche{generatedTasks.length > 1 ? 's' : ''} pour ton foyer
+            Yova a créé<br />{generatedTasks.length} tâche{generatedTasks.length > 1 ? 's' : ''} pour ton foyer
           </h2>
           <p className="text-[13px] text-[#8e8e93] mt-2">
             Appuie sur la poubelle pour retirer une tâche.

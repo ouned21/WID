@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Conditions Générales d\'Utilisation — Aura',
+  title: 'Conditions Générales d\'Utilisation — Yova',
 };
 
 export default function CguPage() {
@@ -16,27 +16,27 @@ export default function CguPage() {
       <div className="space-y-6 text-[15px] text-[#3c3c43] leading-relaxed">
         <section>
           <h2 className="text-[20px] font-bold text-[#1c1c1e] mb-2">1. Objet</h2>
-          <p>Les présentes CGU définissent les conditions d&apos;utilisation de l&apos;application Aura, un service de gestion intelligente du foyer assistée par IA.</p>
+          <p>Les présentes CGU définissent les conditions d&apos;utilisation de l&apos;application Yova, un service de gestion intelligente du foyer assistée par IA.</p>
         </section>
 
         <section>
           <h2 className="text-[20px] font-bold text-[#1c1c1e] mb-2">2. Acceptation</h2>
-          <p>En créant un compte, tu acceptes intégralement les présentes CGU et la politique de confidentialité. Si tu n&apos;acceptes pas ces conditions, tu ne peux pas utiliser Aura.</p>
+          <p>En créant un compte, tu acceptes intégralement les présentes CGU et la politique de confidentialité. Si tu n&apos;acceptes pas ces conditions, tu ne peux pas utiliser Yova.</p>
         </section>
 
         <section>
           <h2 className="text-[20px] font-bold text-[#1c1c1e] mb-2">3. Accès au service</h2>
-          <p>Aura propose une version gratuite et une version Premium payante (29€/an). La version gratuite est limitée à 2 membres par foyer et 5 appels IA par mois après l&apos;onboarding initial.</p>
+          <p>Yova propose une version gratuite et une version Premium payante (29€/an). La version gratuite est limitée à 2 membres par foyer et 5 appels IA par mois après l&apos;onboarding initial.</p>
         </section>
 
         <section>
           <h2 className="text-[20px] font-bold text-[#1c1c1e] mb-2">4. Responsabilité</h2>
-          <p>Aura s&apos;efforce de fournir un service fiable mais ne peut garantir une disponibilité à 100%. Les suggestions générées par IA sont indicatives. Tu restes seul responsable des décisions prises concernant ton foyer.</p>
+          <p>Yova s&apos;efforce de fournir un service fiable mais ne peut garantir une disponibilité à 100%. Les suggestions générées par IA sont indicatives. Tu restes seul responsable des décisions prises concernant ton foyer.</p>
         </section>
 
         <section>
           <h2 className="text-[20px] font-bold text-[#1c1c1e] mb-2">5. Propriété intellectuelle</h2>
-          <p>Tu conserves tous les droits sur les données que tu saisis dans Aura. Aura (code, design, marque) reste notre propriété.</p>
+          <p>Tu conserves tous les droits sur les données que tu saisis dans Yova. Yova (code, design, marque) reste notre propriété.</p>
         </section>
 
         <section>
@@ -61,7 +61,7 @@ export default function CguPage() {
 
         <section>
           <h2 className="text-[20px] font-bold text-[#1c1c1e] mb-2">10. Contact</h2>
-          <p><a href="mailto:hello@aura.app" style={{ color: '#007aff' }}>hello@aura.app</a></p>
+          <p><a href="mailto:hello@yova.app" style={{ color: '#007aff' }}>hello@yova.app</a></p>
         </section>
       </div>
     </div>

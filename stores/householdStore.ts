@@ -11,7 +11,7 @@ import type { Household, Profile, PhantomMember, HouseholdMember } from '@/types
 function buildAllMembers(members: Profile[], phantomMembers: PhantomMember[]): HouseholdMember[] {
   const real: HouseholdMember[] = members.map((m) => ({
     id: m.id,
-    display_name: m.display_name,
+    display_name: m.display_name || '(Anonyme)', // fallback si display_name null/vide
     avatar_url: m.avatar_url,
     isPhantom: false,
     target_share_percent: m.target_share_percent,
@@ -19,7 +19,7 @@ function buildAllMembers(members: Profile[], phantomMembers: PhantomMember[]): H
   }));
   const phantom: HouseholdMember[] = phantomMembers.map((p) => ({
     id: p.id,
-    display_name: p.display_name,
+    display_name: p.display_name || '(Anonyme)', // fallback si display_name null/vide
     avatar_url: null,
     isPhantom: true,
     target_share_percent: p.target_share_percent,
@@ -58,6 +58,11 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
   loading: false,
   error: null,
 
+  /**
+   * Charge les données complètes du foyer : infos, membres réels et membres fantômes.
+   * Construit également allMembers (liste fusionnée) utilisée par les analytics et la distribution.
+   * @param householdId - UUID du foyer à charger
+   */
   fetchHousehold: async (householdId) => {
     const supabase = createClient();
 
@@ -82,6 +87,12 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
     });
   },
 
+  /**
+   * Crée un nouveau foyer avec un code d'invitation unique.
+   * Réessaie jusqu'à MAX_INVITE_CODE_RETRIES fois en cas de collision de code (rare mais possible).
+   * Met à jour le profil de l'utilisateur (household_id, role: 'admin').
+   * @param name - Nom du foyer (ex: "Famille Dupont")
+   */
   createHousehold: async (name) => {
     set({ loading: true, error: null });
     try {
@@ -147,6 +158,11 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
     }
   },
 
+  /**
+   * Rejoint un foyer existant via son code d'invitation (6 caractères, insensible à la casse).
+   * Vérifie que l'utilisateur n'est pas déjà dans un foyer et que le code n'a pas expiré.
+   * @param inviteCode - Code d'invitation du foyer (ex: "ABC123")
+   */
   joinHousehold: async (inviteCode) => {
     set({ loading: true, error: null });
     try {
@@ -210,6 +226,11 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
     }
   },
 
+  /**
+   * Renomme le foyer. Réservé à l'administrateur du foyer (role: 'admin').
+   * Met à jour le store localement sans rechargement complet.
+   * @param newName - Nouveau nom du foyer
+   */
   renameHousehold: async (newName) => {
     const supabase = createClient();
     const householdId = get().household?.id;
@@ -230,6 +251,11 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
     return { ok: true };
   },
 
+  /**
+   * Quitte le foyer actuel. Met household_id et role à null et enregistre left_at.
+   * L'utilisateur perd l'accès aux tâches et à l'historique du foyer.
+   * Note : le dernier admin ne peut pas quitter (géré côté Supabase RLS).
+   */
   leaveHousehold: async () => {
     const supabase = createClient();
     const userId = useAuthStore.getState().user?.id;
@@ -251,6 +277,11 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
     return { ok: true };
   },
 
+  /**
+   * Ajoute un membre fantôme au foyer (ex: enfant, partenaire sans compte).
+   * Les fantômes peuvent recevoir des tâches et des complétions mais n'ont pas de session.
+   * @param displayName - Prénom ou surnom du membre fantôme
+   */
   addPhantomMember: async (displayName) => {
     const supabase = createClient();
     const userId = useAuthStore.getState().user?.id;
@@ -269,6 +300,12 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
     return { ok: true };
   },
 
+  /**
+   * Supprime un membre fantôme du foyer.
+   * Attention : ses complétions et assignations restent en base avec l'ID orphelin.
+   * Utiliser linkPhantomToReal() de préférence pour transférer l'historique.
+   * @param id - UUID du membre fantôme à supprimer
+   */
   removePhantomMember: async (id) => {
     const supabase = createClient();
     const householdId = get().household?.id;

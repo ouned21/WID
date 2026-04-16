@@ -43,6 +43,6 @@
 
 ## Trop de choses à penser ?
 
-FairShare propose un **Pack Déménagement** : 17 tâches pré-organisées, positionnées automatiquement dans votre calendrier par rapport à votre date de déménagement. Vous n'avez rien à créer — tout est déjà là.
+Yova propose un **Pack Déménagement** : 17 tâches pré-organisées, positionnées automatiquement dans votre calendrier par rapport à votre date de déménagement. Vous n'avez rien à créer — tout est déjà là.
 
-**Activer le pack** → [FairShare Packs](https://wid-eight.vercel.app/packs)
+**Activer le pack** → [Yova Packs](https://wid-eight.vercel.app/packs)

@@ -16,6 +16,9 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
+      // 'unsafe-eval' : requis par Next.js 16 pour le hot-reload et certains modules.
+      // Retirer 'unsafe-eval' casse le build en production sur Vercel.
+      // TODO: Évaluer la migration vers nonces CSP quand Next.js le supportera nativement.
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https: blob:",

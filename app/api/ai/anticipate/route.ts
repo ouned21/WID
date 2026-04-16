@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
   const householdPrefs = await getHouseholdPreferences(supabase as unknown as never, memberIds);
   const prefsBlock = formatHouseholdPreferencesForPrompt(householdPrefs, memberNames);
 
-  const prompt = `Tu es Aura, l'assistant proactif du foyer. Voici l'état du foyer :
+  const prompt = `Tu es Yova, l'assistant proactif du foyer. Voici l'état du foyer :
 
 ${contextLines.join('\n')}${prefsBlock}
 

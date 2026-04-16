@@ -316,7 +316,7 @@ export default function TasksPage() {
             <button onClick={() => setShowScoreInfo(!showScoreInfo)}
               className="flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold text-white mt-1"
               style={{ background: '#8e8e93' }}
-              aria-label="Comment lire le score Aura">
+              aria-label="Comment lire le score Yova">
               i
             </button>
           </div>
@@ -334,11 +334,11 @@ export default function TasksPage() {
         </Link>
       </div>
 
-      {/* Panneau explication score Aura */}
+      {/* Panneau explication score Yova */}
       {showScoreInfo && (
         <div className="mx-4 mb-3 rounded-2xl bg-white p-4" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
           <div className="flex items-start justify-between mb-3">
-            <h3 className="text-[16px] font-bold text-[#1c1c1e]">Comment lire le score Aura</h3>
+            <h3 className="text-[16px] font-bold text-[#1c1c1e]">Comment lire le score Yova</h3>
             <button onClick={() => setShowScoreInfo(false)} className="text-[17px] text-[#8e8e93]">✕</button>
           </div>
           <p className="text-[13px] text-[#8e8e93] mb-3">

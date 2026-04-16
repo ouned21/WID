@@ -43,7 +43,7 @@ export default function LoginPage() {
         <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-[20px] text-[32px] font-bold text-white mb-3" style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)' }}>
           A
         </div>
-        <h1 className="text-[28px] font-bold text-[#1c1c1e]">Aura</h1>
+        <h1 className="text-[28px] font-bold text-[#1c1c1e]">Yova</h1>
         <p className="text-[15px] text-[#8e8e93]">L&apos;agent qui planifie ton foyer</p>
       </div>
 

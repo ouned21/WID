@@ -40,6 +40,6 @@
 
 ## 15 tâches, 12 mois, zéro oubli
 
-Le **Pack Mariage** de FairShare crée automatiquement ces 15 tâches dans votre calendrier, positionnées par rapport à votre date de mariage. J-365 pour le budget, J-7 pour le plan de table — tout est calé.
+Le **Pack Mariage** de Yova crée automatiquement ces 15 tâches dans votre calendrier, positionnées par rapport à votre date de mariage. J-365 pour le budget, J-7 pour le plan de table — tout est calé.
 
-**Activer le pack** → [FairShare Packs](https://wid-eight.vercel.app/packs)
+**Activer le pack** → [Yova Packs](https://wid-eight.vercel.app/packs)

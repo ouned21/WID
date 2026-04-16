@@ -1,9 +1,9 @@
 /**
- * Service Worker Aura
+ * Service Worker Yova
  * Gère les notifications push et le cache basique pour la PWA.
  */
 
-const CACHE_NAME = 'aura-v1';
+const CACHE_NAME = 'yova-v1';
 
 // Install : mettre en cache les assets essentiels
 self.addEventListener('install', (event) => {
@@ -61,12 +61,12 @@ self.addEventListener('fetch', (event) => {
 // Push notification reçue
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || 'Aura';
+  const title = data.title || 'Yova';
   const options = {
     body: data.body || 'Tu as des tâches à vérifier',
     icon: '/icon-192.png',
     badge: '/icon-192.png',
-    tag: data.tag || 'aura-notification',
+    tag: data.tag || 'yova-notification',
     data: { url: data.url || '/tasks/recap' },
   };
 
@@ -76,11 +76,11 @@ self.addEventListener('push', (event) => {
 // Notification journal du soir (schedulée localement via postMessage)
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SHOW_JOURNAL_REMINDER') {
-    self.registration.showNotification('📝 Raconte ta journée à Aura !', {
+    self.registration.showNotification('📝 Raconte ta journée à Yova !', {
       body: 'Prends 2 minutes pour noter ce que tu as fait aujourd\'hui.',
       icon: '/icon-192.png',
       badge: '/icon-192.png',
-      tag: 'aura-journal-reminder',
+      tag: 'yova-journal-reminder',
       data: { url: '/journal' },
     });
   }

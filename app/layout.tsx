@@ -15,10 +15,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Aura — L'agent qui planifie ton foyer à ta place",
-    template: "%s | Aura",
+    default: "Yova — L'agent qui planifie ton foyer à ta place",
+    template: "%s | Yova",
   },
-  description: "Aura est l'agent intelligent qui pense à tout pour ton foyer. Laisse l'IA planifier, rappeler, anticiper — tu te concentres sur ce qui compte.",
+  description: "Yova est l'agent intelligent qui pense à tout pour ton foyer. Laisse l'IA planifier, rappeler, anticiper — tu te concentres sur ce qui compte.",
   keywords: [
     // ── Promesse gratuit (agent IA planificateur) ──
     "agent IA foyer", "assistant maison", "planifier foyer", "gestion foyer automatique",
@@ -43,10 +43,10 @@ export const metadata: Metadata = {
     "AI household assistant", "smart home planner", "family AI", "mental load app",
     "household tasks", "chore tracking", "family task manager", "home management",
     // ── Marque ──
-    "aura app", "aura foyer", "aura assistant",
+    "yova app", "yova foyer", "yova assistant",
   ],
-  authors: [{ name: "Aura" }],
-  creator: "Aura",
+  authors: [{ name: "Yova" }],
+  creator: "Yova",
   manifest: "/manifest.json",
   metadataBase: new URL("https://wid-eight.vercel.app"),
   alternates: {
@@ -55,22 +55,22 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Aura",
+    title: "Yova",
   },
   openGraph: {
-    title: "Aura — L'agent qui planifie ton foyer à ta place",
+    title: "Yova — L'agent qui planifie ton foyer à ta place",
     description: "L'IA qui s'occupe de tout pour que tu n'aies plus à y penser. Planification automatique, rappels intelligents, anticipation des imprévus.",
     type: "website",
     url: "https://wid-eight.vercel.app",
-    siteName: "Aura",
+    siteName: "Yova",
     locale: "fr_FR",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Aura — L'agent qui planifie ton foyer" }],
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Yova — L'agent qui planifie ton foyer" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Aura — L'agent qui planifie ton foyer",
+    title: "Yova — L'agent qui planifie ton foyer",
     description: "L'IA qui pense à tout pour ton foyer.",
-    creator: "@auraapp",
+    creator: "@yovaapp",
     images: ["/og-image.png"],
   },
   icons: {

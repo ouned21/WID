@@ -162,7 +162,7 @@ export default function JournalPage() {
             >
               🤖
             </div>
-            <h1 className="text-[22px] font-bold text-white mb-1">Aura — Journal IA</h1>
+            <h1 className="text-[22px] font-bold text-white mb-1">Yova — Journal IA</h1>
             <p className="text-[13px] text-white/80">Consentement requis avant utilisation</p>
           </div>
 
@@ -243,7 +243,7 @@ export default function JournalPage() {
               🤖
             </div>
             <div>
-              <p className="text-[17px] font-bold text-white">Aura</p>
+              <p className="text-[17px] font-bold text-white">Yova</p>
               <p className="text-[12px] text-white opacity-80">Raconte-moi ta journée</p>
             </div>
           </div>
@@ -280,7 +280,7 @@ export default function JournalPage() {
             boxShadow: '0 4px 16px rgba(0,122,255,0.2)',
           }}
         >
-          {sending ? 'Aura analyse...' : 'Envoyer à Aura'}
+          {sending ? 'Yova analyse...' : 'Envoyer à Yova'}
         </button>
       </div>
 
@@ -329,7 +329,7 @@ export default function JournalPage() {
       {/* Résultat du parsing */}
       {result && result.code !== 'AI_LIMIT_REACHED' && (
         <div className="mx-4 rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          {/* Réponse Aura */}
+          {/* Réponse Yova */}
           <div className="px-5 py-4" style={{ background: '#EEF4FF', borderBottom: '0.5px solid var(--ios-separator)' }}>
             <div className="flex items-start gap-3">
               <span className="text-[24px]">{result.mood_tone ? MOOD_EMOJI[result.mood_tone] ?? '🤖' : '🤖'}</span>

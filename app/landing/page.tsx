@@ -2,8 +2,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Aura — L\'agent qui planifie ton foyer à ta place',
-  description: 'Aura est l\'intelligence artificielle qui anticipe, rappelle et planifie toutes les tâches de ton foyer. Tu te concentres sur l\'essentiel, Aura s\'occupe du reste.',
+  title: 'Yova — L\'agent qui planifie ton foyer à ta place',
+  description: 'Yova est l\'intelligence artificielle qui anticipe, rappelle et planifie toutes les tâches de ton foyer. Tu te concentres sur l\'essentiel, Yova s\'occupe du reste.',
 };
 
 export default function LandingPage() {
@@ -28,13 +28,13 @@ export default function LandingPage() {
             A
           </div>
           <h1 className="text-[56px] font-black text-white leading-none mb-4" style={{ letterSpacing: '-0.03em' }}>
-            Aura
+            Yova
           </h1>
           <p className="text-[22px] text-white/90 font-semibold mb-3">
             Ne pense plus à tout ça.
           </p>
           <p className="text-[17px] text-white/60 mb-10 max-w-md mx-auto leading-relaxed">
-            L&apos;agent intelligent qui anticipe, rappelle et planifie toutes les tâches de ton foyer. Tu te concentres sur l&apos;essentiel, Aura s&apos;occupe du reste.
+            L&apos;agent intelligent qui anticipe, rappelle et planifie toutes les tâches de ton foyer. Tu te concentres sur l&apos;essentiel, Yova s&apos;occupe du reste.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/register"
@@ -95,7 +95,7 @@ export default function LandingPage() {
         <div className="max-w-2xl mx-auto">
           <p className="text-[13px] font-bold text-[#007aff] uppercase tracking-[0.2em] mb-4 text-center">La solution</p>
           <h2 className="text-[32px] font-bold text-[#1c1c1e] mb-12 text-center leading-tight">
-            Aura pense à tout. Toi, tu vis.
+            Yova pense à tout. Toi, tu vis.
           </h2>
 
           <div className="space-y-10">
@@ -105,7 +105,7 @@ export default function LandingPage() {
               </div>
               <div>
                 <h3 className="text-[19px] font-bold text-[#1c1c1e] mb-2">Scanne ton foyer en 2 minutes</h3>
-                <p className="text-[15px] text-[#3c3c43] leading-relaxed">Sélectionne tes équipements, ta famille, tes animaux. C&apos;est tout. Aura découvre ton monde en quelques taps.</p>
+                <p className="text-[15px] text-[#3c3c43] leading-relaxed">Sélectionne tes équipements, ta famille, tes animaux. C&apos;est tout. Yova découvre ton monde en quelques taps.</p>
               </div>
             </div>
 
@@ -114,7 +114,7 @@ export default function LandingPage() {
                 <span>✨</span>
               </div>
               <div>
-                <h3 className="text-[19px] font-bold text-[#1c1c1e] mb-2">Aura génère 3 mois de planning</h3>
+                <h3 className="text-[19px] font-bold text-[#1c1c1e] mb-2">Yova génère 3 mois de planning</h3>
                 <p className="text-[15px] text-[#3c3c43] leading-relaxed">Des dizaines de tâches, sous-tâches et rappels — même ceux auxquels tu n&apos;aurais jamais pensé. Contrôle technique, vaccins, préparation rentrée, saisonnalité.</p>
               </div>
             </div>
@@ -125,7 +125,7 @@ export default function LandingPage() {
               </div>
               <div>
                 <h3 className="text-[19px] font-bold text-[#1c1c1e] mb-2">Tout apparaît dans ton calendrier</h3>
-                <p className="text-[15px] text-[#3c3c43] leading-relaxed">Chaque tâche est positionnée à la bonne date. Tu swipes pour assigner : toi, ton conjoint, ou personne. Aura s&apos;adapte à ta vie.</p>
+                <p className="text-[15px] text-[#3c3c43] leading-relaxed">Chaque tâche est positionnée à la bonne date. Tu swipes pour assigner : toi, ton conjoint, ou personne. Yova s&apos;adapte à ta vie.</p>
               </div>
             </div>
 
@@ -134,15 +134,15 @@ export default function LandingPage() {
                 <span>🌤</span>
               </div>
               <div>
-                <h3 className="text-[19px] font-bold text-[#1c1c1e] mb-2">Et surtout : Aura te rappelle</h3>
-                <p className="text-[15px] text-[#3c3c43] leading-relaxed">Les rappels proactifs, la météo qui décale tes tâches extérieures, les anniversaires, les échéances administratives. Tout ce que tu gérais dans ta tête, Aura le prend en charge.</p>
+                <h3 className="text-[19px] font-bold text-[#1c1c1e] mb-2">Et surtout : Yova te rappelle</h3>
+                <p className="text-[15px] text-[#3c3c43] leading-relaxed">Les rappels proactifs, la météo qui décale tes tâches extérieures, les anniversaires, les échéances administratives. Tout ce que tu gérais dans ta tête, Yova le prend en charge.</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Ce qui rend Aura unique */}
+      {/* Ce qui rend Yova unique */}
       <section className="py-24 px-6" style={{ background: '#f6f8ff' }}>
         <div className="max-w-2xl mx-auto">
           <p className="text-[13px] font-bold text-[#ff9500] uppercase tracking-[0.2em] mb-4 text-center">Unique</p>
@@ -158,18 +158,18 @@ export default function LandingPage() {
             </div>
             <div className="rounded-2xl bg-white p-6" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
               <p className="text-[28px] mb-3">👻</p>
-              <h3 className="text-[16px] font-bold text-[#1c1c1e]">Utilise Aura sans ton conjoint</h3>
-              <p className="text-[13px] text-[#8e8e93] mt-2 leading-relaxed">Crée un membre fantôme avec juste un prénom. Aura s&apos;occupe du foyer même si l&apos;autre n&apos;est pas inscrit.</p>
+              <h3 className="text-[16px] font-bold text-[#1c1c1e]">Utilise Yova sans ton conjoint</h3>
+              <p className="text-[13px] text-[#8e8e93] mt-2 leading-relaxed">Crée un membre fantôme avec juste un prénom. Yova s&apos;occupe du foyer même si l&apos;autre n&apos;est pas inscrit.</p>
             </div>
             <div className="rounded-2xl bg-white p-6" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
               <p className="text-[28px] mb-3">💡</p>
               <h3 className="text-[16px] font-bold text-[#1c1c1e]">Les tâches que tu oubliais</h3>
-              <p className="text-[13px] text-[#8e8e93] mt-2 leading-relaxed">Contrôle technique voiture, vignette Crit&apos;Air, piles détecteurs fumée, rappel vaccin enfant. Aura y pense pour toi.</p>
+              <p className="text-[13px] text-[#8e8e93] mt-2 leading-relaxed">Contrôle technique voiture, vignette Crit&apos;Air, piles détecteurs fumée, rappel vaccin enfant. Yova y pense pour toi.</p>
             </div>
             <div className="rounded-2xl bg-white p-6" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
               <p className="text-[28px] mb-3">🌤</p>
               <h3 className="text-[16px] font-bold text-[#1c1c1e]">L&apos;IA adapte ton planning</h3>
-              <p className="text-[13px] text-[#8e8e93] mt-2 leading-relaxed">Il pleut demain ? Aura décale ta tonte automatiquement. Vacances scolaires ? Elle adapte les tâches enfants.</p>
+              <p className="text-[13px] text-[#8e8e93] mt-2 leading-relaxed">Il pleut demain ? Yova décale ta tonte automatiquement. Vacances scolaires ? Elle adapte les tâches enfants.</p>
             </div>
           </div>
         </div>
@@ -184,7 +184,7 @@ export default function LandingPage() {
             Arrête de penser.<br />Commence à vivre.
           </h2>
           <p className="text-[17px] text-white/70 mb-10">
-            Aura est gratuit. Aucune carte bancaire. Aucune limite dans le temps.
+            Yova est gratuit. Aucune carte bancaire. Aucune limite dans le temps.
           </p>
           <Link href="/register"
             className="inline-block rounded-2xl px-10 py-5 text-[18px] font-bold transition-all"
@@ -201,7 +201,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="py-10 px-6 text-center bg-white">
         <p className="text-[13px] text-[#8e8e93]">
-          Aura © {new Date().getFullYear()} — Ne pense plus à tout ça.
+          Yova © {new Date().getFullYear()} — Ne pense plus à tout ça.
         </p>
       </footer>
     </div>

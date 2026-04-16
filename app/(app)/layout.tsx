@@ -32,7 +32,7 @@ const NAV_ITEMS = [
   )},
 ] as const;
 
-const DRAFT_KEY = 'aura_task_draft';
+const DRAFT_KEY = 'yova_task_draft';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

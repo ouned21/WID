@@ -21,6 +21,6 @@ Le problème n'est pas le manque de conscience — c'est le **manque d'outils**.
 
 La BD d'Emma a mis des mots sur le problème. L'étape suivante, c'est de mettre des **chiffres**. Pas pour accuser — pour agir.
 
-FairShare mesure automatiquement le poids de chaque tâche et montre la répartition en temps réel. Ce n'est plus "j'ai l'impression de tout faire" — c'est "je porte 68% du score cette semaine, voici les catégories déséquilibrées, et voici les échanges possibles".
+Yova mesure automatiquement le poids de chaque tâche et montre la répartition en temps réel. Ce n'est plus "j'ai l'impression de tout faire" — c'est "je porte 68% du score cette semaine, voici les catégories déséquilibrées, et voici les échanges possibles".
 
-**Passer de l'impression aux faits** → [FairShare](https://wid-eight.vercel.app/register)
+**Passer de l'impression aux faits** → [Yova](https://wid-eight.vercel.app/register)
