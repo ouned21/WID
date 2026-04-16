@@ -103,16 +103,15 @@ function TaskCard({ task, onComplete, onCompleteFor, onDelete, isCompleted, isAn
 
             {/* 2 jauges /10 */}
             {(() => {
-              const gs = taskLoad(task);
-              const ratio = gs / 36;
-              const mentalRaw = sb?.mental_load_score ?? Math.round(ratio * 18);
-              const mental10 = Math.round((mentalRaw / 18) * 10);
+              // Mental : utilise mental_load_score de la tâche (1-5) → base 10
+              const mental10 = Math.min(10, Math.round(((task.mental_load_score ?? 3) / 5) * 10));
 
-              // Temps : convertir time_score en minutes puis en base 10 (10 = 60 min)
-              const timeScoreToMin: Record<number, number> = { 1: 3, 2: 10, 3: 15, 4: 22, 5: 30, 6: 45, 7: 60, 8: 75 };
-              const timeRaw = sb?.time_score ?? Math.round(ratio * 8);
-              const minutes = timeScoreToMin[timeRaw] ?? Math.round((timeRaw / 8) * 60);
-              const time10 = Math.min(10, Math.round((minutes / 60) * 10));
+              // Temps : durée estimée → base 10
+              const durationToMin: Record<string, number> = {
+                very_short: 5, short: 15, medium: 30, long: 60, very_long: 120,
+              };
+              const minutes = durationToMin[task.duration_estimate ?? ''] ?? 30;
+              const time10 = Math.min(10, Math.round((minutes / 120) * 10));
 
               return (
                 <div className="space-y-1.5 mb-3">
