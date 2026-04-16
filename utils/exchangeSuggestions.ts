@@ -61,18 +61,25 @@ export function computeMemberBalance(
  * Génère des suggestions d'échanges pour rééquilibrer la répartition.
  * Prend les membres qui font trop et ceux qui font pas assez,
  * et propose des swaps de tâches qui réduisent l'écart.
+ *
+ * `members` inclut les fantômes pour le calcul de balance (ils ont des tâches assignées),
+ * mais les suggestions générées n'impliquent que des membres réels (les fantômes ne peuvent
+ * pas accepter un échange).
  */
 export function generateExchangeSuggestions(
   tasks: TaskListItem[],
-  members: Profile[],
+  members: (Profile | HouseholdMember)[],
   maxSuggestions: number = 3,
-  allMembers?: HouseholdMember[],
 ): ExchangeSuggestion[] {
   const balance = computeMemberBalance(tasks, members);
   if (balance.length < 2) return [];
 
   // Exclure les membres fantômes des propositions d'échange (ils ne peuvent pas répondre)
-  const phantomIds = new Set((allMembers ?? []).filter((m) => m.isPhantom).map((m) => m.id));
+  const phantomIds = new Set(
+    members
+      .filter((m): m is HouseholdMember => 'isPhantom' in m && (m as HouseholdMember).isPhantom)
+      .map((m) => m.id),
+  );
 
   // Trier : ceux qui font trop en premier, ceux qui font pas assez en dernier
   const overloaded = balance.filter((b) => b.gap > 3 && !phantomIds.has(b.memberId)).sort((a, b) => b.gap - a.gap);

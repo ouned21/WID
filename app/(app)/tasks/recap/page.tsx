@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
+import { useHouseholdStore } from '@/stores/householdStore';
 import { splitTasksIntoSections } from '@/utils/taskSelectors';
 import { computeNextDueAt } from '@/utils/taskDueDate';
 import { createClient } from '@/lib/supabase';
-import type { TaskListItem, TaskTemplate } from '@/types/database';
+import type { TaskListItem, TaskTemplate, HouseholdMember } from '@/types/database';
 
 // -- Checkbox -----------------------------------------------------------------
 
@@ -79,11 +80,15 @@ export default function RecapPage() {
   const router = useRouter();
   const { profile } = useAuthStore();
   const { tasks, fetchTasks } = useTaskStore();
+  const { allMembers } = useHouseholdStore();
 
   // État local
   const [checkedTaskIds, setCheckedTaskIds] = useState<Set<string>>(new Set());
   const [preCheckedIds, setPreCheckedIds] = useState<Set<string>>(new Set());
   const [checkedTemplateIds, setCheckedTemplateIds] = useState<Set<string>>(new Set());
+  // Pour les tâches "aussi fait aujourd'hui", qui l'a réellement faite
+  // clé = taskId, valeur = memberId (réel ou fantôme)
+  const [completedByMap, setCompletedByMap] = useState<Record<string, string>>({});
   const [freeText, setFreeText] = useState('');
   const [freeTextChecked, setFreeTextChecked] = useState(false);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
@@ -169,11 +174,18 @@ export default function RecapPage() {
   }, [tasks, templates, userId]);
 
   // Toggle checkbox tâche
-  const toggleTask = useCallback((taskId: string) => {
+  // Pour les tâches "autres" (otherTasks), initialise le completedByMap avec l'assigné par défaut
+  const toggleTask = useCallback((taskId: string, defaultCompletedBy?: string) => {
     setCheckedTaskIds((prev) => {
       const next = new Set(prev);
-      if (next.has(taskId)) next.delete(taskId);
-      else next.add(taskId);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+        if (defaultCompletedBy) {
+          setCompletedByMap((m) => ({ ...m, [taskId]: defaultCompletedBy }));
+        }
+      }
       return next;
     });
   }, []);
@@ -218,14 +230,25 @@ export default function RecapPage() {
         const task = tasks.find((t) => t.id === taskId);
         if (!task) continue;
 
-        // Complétion attribuée au membre assigné (fantôme ou réel)
-        // Si la tâche est assignée à un fantôme → completed_by_phantom_id
-        // Si assignée à un autre membre réel → completed_by reste l'utilisateur courant (c'est lui qui logge)
+        // Résoudre qui a réellement fait la tâche :
+        // - Pour les "other tasks", l'utilisateur peut avoir choisi un autre membre via completedByMap
+        // - Pour "my tasks", c'est toujours l'utilisateur courant
+        const chosenMemberId = completedByMap[taskId];
+        const chosenMember = chosenMemberId
+          ? allMembers.find((m) => m.id === chosenMemberId)
+          : null;
+
+        // Si le membre choisi est un fantôme → completed_by_phantom_id
+        // Sinon → completed_by = le membre réel choisi (ou userId par défaut)
+        const isChosenPhantom = chosenMember?.isPhantom ?? false;
+        const completedByReal = isChosenPhantom ? userId : (chosenMemberId ?? userId);
+        const completedByPhantom = isChosenPhantom ? chosenMemberId : (task.assigned_to_phantom_id ?? null);
+
         await supabase.from('task_completions').insert({
           task_id: taskId,
           household_id: householdId,
-          completed_by: userId, // toujours l'utilisateur qui logge
-          completed_by_phantom_id: task.assigned_to_phantom_id ?? null, // le fantôme s'il est assigné
+          completed_by: completedByReal,
+          completed_by_phantom_id: completedByPhantom,
           completed_at: nowISO,
           mental_load_score: task.mental_load_score,
         });
@@ -318,7 +341,7 @@ export default function RecapPage() {
       setError('Une erreur est survenue. Réessaie.');
       setSubmitting(false);
     }
-  }, [userId, householdId, checkedTaskIds, preCheckedIds, checkedTemplateIds, freeTextChecked, freeText, tasks, templates, newCheckedCount, fetchTasks, router]);
+  }, [userId, householdId, checkedTaskIds, preCheckedIds, checkedTemplateIds, completedByMap, allMembers, freeTextChecked, freeText, tasks, templates, newCheckedCount, fetchTasks, router]);
 
   // Écran de succès
   if (showSuccess) {
@@ -410,16 +433,57 @@ export default function RecapPage() {
             <div className="mx-4">
               <SectionLabel title="Aussi fait aujourd'hui ?" />
               <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-                {sections.otherTasks.map((task, i) => (
-                  <div key={task.id} style={i < sections.otherTasks.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
-                    <CheckRow
-                      label={task.name}
-                      icon={task.category?.icon}
-                      checked={checkedTaskIds.has(task.id)}
-                      onToggle={() => toggleTask(task.id)}
-                    />
-                  </div>
-                ))}
+                {sections.otherTasks.map((task, i) => {
+                  // Membre par défaut : assigné à la tâche, ou utilisateur courant
+                  const defaultMemberId =
+                    task.assigned_to_phantom_id ??
+                    task.assigned_to ??
+                    userId ??
+                    '';
+                  const isChecked = checkedTaskIds.has(task.id);
+
+                  return (
+                    <div key={task.id} style={i < sections.otherTasks.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
+                      <CheckRow
+                        label={task.name}
+                        icon={task.category?.icon}
+                        checked={isChecked}
+                        onToggle={() => toggleTask(task.id, defaultMemberId)}
+                      />
+                      {/* Sélecteur "Fait par :" affiché seulement si la tâche est cochée */}
+                      {isChecked && allMembers.length > 1 && (
+                        <div
+                          className="flex items-center gap-2 px-4 pb-3 flex-wrap"
+                          style={{ borderTop: '0.5px solid var(--ios-separator)' }}
+                        >
+                          <span className="text-[12px] text-[#8e8e93] flex-shrink-0">Fait par :</span>
+                          {allMembers.map((member: HouseholdMember) => {
+                            const selected = (completedByMap[task.id] ?? defaultMemberId) === member.id;
+                            return (
+                              <button
+                                key={member.id}
+                                type="button"
+                                onClick={() =>
+                                  setCompletedByMap((m) => ({ ...m, [task.id]: member.id }))
+                                }
+                                className="flex items-center gap-1 px-2 py-1 rounded-full text-[12px] font-medium transition-all"
+                                style={{
+                                  background: selected ? '#007aff' : '#f2f2f7',
+                                  color: selected ? '#fff' : '#1c1c1e',
+                                }}
+                              >
+                                {member.isPhantom && (
+                                  <span className="text-[10px]">👤</span>
+                                )}
+                                {member.display_name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

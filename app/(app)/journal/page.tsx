@@ -172,8 +172,50 @@ export default function JournalPage() {
         </button>
       </div>
 
+      {/* Bloc rate-limit premium */}
+      {result?.code === 'AI_LIMIT_REACHED' && (
+        <div
+          className="mx-4 rounded-3xl p-6 relative overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, #1a0533 0%, #3a1c71 40%, #0a3d8f 100%)',
+            boxShadow: '0 16px 48px rgba(58,28,113,0.4)',
+          }}
+        >
+          <div
+            className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-20"
+            style={{
+              background: 'radial-gradient(circle, #a78bfa, transparent 70%)',
+              transform: 'translate(30%, -30%)',
+            }}
+          />
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-[32px]">🔒</span>
+              <p className="text-[18px] font-black text-white leading-tight">
+                Tu as atteint ta limite mensuelle IA
+              </p>
+            </div>
+            <p className="text-[14px] text-white/75 leading-relaxed mb-5">
+              Le journal conversationnel est limité en version gratuite.
+              Passe à Premium pour un accès illimité chaque mois.
+            </p>
+            <button
+              onClick={() => router.push('/upgrade')}
+              className="w-full rounded-2xl py-4 text-[16px] font-bold text-white"
+              style={{
+                background: 'rgba(255,255,255,0.2)',
+                border: '1.5px solid rgba(255,255,255,0.35)',
+                backdropFilter: 'blur(8px)',
+              }}
+            >
+              Passer à Premium →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Résultat du parsing */}
-      {result && (
+      {result && result.code !== 'AI_LIMIT_REACHED' && (
         <div className="mx-4 rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           {/* Réponse Aura */}
           <div className="px-5 py-4" style={{ background: '#EEF4FF', borderBottom: '0.5px solid var(--ios-separator)' }}>
