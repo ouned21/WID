@@ -678,6 +678,40 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* Notifications */}
+      <div className="mx-4">
+        <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Notifications</p>
+        <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          <div className="px-4 py-3 flex items-center justify-between">
+            <div>
+              <p className="text-[15px] text-[#1c1c1e]">🌙 Rappel journal du soir</p>
+              <p className="text-[13px] text-[#8e8e93] mt-0.5">
+                {typeof window !== 'undefined' && 'Notification' in window
+                  ? Notification.permission === 'granted'
+                    ? 'Activé — notification à 21h'
+                    : Notification.permission === 'denied'
+                    ? 'Bloqué dans les réglages du navigateur'
+                    : 'Tap pour activer'
+                  : 'Non supporté sur ce navigateur'}
+              </p>
+            </div>
+            {typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'denied' && (
+              <button
+                onClick={async () => {
+                  const { requestNotificationPermission, scheduleEveningRecap } = await import('@/utils/pushNotifications');
+                  const granted = await requestNotificationPermission();
+                  if (granted) scheduleEveningRecap();
+                }}
+                className="rounded-full px-4 py-1.5 text-[13px] font-semibold text-white"
+                style={{ background: Notification.permission === 'granted' ? '#34c759' : '#007aff' }}
+              >
+                {Notification.permission === 'granted' ? 'Activé ✓' : 'Activer'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Déconnexion */}
       <div className="mx-4">
         <button onClick={handleSignOut}
