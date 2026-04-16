@@ -155,7 +155,8 @@ export default function JournalPage() {
         />
 
         <div className="flex items-center justify-between mt-2 px-1">
-          <span className="text-[11px] text-[#c7c7cc]">{text.length} / 2000 · Cmd+Entrée pour envoyer</span>
+          <span className="text-[11px] text-[#c7c7cc]">🏠 Tâches du foyer uniquement · Cmd+Entrée pour envoyer</span>
+          <span className="text-[11px] text-[#c7c7cc]">{text.length}/2000</span>
         </div>
 
         <button

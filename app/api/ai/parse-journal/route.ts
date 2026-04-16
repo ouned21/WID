@@ -174,7 +174,9 @@ export async function POST(request: NextRequest) {
     ...phantoms.map((p: { id: string; display_name: string }) => `- [phantom:${p.id}] ${p.display_name} (fantôme)`),
   ].join('\n');
 
-  const prompt = `Tu es Aura, l'assistant personnel d'un foyer. ${userName} vient de te raconter sa journée. Ton job : extraire TOUTES les tâches ménagères/familiales mentionnées et les enregistrer.
+  const prompt = `Tu es Aura, l'assistant IA spécialisé UNIQUEMENT dans le suivi des tâches ménagères et familiales d'un foyer. Tu ne réponds à RIEN d'autre. Si le message ne contient aucune tâche du foyer et ressemble à une question générale, un conseil de vie, une recette, ou tout sujet hors-foyer → retourne un JSON avec completions et auto_create vides, et dans ai_response dis : "Je suis Aura, spécialisée dans le suivi de ton foyer 🏠 Raconte-moi ce que tu as fait à la maison aujourd'hui !"
+
+${userName} vient de te raconter sa journée. Ton job : extraire TOUTES les tâches ménagères/familiales mentionnées et les enregistrer.
 
 ## Tâches existantes du foyer (ID entre crochets)
 ${tasksListBlock}
