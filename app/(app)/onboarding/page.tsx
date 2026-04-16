@@ -197,10 +197,31 @@ export default function OnboardingPage() {
 
       const { tasks: aiTasks } = await response.json();
 
-      if (!Array.isArray(aiTasks) || aiTasks.length === 0) {
-        setGeneratedTasks([]);
-        setGenerationDone(true);
-        return;
+      // Fallback sur le catalogue statique si Claude échoue ou retourne vide
+      type TaskInput = { name: string; scoring_category: string; frequency: string; duration_estimate: string; physical_effort: string; mental_load_score: number; description?: string };
+      let tasksToInsert: TaskInput[] = Array.isArray(aiTasks) ? aiTasks : [];
+
+      if (tasksToInsert.length === 0) {
+        const { data: fallbackAssoc } = await supabase
+          .from('task_associations')
+          .select('*')
+          .eq('trigger_type', 'equipment')
+          .in('trigger_value', [...selectedEquipment]);
+        if (fallbackAssoc && fallbackAssoc.length > 0) {
+          tasksToInsert = fallbackAssoc.map((a: Record<string, unknown>) => ({
+            name: String(a.suggested_name ?? ''),
+            scoring_category: String(a.suggested_scoring_category ?? 'cleaning'),
+            frequency: String(a.suggested_frequency ?? 'weekly'),
+            duration_estimate: String(a.suggested_duration ?? 'short'),
+            physical_effort: String(a.suggested_physical ?? 'light'),
+            mental_load_score: Number(a.suggested_mental_load_score) || 3,
+            description: a.description ? String(a.description) : undefined,
+          }));
+        } else {
+          setGeneratedTasks([]);
+          setGenerationDone(true);
+          return;
+        }
       }
 
       // Catégorie : mapping scoring_category → UUID (UUIDs fixes définis dans reset_part1)
@@ -238,7 +259,7 @@ export default function OnboardingPage() {
         (existingTasks ?? []).map((t: { name: string }) => t.name.toLowerCase()),
       );
 
-      for (const aiTask of aiTasks) {
+      for (const aiTask of tasksToInsert) {
         const key = aiTask.name.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
@@ -487,8 +508,9 @@ export default function OnboardingPage() {
           >
             Créer mes tâches et mon planning →
           </button>
-          <p className="text-center text-[11px] text-[#8e8e93] mt-2">
-            Tu peux aussi passer sans ajouter personne
+          <p className="text-center text-[11px] text-[#8e8e93] mt-2 leading-relaxed">
+            En continuant, tu acceptes qu&apos;une IA analyse ton foyer pour générer tes tâches.{' '}
+            <a href="/legal/privacy" target="_blank" style={{ color: '#007aff' }}>Confidentialité</a>
           </p>
         </div>
       </div>
