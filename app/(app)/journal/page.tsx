@@ -15,19 +15,16 @@ type ParsedCompletion = {
   confidence: number;
 };
 
-type SuggestedTask = {
+type AutoCreatedTask = {
   name: string;
-  category: string;
-  frequency: string;
-  duration: string;
-  reason: string;
+  task_id: string;
 };
 
 type ParseResponse = {
   journalId?: string;
   completions: ParsedCompletion[];
+  auto_created?: AutoCreatedTask[];
   unmatched: string[];
-  suggested_tasks?: SuggestedTask[];
   ai_response: string;
   mood_tone: string | null;
   error?: string;
@@ -207,44 +204,33 @@ export default function JournalPage() {
             </div>
           )}
 
-          {/* Items non matchés */}
-          {result.unmatched.length > 0 && (
-            <div className="px-5 py-4" style={result.suggested_tasks && result.suggested_tasks.length > 0 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
-              <p className="text-[11px] font-bold text-[#ff9500] uppercase tracking-wide mb-2">
-                ? Non compris
+          {/* Tâches auto-créées */}
+          {result.auto_created && result.auto_created.length > 0 && (
+            <div className="px-5 py-4" style={result.unmatched.length > 0 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
+              <p className="text-[11px] font-bold text-[#007aff] uppercase tracking-wide mb-3">
+                ✨ {result.auto_created.length} nouvelle{result.auto_created.length > 1 ? 's' : ''} tâche{result.auto_created.length > 1 ? 's' : ''} créée{result.auto_created.length > 1 ? 's' : ''} & enregistrée{result.auto_created.length > 1 ? 's' : ''}
               </p>
-              <div className="space-y-1">
-                {result.unmatched.map((u, i) => (
-                  <p key={i} className="text-[13px] text-[#8e8e93] italic">&laquo; {u} &raquo;</p>
+              <div className="space-y-2">
+                {result.auto_created.map((t, i) => (
+                  <div key={i} className="flex items-center gap-2 text-[14px]">
+                    <span className="text-[16px]">✨</span>
+                    <span className="text-[#1c1c1e]">{t.name}</span>
+                    <span className="ml-auto text-[11px] text-[#007aff] font-semibold">Nouveau</span>
+                  </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Tâches suggérées à créer */}
-          {result.suggested_tasks && result.suggested_tasks.length > 0 && (
+          {/* Items non matchés */}
+          {result.unmatched.length > 0 && (
             <div className="px-5 py-4">
-              <p className="text-[11px] font-bold text-[#007aff] uppercase tracking-wide mb-3">
-                💡 Aura suggère de créer
+              <p className="text-[11px] font-bold text-[#ff9500] uppercase tracking-wide mb-2">
+                ℹ︎ Pas une tâche
               </p>
-              <div className="space-y-2">
-                {result.suggested_tasks.map((t, i) => (
-                  <div key={i} className="flex items-center justify-between gap-3 rounded-xl p-3"
-                    style={{ background: '#f0f6ff' }}>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-semibold text-[#1c1c1e]">{t.name}</p>
-                      <p className="text-[11px] text-[#8e8e93] mt-0.5">{t.reason}</p>
-                    </div>
-                    <button
-                      onClick={() => router.push(
-                        `/tasks/new?name=${encodeURIComponent(t.name)}&category=${t.category}&frequency=${t.frequency}&duration=${t.duration}`
-                      )}
-                      className="flex-shrink-0 rounded-xl px-3 py-1.5 text-[12px] font-bold text-white"
-                      style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)' }}
-                    >
-                      Créer
-                    </button>
-                  </div>
+              <div className="space-y-1">
+                {result.unmatched.map((u, i) => (
+                  <p key={i} className="text-[13px] text-[#8e8e93] italic">&laquo; {u} &raquo;</p>
                 ))}
               </div>
             </div>
