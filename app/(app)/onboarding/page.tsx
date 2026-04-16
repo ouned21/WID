@@ -188,7 +188,7 @@ export default function OnboardingPage() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-      // Résoudre les noms d'équipements ici (la route Edge n'a pas accès à Supabase)
+      // Résoudre les noms d'équipements pour les passer à Claude
       const { data: equipRows } = await supabase
         .from('onboarding_equipment')
         .select('id, name')
@@ -197,20 +197,17 @@ export default function OnboardingPage() {
 
       let aiTasks: TaskInput[] = [];
       try {
-        const response = await fetch('/api/onboarding/generate-tasks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ equipment: [...selectedEquipment], equipmentNames, family }),
-          signal: controller.signal,
+        // Appel via Supabase Edge Function (150s timeout, pas Vercel)
+        const { data: fnData, error: fnError } = await supabase.functions.invoke('generate-tasks', {
+          body: { equipmentNames, family },
         });
         clearTimeout(timeoutId);
-        if (response.ok) {
-          const json = await response.json();
-          aiTasks = Array.isArray(json.tasks) ? json.tasks : [];
+        if (!fnError && Array.isArray(fnData?.tasks)) {
+          aiTasks = fnData.tasks;
         }
       } catch {
         clearTimeout(timeoutId);
-        // Timeout ou erreur réseau → fallback catalogue statique ci-dessous
+        // Fallback catalogue statique ci-dessous
       }
 
       // Fallback sur le catalogue statique si Claude échoue ou retourne vide
