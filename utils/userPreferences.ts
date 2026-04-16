@@ -99,7 +99,19 @@ export function formatPreferencesForPrompt(
     lines.push(`${prefix}souhaite un niveau de charge ${LOAD_LABELS[prefs.load_preference] ?? prefs.load_preference}`);
   }
   if (prefs.freeform_note && prefs.freeform_note.trim()) {
-    lines.push(`${prefix}note : ${prefs.freeform_note.trim()}`);
+    // Sanitisation anti-prompt-injection : tronque à 500 chars et supprime les
+    // séquences qui pourraient faire croire à l'IA qu'il s'agit d'instructions système.
+    const sanitized = prefs.freeform_note
+      .trim()
+      .slice(0, 500)
+      .replace(/```[\s\S]*?```/g, '') // supprime les blocs de code
+      .replace(/^#{1,6}\s/gm, '')     // supprime les titres Markdown
+      .replace(/\bignore\b.*\binstructions?\b/gi, '') // pattern d'injection classique
+      .replace(/\bsystem\s*:/gi, '')
+      .trim();
+    if (sanitized) {
+      lines.push(`${prefix}note personnelle : "${sanitized}"`);
+    }
   }
 
   return lines.join('\n');

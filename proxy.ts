@@ -41,11 +41,6 @@ export async function proxy(request: NextRequest) {
   const isLandingPage = pathname === '/landing';
   const isLegalPage = pathname.startsWith('/legal/');
 
-  // Mode preview : pas de redirections (pour le preview local)
-  if (request.nextUrl.searchParams.has('preview')) {
-    return response;
-  }
-
   // Pas connecte : redirect vers /login (sauf si deja sur une page auth, landing, ou légale)
   if (!user && !isAuthPage && !isLandingPage && !isLegalPage) {
     const url = request.nextUrl.clone();

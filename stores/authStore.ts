@@ -35,10 +35,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialize: async () => {
     const supabase = createClient();
 
-    // 1. Recuperer la session existante
-    const { data } = await supabase.auth.getSession();
-    const session = data.session;
-    const user = session?.user ?? null;
+    // 1. Récupérer l'utilisateur via getUser() (vérification serveur, non spoofable)
+    // getSession() lit depuis le localStorage local et peut être manipulé côté client.
+    const { data: { user } } = await supabase.auth.getUser();
+    const session = user ? (await supabase.auth.getSession()).data.session : null;
 
     set({ session, user });
 

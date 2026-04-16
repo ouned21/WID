@@ -80,11 +80,25 @@ export async function checkAndIncrementAiUsage(
     };
   }
 
-  // Incrémenter le compteur
-  await supabase
+  // Incrément atomique avec optimistic locking (anti race condition TOCTOU).
+  // On ne met à jour QUE si ai_calls_this_month est toujours égal à currentCount —
+  // si deux requêtes simultanées passent la vérification, une seule gagne.
+  const { count: updated } = await supabase
     .from('profiles')
     .update({ ai_calls_this_month: currentCount + 1 })
-    .eq('id', userId);
+    .eq('id', userId)
+    .eq('ai_calls_this_month', currentCount) // condition atomique
+    .select('id', { count: 'exact', head: true });
+
+  if (!updated || updated === 0) {
+    // Quelqu'un d'autre a incrémenté en même temps — re-lire et refuser par sécurité
+    return {
+      allowed: false,
+      remaining: 0,
+      isPremium: false,
+      reason: 'limit_reached',
+    };
+  }
 
   return {
     allowed: true,
