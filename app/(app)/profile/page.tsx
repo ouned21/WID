@@ -4,9 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
-import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
-import { taskLoad } from '@/utils/designSystem';
 import { createClient } from '@/lib/supabase';
 import { useDashboardStyle, type DashboardStyle } from '@/app/(app)/dashboard/page';
 
@@ -203,44 +201,21 @@ export default function ProfilePage() {
     <div className="pt-4 pb-8" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <h2 className="text-[28px] font-bold text-[#1c1c1e] px-4">Profil</h2>
 
-      {/* Carte utilisateur + stats */}
+      {/* Carte utilisateur */}
       {(() => {
-        const { tasks } = useTaskStore.getState();
-        const myTasks = tasks.filter((t) => t.assigned_to === profile?.id);
-        const totalLoad = myTasks.reduce((s, t) => s + taskLoad(t), 0);
-        const allLoad = tasks.reduce((s, t) => s + taskLoad(t), 0);
-        const contribution = allLoad > 0 ? Math.round((totalLoad / allLoad) * 100) : 0;
         const memberSince = profile?.joined_at ? Math.floor((Date.now() - new Date(profile.joined_at).getTime()) / 86400000) : 0;
-
         return (
-          <>
-            <div className="mx-4 rounded-2xl bg-white p-5 flex items-center gap-4" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-              <div className="flex h-14 w-14 items-center justify-center rounded-full text-[22px] font-bold text-white" style={{ background: '#007aff' }}>
-                {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
-              </div>
-              <div>
-                <p className="text-[20px] font-bold text-[#1c1c1e]">{profile?.display_name}</p>
-                <p className="text-[12px] text-[#8e8e93]">
-                  {profile?.role === 'admin' ? 'Administrateur' : 'Membre'} · {memberSince > 0 ? `Depuis ${memberSince} jours` : 'Nouveau membre'}
-                </p>
-              </div>
+          <div className="mx-4 rounded-2xl bg-white p-5 flex items-center gap-4" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <div className="flex h-14 w-14 items-center justify-center rounded-full text-[22px] font-bold text-white flex-shrink-0" style={{ background: '#007aff' }}>
+              {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
             </div>
-
-            <div className="mx-4 grid grid-cols-3 gap-2">
-              <div className="rounded-2xl bg-white p-3 text-center" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                <p className="text-[22px] font-black text-[#007aff]">{myTasks.length}</p>
-                <p className="text-[10px] text-[#8e8e93]">tâches actives</p>
-              </div>
-              <div className="rounded-2xl bg-white p-3 text-center" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                <p className="text-[22px] font-black text-[#af52de]">{contribution}%</p>
-                <p className="text-[10px] text-[#8e8e93]">contribution</p>
-              </div>
-              <div className="rounded-2xl bg-white p-3 text-center" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                <p className="text-[22px] font-black text-[#ff9500]">{totalLoad}</p>
-                <p className="text-[10px] text-[#8e8e93]">load total</p>
-              </div>
+            <div>
+              <p className="text-[20px] font-bold text-[#1c1c1e]">{profile?.display_name}</p>
+              <p className="text-[12px] text-[#8e8e93]">
+                {profile?.role === 'admin' ? 'Administrateur' : 'Membre'} · {memberSince > 0 ? `Depuis ${memberSince} jour${memberSince > 1 ? 's' : ''}` : 'Nouveau membre'}
+              </p>
             </div>
-          </>
+          </div>
         );
       })()}
 
