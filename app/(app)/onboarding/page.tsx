@@ -30,7 +30,8 @@ type FamilyMember = {
 type Step =
   | 'equipment'   // Écran 1 : Sélection des équipements
   | 'family'      // Écran 2 : Composition familiale
-  | 'thinking';   // Animation "Aura réfléchit..." → redirect /planning
+  | 'thinking'    // Animation "Aura réfléchit..."
+  | 'results';    // Écran résultats : liste des tâches créées
 
 const CATEGORY_LABELS: Record<string, string> = {
   cuisine: '🍳 Cuisine',
@@ -344,10 +345,14 @@ export default function OnboardingPage() {
     }
   }, [householdId, userId, selectedEquipment, family, fetchHousehold]);
 
-  const handleFinish = useCallback(async () => {
+  const handleShowResults = useCallback(async () => {
     if (householdId) await fetchTasks(householdId);
+    setStep('results');
+  }, [householdId, fetchTasks]);
+
+  const handleFinish = useCallback(() => {
     router.push('/planning');
-  }, [householdId, fetchTasks, router]);
+  }, [router]);
 
   // =============================================================================
   // RENDU
@@ -528,8 +533,95 @@ export default function OnboardingPage() {
         <AnimatedThinking
           steps={steps}
           isReady={generationDone}
-          onDone={handleFinish}
+          onDone={handleShowResults}
         />
+      </div>
+    );
+  }
+
+  // ─── Écran résultats ───
+  if (step === 'results') {
+    // Grouper par catégorie
+    const byCategory: Record<string, { name: string; icon: string; color: string; tasks: typeof generatedTasks }> = {};
+    for (const t of generatedTasks) {
+      const key = t.category_id;
+      if (!byCategory[key]) {
+        byCategory[key] = {
+          name: t.category_name ?? 'Autres',
+          icon: t.category_icon ?? '📌',
+          color: t.category_color ?? '#8e8e93',
+          tasks: [],
+        };
+      }
+      byCategory[key].tasks.push(t);
+    }
+    const groups = Object.values(byCategory);
+
+    return (
+      <div className="pt-4 pb-32">
+        {/* Header */}
+        <div className="px-4 mb-6 text-center">
+          <div className="text-[52px] mb-3">✅</div>
+          <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
+            Aura a créé<br />{generatedTasks.length} tâches pour toi
+          </h2>
+          <p className="text-[14px] text-[#8e8e93] mt-2">
+            Voici ce qui a été planifié dans ton foyer.
+          </p>
+        </div>
+
+        {/* Liste par catégorie */}
+        <div className="px-4 space-y-4">
+          {groups.map((group) => (
+            <div key={group.name}>
+              {/* Label catégorie */}
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[18px]">{group.icon}</span>
+                <p className="text-[13px] font-bold text-[#1c1c1e]">{group.name}</p>
+                <span className="text-[11px] text-[#8e8e93]">· {group.tasks.length}</span>
+              </div>
+
+              {/* Tâches */}
+              <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                {group.tasks.map((t, i) => (
+                  <div
+                    key={t.id}
+                    className="flex items-center gap-3 px-4 py-3"
+                    style={i < group.tasks.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}
+                  >
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: group.color }} />
+                    <p className="flex-1 text-[14px] text-[#1c1c1e]">{t.name}</p>
+                    {t.next_due_at && (
+                      <p className="text-[11px] text-[#8e8e93] flex-shrink-0">
+                        {new Date(t.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {generatedTasks.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-[15px] text-[#8e8e93]">Aucune tâche générée.</p>
+            </div>
+          )}
+        </div>
+
+        {/* CTA fixe */}
+        <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3" style={{ background: 'linear-gradient(transparent, #f6f8ff 30%)' }}>
+          <button
+            onClick={handleFinish}
+            className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white"
+            style={{
+              background: 'linear-gradient(135deg, #007aff, #5856d6)',
+              boxShadow: '0 8px 24px rgba(0,122,255,0.3)',
+            }}
+          >
+            Voir mon planning →
+          </button>
+        </div>
       </div>
     );
   }
