@@ -39,8 +39,7 @@ CREATE TABLE public.households (
   created_at              timestamptz DEFAULT now()
 );
 ALTER TABLE public.households ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "households_select" ON public.households FOR SELECT
-  USING (id IN (SELECT household_id FROM public.profiles WHERE id = auth.uid()));
+-- NOTE: households_select dépend de profiles → créée APRÈS profiles ci-dessous
 CREATE POLICY "households_insert" ON public.households FOR INSERT
   WITH CHECK (created_by = auth.uid());
 CREATE POLICY "households_update" ON public.households FOR UPDATE
@@ -78,6 +77,10 @@ CREATE POLICY "profiles_update" ON public.profiles FOR UPDATE
   USING (id = auth.uid());
 CREATE INDEX idx_profiles_household ON public.profiles(household_id);
 CREATE INDEX idx_profiles_premium   ON public.profiles(is_premium);
+
+-- Politique households_select ajoutée ici car elle référence profiles
+CREATE POLICY "households_select" ON public.households FOR SELECT
+  USING (id IN (SELECT household_id FROM public.profiles WHERE id = auth.uid()));
 
 -- Trigger auto-création de profil
 CREATE OR REPLACE FUNCTION public.handle_new_user()
