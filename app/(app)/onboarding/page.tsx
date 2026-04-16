@@ -186,14 +186,21 @@ export default function OnboardingPage() {
       // Appel IA : générer les tâches via Claude
       // Timeout 25s pour éviter le blocage si Claude est lent
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 7000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      // Résoudre les noms d'équipements ici (la route Edge n'a pas accès à Supabase)
+      const { data: equipRows } = await supabase
+        .from('onboarding_equipment')
+        .select('id, name')
+        .in('id', [...selectedEquipment]);
+      const equipmentNames = (equipRows ?? []).map((e: { id: string; name: string }) => e.name);
 
       let aiTasks: TaskInput[] = [];
       try {
         const response = await fetch('/api/onboarding/generate-tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ equipment: [...selectedEquipment], family }),
+          body: JSON.stringify({ equipment: [...selectedEquipment], equipmentNames, family }),
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
