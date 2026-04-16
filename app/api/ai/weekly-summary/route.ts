@@ -37,8 +37,12 @@ export async function POST(request: NextRequest) {
     }, { status: 403 });
   }
 
-  const { householdId } = await request.json();
-  if (!householdId) return NextResponse.json({ error: 'householdId requis' }, { status: 400 });
+  // Sécurité IDOR : on ignore householdId du body, on le lit depuis le profil en DB.
+  // Un utilisateur ne peut accéder qu'aux données de son propre foyer.
+  const { data: profile } = await supabase
+    .from('profiles').select('household_id').eq('id', user.id).maybeSingle();
+  const householdId = profile?.household_id;
+  if (!householdId) return NextResponse.json({ error: 'Pas de foyer associé' }, { status: 400 });
 
   // Récupérer les données de la semaine
   const weekAgo = new Date();
