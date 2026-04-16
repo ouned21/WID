@@ -721,38 +721,104 @@ export default function ProfilePage() {
         </button>
       </div>
 
-      {/* Suppression du compte (RGPD) */}
-      <div className="mx-4 mt-3">
-        <button
-          onClick={async () => {
-            const confirmed = confirm(
-              'Supprimer définitivement ton compte ?\n\nToutes tes données seront effacées immédiatement (tâches, historique, préférences). Cette action est irréversible.',
-            );
-            if (!confirmed) return;
-            const sure = confirm('Dernière confirmation : es-tu vraiment sûr(e) ?');
-            if (!sure) return;
+      {/* Mes données (RGPD) */}
+      <div className="mx-4">
+        <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Mes données</p>
+        <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
 
-            try {
-              const res = await fetch('/api/account/delete', { method: 'POST' });
-              if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                alert(`Erreur lors de la suppression : ${data.message ?? data.error ?? 'inconnue'}`);
-                return;
+          {/* Export des données */}
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch('/api/user/export-data', { method: 'GET' });
+                if (!res.ok) {
+                  alert('Erreur lors de l\'export. Réessaie dans quelques instants.');
+                  return;
+                }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const today = new Date().toISOString().split('T')[0];
+                a.href = url;
+                a.download = `mes-donnees-aura-${today}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              } catch (err) {
+                alert(`Erreur réseau : ${err instanceof Error ? err.message : 'inconnue'}`);
               }
-              await signOut();
-              router.push('/login');
-            } catch (err) {
-              alert(`Erreur réseau : ${err instanceof Error ? err.message : 'inconnue'}`);
-            }
-          }}
-          className="w-full rounded-xl py-3 text-[13px] font-medium"
-          style={{ color: '#ff3b30', background: 'transparent' }}
-        >
-          Supprimer mon compte et mes données
-        </button>
-        <p className="text-center text-[11px] text-[#c7c7cc] mt-1">
-          Conformément au RGPD · <a href="/legal/privacy" style={{ color: '#8e8e93' }}>Politique de confidentialité</a>
-        </p>
+            }}
+            className="w-full flex items-center justify-between px-4 py-3"
+            style={{ borderBottom: '0.5px solid var(--ios-separator)' }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-[18px]">📥</span>
+              <div className="text-left">
+                <p className="text-[15px] text-[#1c1c1e]">Télécharger mes données</p>
+                <p className="text-[12px] text-[#8e8e93]">Export JSON — Art. 20 RGPD</p>
+              </div>
+            </div>
+            <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
+          </button>
+
+          {/* Politique de confidentialité */}
+          <a
+            href="/legal/privacy"
+            className="flex items-center justify-between px-4 py-3"
+            style={{ borderBottom: '0.5px solid var(--ios-separator)' }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-[18px]">🔒</span>
+              <div>
+                <p className="text-[15px] text-[#1c1c1e]">Politique de confidentialité</p>
+                <p className="text-[12px] text-[#8e8e93]">Comment nous protégeons vos données</p>
+              </div>
+            </div>
+            <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
+          </a>
+
+          {/* Hébergement */}
+          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+            <p className="text-[12px] text-[#8e8e93]">
+              Données hébergées par <strong>Supabase</strong> (EU — Frankfurt) · Traitées par <strong>Anthropic</strong> (US) pour l&apos;IA journal
+            </p>
+          </div>
+
+          {/* Suppression du compte */}
+          <button
+            onClick={async () => {
+              const confirmed = confirm(
+                'Supprimer définitivement ton compte ?\n\nToutes tes données seront effacées immédiatement (tâches, historique, préférences, journaux). Cette action est irréversible.',
+              );
+              if (!confirmed) return;
+              const sure = confirm('Dernière confirmation : es-tu vraiment sûr(e) ? Cette action ne peut pas être annulée.');
+              if (!sure) return;
+
+              try {
+                const res = await fetch('/api/account/delete', { method: 'POST' });
+                if (!res.ok) {
+                  const data = await res.json().catch(() => ({}));
+                  alert(`Erreur lors de la suppression : ${data.message ?? data.error ?? 'inconnue'}`);
+                  return;
+                }
+                await signOut();
+                router.push('/login');
+              } catch (err) {
+                alert(`Erreur réseau : ${err instanceof Error ? err.message : 'inconnue'}`);
+              }
+            }}
+            className="w-full px-4 py-3 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-[18px]">🗑️</span>
+              <div>
+                <p className="text-[15px]" style={{ color: '#ff3b30' }}>Supprimer mon compte et mes données</p>
+                <p className="text-[12px] text-[#8e8e93]">Action irréversible — Art. 17 RGPD</p>
+              </div>
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* Liens légaux */}
@@ -762,7 +828,7 @@ export default function ProfilePage() {
           <span>·</span>
           <a href="/legal/privacy">Confidentialité</a>
           <span>·</span>
-          <a href="mailto:privacy@aura.app">Contact</a>
+          <a href="mailto:privacy@fairshare.app">Contact RGPD</a>
         </div>
         <p className="text-[11px] text-[#c7c7cc] mt-2">Aura © {new Date().getFullYear()}</p>
       </div>

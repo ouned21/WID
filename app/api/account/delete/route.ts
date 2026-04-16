@@ -29,14 +29,25 @@ export async function POST() {
   const userId = user.id;
 
   try {
-    // 1. Soft cleanup des données liées (requête utilisateur — pas service role)
-    // On efface d'abord le contenu qu'il a créé
+    // 1. Supprimer les données personnelles en cascade
+    // Les tables avec ON DELETE CASCADE (profiles → user_journals, ai_token_usage,
+    // feature_usage_events, user_patterns, user_preferences, task_completions via FK)
+    // seront nettoyées automatiquement lors de la suppression du profil.
+    // On efface manuellement ce qui n'est pas en CASCADE strict :
     await supabase.from('task_completions').delete().eq('completed_by', userId);
-    await supabase.from('household_tasks').delete().eq('created_by', userId);
+    await supabase.from('task_exchanges').delete().eq('proposed_by', userId);
+    await supabase.from('task_exchanges').delete().eq('proposed_to', userId);
     await supabase.from('phantom_members').delete().eq('created_by', userId);
-    await supabase.from('task_exchanges').delete().eq('from_user_id', userId);
+    await supabase.from('household_tasks').delete().eq('created_by', userId);
 
-    // 2. Supprimer son profil
+    // 2. Supprimer les données IA personnelles
+    await supabase.from('user_journals').delete().eq('user_id', userId);
+    await supabase.from('ai_token_usage').delete().eq('user_id', userId);
+    await supabase.from('feature_usage_events').delete().eq('user_id', userId);
+    await supabase.from('user_patterns').delete().eq('user_id', userId);
+    await supabase.from('user_preferences').delete().eq('user_id', userId);
+
+    // 3. Supprimer son profil (ON DELETE CASCADE nettoiera le reste)
     await supabase.from('profiles').delete().eq('id', userId);
 
     // 3. Si SERVICE_ROLE_KEY disponible : hard delete auth
