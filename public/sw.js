@@ -3,7 +3,7 @@
  * Gère les notifications push et le cache basique pour la PWA.
  */
 
-const CACHE_NAME = 'yova-v1';
+const CACHE_NAME = 'yova-v2';
 
 // Install : mettre en cache les assets essentiels
 self.addEventListener('install', (event) => {
