@@ -181,7 +181,7 @@ INSERT INTO public.task_templates
   (category_id, name, default_frequency, default_mental_load_score, is_system, scoring_category, default_duration, default_physical, typical_time)
 VALUES
   ('11111111-1111-1111-1111-111111111111','Faire la vaisselle','daily',1,true,'cleaning','short','light','soir'),
-  ('11111111-1111-1111-1111-111111111111','Vider le lave-vaisselle','daily',1,true,'cleaning','short','light','matin'),
+  ('22222222-2222-2222-2222-222222222222','Vider le lave-vaisselle','daily',1,true,'tidying','short','light','matin'),
   ('11111111-1111-1111-1111-111111111111','Passer l''aspirateur','weekly',3,true,'cleaning','medium','medium','flexible'),
   ('11111111-1111-1111-1111-111111111111','Laver les sols','weekly',3,true,'cleaning','medium','medium','flexible'),
   ('11111111-1111-1111-1111-111111111111','Nettoyer la cuisine','weekly',3,true,'cleaning','medium','medium','flexible'),
@@ -691,15 +691,13 @@ INSERT INTO task_associations (trigger_type, trigger_value, suggested_name, sugg
 -- === CUISINE ===
 INSERT INTO task_associations (trigger_type, trigger_value, suggested_name, suggested_scoring_category, suggested_frequency, suggested_duration, suggested_physical, suggested_mental_load_score, relative_days, description, sort_order) VALUES
 ('equipment', 'four', 'Nettoyer le four', 'cleaning', 'quarterly', 'medium', 'medium', 4, 0, 'Intérieur, grilles, vitre', 1),
-('equipment', 'four', 'Nettoyer la vitre du four', 'cleaning', 'monthly', 'short', 'light', 2, 0, 'Produit dégraissant', 2),
 ('equipment', 'plaque_cuisson', 'Nettoyer les plaques de cuisson', 'cleaning', 'weekly', 'short', 'light', 2, 0, 'Après chaque utilisation intensive', 1),
 ('equipment', 'hotte', 'Nettoyer les filtres de la hotte', 'cleaning', 'quarterly', 'short', 'light', 3, 0, 'Dégraisser ou remplacer', 1),
 ('equipment', 'refrigerateur', 'Nettoyer le réfrigérateur', 'cleaning', 'monthly', 'medium', 'medium', 4, 0, 'Intérieur, tiroirs, joints', 1),
 ('equipment', 'refrigerateur', 'Dégivrer le congélateur', 'cleaning', 'semiannual', 'long', 'medium', 4, 0, 'Si givre > 5mm', 3),
-('equipment', 'lave_vaisselle', 'Vider le lave-vaisselle', 'cleaning', 'daily', 'short', 'light', 2, 0, 'Ranger la vaisselle propre', 1),
+('equipment', 'lave_vaisselle', 'Vider le lave-vaisselle', 'tidying', 'daily', 'short', 'light', 2, 0, 'Ranger la vaisselle propre', 1),
 ('equipment', 'lave_vaisselle', 'Nettoyer le filtre du lave-vaisselle', 'cleaning', 'monthly', 'short', 'light', 2, 0, 'Retirer et rincer le filtre', 2),
-('equipment', 'lave_vaisselle', 'Ajouter du sel régénérant', 'cleaning', 'monthly', 'very_short', 'none', 1, 0, 'Anti-calcaire', 3),
-('equipment', 'lave_vaisselle', 'Lancer un cycle de nettoyage à vide', 'cleaning', 'monthly', 'very_short', 'none', 1, 0, 'Vinaigre blanc à haute température', 4),
+('equipment', 'lave_vaisselle', 'Entretenir le lave-vaisselle', 'cleaning', 'monthly', 'very_short', 'none', 2, 0, 'Sel régénérant + cycle à vide au vinaigre blanc', 3),
 ('equipment', 'micro_ondes', 'Nettoyer le micro-ondes', 'cleaning', 'monthly', 'short', 'light', 2, 0, 'Eau citronnée 3 min puis essuyer', 1),
 ('equipment', 'cafetiere', 'Détartrer la cafetière', 'cleaning', 'monthly', 'short', 'none', 2, 0, 'Vinaigre blanc ou détartrant', 1),
 ('equipment', 'bouilloire', 'Détartrer la bouilloire', 'cleaning', 'monthly', 'short', 'none', 1, 0, 'Vinaigre blanc, rincer', 1),
@@ -720,8 +718,7 @@ INSERT INTO task_associations (trigger_type, trigger_value, suggested_name, sugg
 ('equipment', 'lave_linge', 'Nettoyer le joint du lave-linge', 'cleaning', 'monthly', 'short', 'light', 2, 0, 'Vinaigre, chiffon, vérifier moisissures', 2),
 ('equipment', 'lave_linge', 'Nettoyer le filtre du lave-linge', 'cleaning', 'quarterly', 'short', 'light', 2, 0, 'Ouvrir la trappe, rincer', 3),
 ('equipment', 'lave_linge', 'Cycle de nettoyage à vide', 'cleaning', 'monthly', 'very_short', 'none', 1, 0, '90°C avec vinaigre blanc', 4),
-('equipment', 'seche_linge', 'Vider le filtre du sèche-linge', 'laundry', 'weekly', 'very_short', 'none', 1, 0, 'Après chaque cycle', 1),
-('equipment', 'seche_linge', 'Vider le bac à eau du sèche-linge', 'laundry', 'weekly', 'very_short', 'none', 1, 0, 'Condensation', 2),
+('equipment', 'seche_linge', 'Vider le filtre et le bac du sèche-linge', 'laundry', 'weekly', 'very_short', 'none', 1, 0, 'Filtre peluches + bac à eau de condensation — après chaque cycle', 1),
 ('equipment', 'fer_a_repasser', 'Repasser le linge', 'laundry', 'weekly', 'medium', 'medium', 3, 0, 'Chemises, pantalons, nappes', 1),
 ('equipment', 'fer_a_repasser', 'Détartrer le fer', 'cleaning', 'quarterly', 'short', 'none', 2, 0, 'Vinaigre ou détartrant', 2),
 ('equipment', 'etendoir', 'Étendre le linge', 'laundry', 'weekly', 'short', 'light', 2, 0, 'Après la machine', 1),
@@ -740,7 +737,7 @@ INSERT INTO task_associations (trigger_type, trigger_value, suggested_name, sugg
 ('equipment', 'jardin', 'Arroser le jardin', 'outdoor', 'daily', 'short', 'light', 1, 0, 'Matin ou soir en été', 2),
 ('equipment', 'jardin', 'Désherber', 'outdoor', 'monthly', 'medium', 'high', 2, 0, 'Massifs, allées, potager', 3),
 ('equipment', 'jardin', 'Tailler les haies', 'outdoor', 'quarterly', 'long', 'high', 3, 0, 'Taille-haie ou sécateur', 4),
-('equipment', 'jardin', 'Ramasser les feuilles mortes', 'outdoor', 'weekly', 'medium', 'medium', 2, 0, 'En automne', 5),
+('equipment', 'jardin', 'Ramasser les feuilles mortes', 'outdoor', 'monthly', 'medium', 'medium', 2, 0, 'Surtout en automne', 5),
 ('equipment', 'piscine', 'Vérifier le pH de la piscine', 'outdoor', 'weekly', 'very_short', 'none', 2, 0, 'Bandelettes test', 1),
 ('equipment', 'piscine', 'Passer l''épuisette', 'outdoor', 'daily', 'short', 'light', 1, 0, 'Feuilles et insectes', 2),
 ('equipment', 'piscine', 'Nettoyer le filtre de la piscine', 'outdoor', 'biweekly', 'short', 'light', 2, 0, 'Contre-lavage ou nettoyage', 3),
@@ -751,12 +748,11 @@ INSERT INTO task_associations (trigger_type, trigger_value, suggested_name, sugg
 
 -- === VOITURE ===
 ('equipment', 'voiture', 'Faire le plein / recharger', 'vehicle', 'weekly', 'short', 'none', 2, 0, 'Essence ou électrique', 1),
-('equipment', 'voiture', 'Laver la voiture', 'vehicle', 'monthly', 'short', 'light', 2, 0, 'Intérieur et extérieur', 2),
+('equipment', 'voiture', 'Laver la voiture', 'vehicle', 'monthly', 'short', 'light', 2, 0, 'Extérieur (karcher/main) + intérieur (aspirateur, lingettes)', 2),
 ('equipment', 'voiture', 'Vérifier la pression des pneus', 'vehicle', 'monthly', 'very_short', 'none', 2, 0, 'Station service', 3),
 ('equipment', 'voiture', 'Vidange / entretien', 'vehicle', 'semiannual', 'long', 'none', 5, 0, 'RDV garage', 4),
 ('equipment', 'voiture', 'Contrôle technique', 'vehicle', 'yearly', 'long', 'none', 6, 0, 'Obligatoire', 5),
 ('equipment', 'voiture', 'Changement pneus hiver/été', 'vehicle', 'semiannual', 'medium', 'none', 4, 0, 'Novembre et mars', 6),
-('equipment', 'voiture', 'Nettoyer l''intérieur', 'vehicle', 'monthly', 'short', 'light', 2, 0, 'Aspirateur, lingettes', 7),
 
 -- === ANIMAUX ===
 ('equipment', 'chien', 'Promener le chien', 'pets', 'daily', 'medium', 'medium', 3, 0, 'Matin et soir', 1),

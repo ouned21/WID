@@ -80,14 +80,14 @@ function AnimatedThinking({ steps, onDone, isReady }: { steps: string[]; onDone:
   return (
     <div className="flex flex-col justify-center items-center min-h-[60vh] px-6">
       <div className="text-[48px] mb-6 animate-pulse">🤖</div>
-      <p className="text-[18px] font-bold text-[#1c1c1e] mb-6">Aura analyse ton foyer</p>
+      <p className="text-[18px] font-bold text-white mb-6">Aura analyse ton foyer</p>
       <div className="space-y-3 text-left max-w-sm">
         {steps.map((step, i) => (
           <div key={i} className="flex items-center gap-3 text-[15px] transition-opacity duration-300" style={{
             opacity: i <= currentStep ? 1 : 0.2,
           }}>
             <span className="text-[18px]">{i < currentStep ? '✓' : i === currentStep ? '⋯' : '○'}</span>
-            <span className="text-[#3c3c43]">{step}</span>
+            <span className="text-white">{step}</span>
           </div>
         ))}
       </div>
@@ -181,41 +181,27 @@ export default function OnboardingPage() {
     try {
       const supabase = createClient();
 
-      // Récupérer associations équipements
-      const { data: equipAssoc } = await supabase
-        .from('task_associations')
-        .select('*')
-        .eq('trigger_type', 'equipment')
-        .in('trigger_value', [...selectedEquipment]);
+      // Appel IA : générer les tâches via Claude
+      const response = await fetch('/api/onboarding/generate-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          equipment: [...selectedEquipment],
+          family: family,
+        }),
+      });
 
-      // Récupérer associations enfants
-      const childAgeRanges = new Set<string>();
-      for (const member of family) {
-        if (member.type === 'baby') childAgeRanges.add('0-2');
-        else if (member.type === 'child') {
-          // Deviner si petit (3-5) ou grand (6-12) selon date de naissance
-          if (member.birthdate) {
-            const age = Math.floor((Date.now() - new Date(member.birthdate).getTime()) / (365.25 * 24 * 3600 * 1000));
-            if (age <= 5) childAgeRanges.add('3-5');
-            else childAgeRanges.add('6-12');
-          } else {
-            childAgeRanges.add('6-12');
-          }
-        }
-        else if (member.type === 'teen') childAgeRanges.add('13+');
+      if (!response.ok) {
+        throw new Error(`Erreur API: ${response.status}`);
       }
 
-      let childAssoc: typeof equipAssoc = [];
-      if (childAgeRanges.size > 0) {
-        const { data } = await supabase
-          .from('task_associations')
-          .select('*')
-          .eq('trigger_type', 'child_age')
-          .in('trigger_value', [...childAgeRanges]);
-        childAssoc = data ?? [];
-      }
+      const { tasks: aiTasks } = await response.json();
 
-      const allAssoc = [...(equipAssoc ?? []), ...(childAssoc ?? [])];
+      if (!Array.isArray(aiTasks) || aiTasks.length === 0) {
+        setGeneratedTasks([]);
+        setGenerationDone(true);
+        return;
+      }
 
       // Catégorie : mapping scoring_category → UUID (UUIDs fixes définis dans reset_part1)
       const SCORING_TO_CAT_ID: Record<string, string> = {
@@ -252,18 +238,16 @@ export default function OnboardingPage() {
         (existingTasks ?? []).map((t: { name: string }) => t.name.toLowerCase()),
       );
 
-      for (const assoc of allAssoc) {
-        const key = assoc.suggested_name.toLowerCase();
+      for (const aiTask of aiTasks) {
+        const key = aiTask.name.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
 
-        const catId = assoc.suggested_category_id
-          || SCORING_TO_CAT_ID[assoc.suggested_scoring_category ?? '']
-          || defaultCatId;
+        const catId = SCORING_TO_CAT_ID[aiTask.scoring_category ?? ''] || defaultCatId;
         const cat = catMap.get(catId);
 
-        // Calculer next_due_at selon la fréquence (pas aléatoire dans 30 jours pour tout)
-        const freq = assoc.suggested_frequency || 'weekly';
+        // Calculer next_due_at selon la fréquence
+        const freq = aiTask.frequency || 'weekly';
         const freqWindow: Record<string, number> = {
           daily: 1,
           weekly: 7,
@@ -272,12 +256,11 @@ export default function OnboardingPage() {
           quarterly: 90,
           semiannual: 180,
           yearly: 365,
-          once: 30,
         };
-        const window = freqWindow[freq] ?? 30;
+        const freqDays = freqWindow[freq] ?? 30;
         // Répartir aléatoirement dans la fenêtre de la fréquence
         // (mais au moins aujourd'hui pour les tâches quotidiennes)
-        const dayOffset = freq === 'daily' ? 0 : Math.floor(Math.random() * window);
+        const dayOffset = freq === 'daily' ? 0 : Math.floor(Math.random() * freqDays);
         const nextDue = new Date(Date.now() + dayOffset * 86400000);
         nextDue.setHours(9, 0, 0, 0);
 
@@ -285,13 +268,13 @@ export default function OnboardingPage() {
           .from('household_tasks')
           .insert({
             household_id: householdId,
-            name: assoc.suggested_name,
+            name: aiTask.name,
             category_id: catId,
-            frequency: assoc.suggested_frequency || 'weekly',
-            mental_load_score: assoc.suggested_mental_load_score || 3,
-            scoring_category: assoc.suggested_scoring_category,
-            duration_estimate: assoc.suggested_duration,
-            physical_effort: assoc.suggested_physical,
+            frequency: aiTask.frequency || 'weekly',
+            mental_load_score: aiTask.mental_load_score || 3,
+            scoring_category: aiTask.scoring_category,
+            duration_estimate: aiTask.duration_estimate,
+            physical_effort: aiTask.physical_effort,
             is_active: true,
             is_fixed_assignment: false,
             notifications_enabled: true,
@@ -502,7 +485,7 @@ export default function OnboardingPage() {
               boxShadow: '0 8px 24px rgba(0,122,255,0.3)',
             }}
           >
-            Générer mon planning →
+            Créer mes tâches et mon planning →
           </button>
           <p className="text-center text-[11px] text-[#8e8e93] mt-2">
             Tu peux aussi passer sans ajouter personne
@@ -515,10 +498,10 @@ export default function OnboardingPage() {
   // ─── Écran 5 : Animation "Aura réfléchit" ───
   if (step === 'thinking') {
     const steps = [
-      `Analyse de ${selectedEquipment.size} équipements`,
-      `Prise en compte de ${family.length || 'ton'} foyer`,
-      'Génération des tâches récurrentes',
-      'Détection des rappels saisonniers',
+      `${selectedEquipment.size} équipements analysés`,
+      family.length > 0 ? `${family.length} membre${family.length > 1 ? 's' : ''} pris en compte` : 'Foyer solo',
+      'Génération des tâches personnalisées',
+      'Calcul des fréquences optimales',
       'Placement dans le calendrier',
     ];
     return (
@@ -539,23 +522,21 @@ export default function OnboardingPage() {
     );
   }
 
+  // Supprimer une tâche générée (depuis l'écran résultats)
+  const deleteTask = useCallback(async (taskId: string) => {
+    const supabase = createClient();
+    await supabase.from('household_tasks').delete().eq('id', taskId);
+    setGeneratedTasks((prev) => prev.filter((t) => t.id !== taskId));
+  }, []);
+
   // ─── Écran résultats ───
   if (step === 'results') {
-    // Grouper par catégorie
-    const byCategory: Record<string, { name: string; icon: string; color: string; tasks: typeof generatedTasks }> = {};
-    for (const t of generatedTasks) {
-      const key = t.category_id;
-      if (!byCategory[key]) {
-        byCategory[key] = {
-          name: t.category_name ?? 'Autres',
-          icon: t.category_icon ?? '📌',
-          color: t.category_color ?? '#8e8e93',
-          tasks: [],
-        };
-      }
-      byCategory[key].tasks.push(t);
-    }
-    const groups = Object.values(byCategory);
+    // Liste plate triée par date croissante
+    const sortedTasks = [...generatedTasks].sort((a, b) => {
+      const da = a.next_due_at ? new Date(a.next_due_at).getTime() : Infinity;
+      const db = b.next_due_at ? new Date(b.next_due_at).getTime() : Infinity;
+      return da - db;
+    });
 
     return (
       <div className="pt-4 pb-32">
@@ -563,44 +544,49 @@ export default function OnboardingPage() {
         <div className="px-4 mb-6 text-center">
           <div className="text-[52px] mb-3">✅</div>
           <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
-            Aura a créé<br />{generatedTasks.length} tâches pour toi
+            Aura a créé<br />{generatedTasks.length} tâche{generatedTasks.length > 1 ? 's' : ''} pour ton foyer
           </h2>
-          <p className="text-[14px] text-[#8e8e93] mt-2">
-            Voici ce qui a été planifié dans ton foyer.
+          <p className="text-[13px] text-[#8e8e93] mt-2">
+            Appuie sur la poubelle pour retirer une tâche.
           </p>
         </div>
 
-        {/* Liste par catégorie */}
-        <div className="px-4 space-y-4">
-          {groups.map((group) => (
-            <div key={group.name}>
-              {/* Label catégorie */}
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-[18px]">{group.icon}</span>
-                <p className="text-[13px] font-bold text-[#1c1c1e]">{group.name}</p>
-                <span className="text-[11px] text-[#8e8e93]">· {group.tasks.length}</span>
+        {/* Liste plate chronologique */}
+        <div className="px-4">
+          <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            {sortedTasks.map((t, i) => (
+              <div
+                key={t.id}
+                className="flex items-center gap-3 px-4 py-3"
+                style={i < sortedTasks.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}
+              >
+                {/* Point couleur catégorie */}
+                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: t.category_color ?? '#8e8e93' }} />
+                {/* Nom tâche */}
+                <p className="flex-1 text-[14px] text-[#1c1c1e]">{t.name}</p>
+                {/* Date */}
+                {t.next_due_at && (
+                  <p className="text-[11px] text-[#8e8e93] flex-shrink-0">
+                    {new Date(t.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                  </p>
+                )}
+                {/* Bouton supprimer */}
+                <button
+                  onClick={() => deleteTask(t.id)}
+                  className="flex-shrink-0 ml-1 w-8 h-8 rounded-full flex items-center justify-center transition-opacity active:opacity-50"
+                  style={{ background: 'rgba(255,59,48,0.1)' }}
+                  aria-label="Supprimer"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ff3b30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                    <path d="M10 11v6M14 11v6" />
+                    <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+                  </svg>
+                </button>
               </div>
-
-              {/* Tâches */}
-              <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                {group.tasks.map((t, i) => (
-                  <div
-                    key={t.id}
-                    className="flex items-center gap-3 px-4 py-3"
-                    style={i < group.tasks.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}
-                  >
-                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: group.color }} />
-                    <p className="flex-1 text-[14px] text-[#1c1c1e]">{t.name}</p>
-                    {t.next_due_at && (
-                      <p className="text-[11px] text-[#8e8e93] flex-shrink-0">
-                        {new Date(t.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
 
           {generatedTasks.length === 0 && (
             <div className="text-center py-8">

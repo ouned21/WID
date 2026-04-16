@@ -120,19 +120,20 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        {/* Case consentement CGU + privacy */}
-        <label className="flex items-start gap-3 mt-4 px-1 cursor-pointer">
+        {/* Case consentement CGU */}
+        <label className="flex items-center gap-3 mt-4 px-1 cursor-pointer">
           <input
             type="checkbox"
             checked={consentCgu}
             onChange={(e) => setConsentCgu(e.target.checked)}
-            className="mt-0.5"
+            className="flex-shrink-0"
             style={{ width: 18, height: 18, accentColor: '#007aff' }}
           />
-          <span className="text-[12px] text-[#8e8e93] leading-relaxed">
-            J&apos;accepte les <a href="/legal/cgu" target="_blank" className="font-semibold" style={{ color: '#007aff' }}>CGU</a>
-            {' '}et la <a href="/legal/privacy" target="_blank" className="font-semibold" style={{ color: '#007aff' }}>politique de confidentialité</a>.
-            Mes données sont traitées conformément au RGPD.
+          <span className="text-[12px] text-[#8e8e93]">
+            J&apos;accepte les{' '}
+            <a href="/legal/cgu" target="_blank" className="font-semibold" style={{ color: '#007aff' }}>CGU</a>
+            {' '}et la{' '}
+            <a href="/legal/privacy" target="_blank" className="font-semibold" style={{ color: '#007aff' }}>confidentialité</a>
           </span>
         </label>
 

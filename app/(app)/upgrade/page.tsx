@@ -108,6 +108,15 @@ export default function UpgradePage() {
           Essayer 7 jours gratuits
         </button>
 
+        {/* Consentement IA — contextuel, minimal */}
+        <p className="text-center text-[11px] text-[#c7c7cc] mt-3 leading-relaxed px-2">
+          Les fonctionnalités IA envoient du texte à Anthropic (Claude).{' '}
+          Tes données ne servent pas à entraîner l&apos;IA.{' '}
+          <a href="/legal/privacy" className="underline" style={{ color: '#a78bfa' }}>
+            En savoir plus
+          </a>
+        </p>
+
         <p
           className="text-center text-[13px] font-semibold mt-3"
           style={{ color: '#8e8e93' }}

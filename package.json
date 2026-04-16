@@ -9,7 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:reset": "node --experimental-vm-modules scripts/reset-db.js"
+    "db:reset": "node scripts/reset-db.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
