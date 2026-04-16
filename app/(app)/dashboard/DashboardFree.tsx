@@ -231,8 +231,8 @@ export default function DashboardFree() {
       <Link href="/tasks/recap" className="mx-4 rounded-2xl px-5 py-4 flex items-center justify-between text-white transition-transform active:scale-[0.98]"
         style={{ background: 'linear-gradient(135deg, #1c1c3e, #3a1c71)', boxShadow: '0 4px 16px rgba(28,28,62,0.3)' }}>
         <div>
-          <p className="text-[17px] font-bold">🌙 Comment s&apos;est passée ta journée ?</p>
-          <p className="text-[13px] text-white/70 mt-0.5">Coche en rafale, en 15 secondes</p>
+          <p className="text-[17px] font-bold">☀️ Comment se passe ta journée ?</p>
+          <p className="text-[13px] text-white/70 mt-0.5">Coche ce que tu as fait, en 15 secondes</p>
         </div>
         <svg width="7" height="12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
       </Link>

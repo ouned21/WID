@@ -380,7 +380,7 @@ export default function RecapPage() {
         <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>
           ← Retour
         </button>
-        <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Ma journée</h2>
+        <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Comment se passe ta journée ?</h2>
         <div className="w-16" />
       </div>
 
