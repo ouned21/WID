@@ -166,28 +166,6 @@ export default function DashboardFree() {
         </div>
       </div>
 
-      {/* ═══════ JOURNAL AURA ═══════ */}
-      <button
-        onClick={() => router.push('/journal')}
-        className="mx-4 rounded-3xl p-5 text-left transition-transform active:scale-[0.98]"
-        style={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          boxShadow: '0 8px 24px rgba(118, 75, 162, 0.25)',
-        }}
-      >
-        <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full text-[28px] flex-shrink-0" style={{ background: 'rgba(255,255,255,0.25)' }}>
-            🤖
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.15em] font-bold text-white/70 mb-0.5">Parler à Aura</p>
-            <p className="text-[17px] font-bold text-white leading-tight">Raconte-moi ta journée</p>
-            <p className="text-[12px] text-white/80 mt-0.5">J&apos;enregistre tout ce que tu as fait en une phrase</p>
-          </div>
-          <div className="text-[20px] text-white/60">→</div>
-        </div>
-      </button>
-
       {/* ═══════ SCORE PAYWALLÉ ═══════ */}
       <button
         onClick={() => router.push('/upgrade?feature=score')}
@@ -249,6 +227,16 @@ export default function DashboardFree() {
         </button>
       )}
 
+      {/* ═══════ RÉCAP DU SOIR ═══════ */}
+      <Link href="/tasks/recap" className="mx-4 rounded-2xl px-5 py-4 flex items-center justify-between text-white transition-transform active:scale-[0.98]"
+        style={{ background: 'linear-gradient(135deg, #1c1c3e, #3a1c71)', boxShadow: '0 4px 16px rgba(28,28,62,0.3)' }}>
+        <div>
+          <p className="text-[17px] font-bold">🌙 Comment s&apos;est passée ta journée ?</p>
+          <p className="text-[13px] text-white/70 mt-0.5">Coche en rafale, en 15 secondes</p>
+        </div>
+        <svg width="7" height="12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
+      </Link>
+
       {/* ═══════ FEED DE VIE DU FOYER ═══════ */}
       <div className="mx-4">
         <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-2 px-1">
@@ -276,17 +264,6 @@ export default function DashboardFree() {
         </div>
       </div>
 
-      {/* ═══════ RÉCAP DU SOIR (après 17h) ═══════ */}
-      {new Date().getHours() >= 17 && (
-        <Link href="/tasks/recap" className="mx-4 rounded-2xl px-5 py-4 flex items-center justify-between text-white transition-transform active:scale-[0.98]"
-          style={{ background: 'linear-gradient(135deg, #1c1c3e, #3a1c71)', boxShadow: '0 2px 8px rgba(28,28,62,0.3)' }}>
-          <div>
-            <p className="text-[15px] font-bold">🌙 Comment s&apos;est passée ta journée ?</p>
-            <p className="text-[12px] text-white/70 mt-0.5">Coche en rafale, en 15 secondes</p>
-          </div>
-          <svg width="7" height="12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
-        </Link>
-      )}
 
       {loadingAi && null}
     </div>

@@ -551,6 +551,17 @@ export default function RecapPage() {
 
       {/* Bouton Terminé — sticky en bas */}
       <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3" style={{ background: 'linear-gradient(transparent, #f6f8ff 30%)' }}>
+        {/* Accès IA — premium */}
+        <button
+          onClick={() => router.push('/upgrade?feature=journal')}
+          className="w-full flex items-center justify-center gap-2 mb-3 py-2 rounded-xl text-[13px] font-semibold"
+          style={{ background: 'rgba(118,75,162,0.08)', color: '#764ba2' }}
+        >
+          <span>🤖</span>
+          <span>Plutôt dicter à Aura ?</span>
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#764ba2', color: 'white' }}>Premium</span>
+        </button>
+
         <button
           onClick={handleSubmit}
           disabled={submitting || newCheckedCount === 0}
