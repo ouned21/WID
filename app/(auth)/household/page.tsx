@@ -67,7 +67,7 @@ export default function HouseholdPage() {
               <label className="text-[13px] text-[#8e8e93] block mb-1">Nom du foyer</label>
               <input type="text" required value={householdName} onChange={(e) => setHouseholdName(e.target.value)}
                 className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
-                placeholder="Maison Sia" autoFocus />
+                placeholder="Notre foyer" autoFocus />
             </div>
           </div>
           <button type="submit" disabled={loading}
