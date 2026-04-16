@@ -186,7 +186,7 @@ export default function OnboardingPage() {
       // Appel IA : générer les tâches via Claude
       // Timeout 25s pour éviter le blocage si Claude est lent
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 7000);
 
       let aiTasks: TaskInput[] = [];
       try {
