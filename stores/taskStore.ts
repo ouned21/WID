@@ -23,13 +23,8 @@ type CreateTaskPayload = {
   mental_load_score: number;
   assigned_to?: string | null;
   next_due_at?: string | null;
-  template_id?: string | null;
-  custom_interval_days?: number | null;
-  starts_at?: string | null;
-  // Scoring V2 — dual score
+  // Scoring V2
   user_score?: number | null;
-  global_score?: number | null;
-  score_breakdown?: Record<string, unknown> | null;
   duration_estimate?: string | null;
   physical_effort?: string | null;
   scoring_category?: string | null;
@@ -52,8 +47,6 @@ type UpdateTaskPayload = {
   frequency?: Frequency;
   mental_load_score?: number;
   user_score?: number | null;
-  global_score?: number | null;
-  score_breakdown?: Record<string, unknown> | null;
   assigned_to?: string | null;
   assigned_to_phantom_id?: string | null;
   category_id?: string;
@@ -189,14 +182,9 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       mental_load_score: payload.mental_load_score,
       assigned_to: payload.assigned_to ?? null,
       next_due_at: payload.next_due_at ?? null,
-      template_id: payload.template_id ?? null,
-      custom_interval_days: payload.custom_interval_days ?? null,
-      starts_at: payload.starts_at ?? null,
       created_by: userId,
       // Scoring V2
       user_score: payload.user_score ?? null,
-      global_score: payload.global_score ?? null,
-      score_breakdown: payload.score_breakdown ?? null,
       duration_estimate: payload.duration_estimate ?? null,
       physical_effort: payload.physical_effort ?? null,
       scoring_category: payload.scoring_category ?? null,
@@ -248,7 +236,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     }
 
     // 2. Calculer et mettre à jour la prochaine échéance
-    const nextDueAt = computeNextDueAt(task.frequency, now, task.custom_interval_days);
+    const nextDueAt = computeNextDueAt(task.frequency, now);
     const { error: updateError } = await supabase
       .from('household_tasks')
       .update({ next_due_at: nextDueAt?.toISOString() ?? null })

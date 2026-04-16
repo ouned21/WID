@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       .select('id, display_name')
       .eq('household_id', householdId),
     supabase.from('household_tasks')
-      .select('id, name, global_score, mental_load_score, scoring_category, assigned_to, assigned_to_phantom_id')
+      .select('id, name, user_score, mental_load_score, scoring_category, assigned_to, assigned_to_phantom_id')
       .eq('household_id', householdId)
       .eq('is_active', true),
   ]);
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
   const taskMap = new Map<string, { name: string; score: number; category: string }>();
   for (const t of (tasks.data ?? [])) {
-    taskMap.set(t.id, { name: t.name, score: t.global_score ?? t.mental_load_score * 7, category: t.scoring_category ?? 'misc' });
+    taskMap.set(t.id, { name: t.name, score: t.user_score != null ? t.user_score * 3.6 : t.mental_load_score * 7, category: t.scoring_category ?? 'misc' });
   }
 
   // Stats par membre

@@ -41,22 +41,21 @@ export const gradients = {
 
 /**
  * Score AFFICHAGE — ce que l'utilisateur voit sur ses propres tâches.
- * Priorité : user_score (choix utilisateur /10) > global_score converti > legacy.
+ * Priorité : user_score (choix utilisateur /10) > legacy mental_load_score.
  * Retourne un score /10.
  */
-export function taskScoreDisplay(task: { user_score?: number | null; global_score?: number | null; mental_load_score: number }): number {
+export function taskScoreDisplay(task: { user_score?: number | null; mental_load_score: number }): number {
   if (task.user_score != null) return Math.min(10, task.user_score);
-  if (task.global_score != null) return loadTo10(task.global_score);
   // Legacy 0-5 → /10
   return Math.min(10, Math.round((Math.min(5, task.mental_load_score) / 5) * 10));
 }
 
 /**
  * Score COMPARAISON — utilisé pour les échanges, le rééquilibrage, les analytics.
- * Toujours le score algorithmique (global_score /36) pour garantir l'équité.
+ * Utilise user_score /10 converti en /36, ou legacy mental_load_score.
  */
-export function taskScoreCompare(task: { global_score?: number | null; mental_load_score: number }): number {
-  if (task.global_score != null) return Math.min(36, task.global_score);
+export function taskScoreCompare(task: { user_score?: number | null; mental_load_score: number }): number {
+  if (task.user_score != null) return Math.round(task.user_score * 3.6);
   const normalized = Math.min(5, task.mental_load_score);
   return Math.round((normalized / 5) * 36);
 }
@@ -65,7 +64,7 @@ export function taskScoreCompare(task: { global_score?: number | null; mental_lo
  * @deprecated Utiliser taskScoreDisplay() ou taskScoreCompare() selon le contexte.
  * Conservé pour rétrocompatibilité — redirige vers taskScoreCompare.
  */
-export function taskLoad(task: { global_score?: number | null; mental_load_score: number }): number {
+export function taskLoad(task: { user_score?: number | null; mental_load_score: number }): number {
   return taskScoreCompare(task);
 }
 

@@ -256,12 +256,8 @@ export default function NewTaskPage() {
       mental_load_score: Math.round(score.global_score / 7), // legacy 0-5
       assigned_to: assignedTo || null,
       next_due_at: nextDueAt,
-      custom_interval_days: frequency === 'custom' && customIntervalDays ? parseInt(customIntervalDays, 10) : null,
-      starts_at: startsAt ? new Date(`${startsAt}T00:00:00`).toISOString() : null,
-      // Scoring V2 — dual score
+      // Scoring V2
       user_score: userScore, // ce que l'utilisateur a choisi (0-10)
-      global_score: score.global_score, // ce que l'algo a calculé (2-36)
-      score_breakdown: score as Record<string, unknown>,
       duration_estimate: duration,
       physical_effort: physical,
       scoring_category: scoringCategory,
@@ -486,7 +482,6 @@ export default function NewTaskPage() {
         assigned_to: t.assignedTo || null,
         next_due_at: nextDueAt,
         user_score: t.userScore,
-        global_score: t.algoScore36,
         duration_estimate: t.duration,
         physical_effort: t.physical,
         scoring_category: t.scoringCategory,

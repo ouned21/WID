@@ -80,25 +80,20 @@ export type TaskTemplate = {
 export type HouseholdTask = {
   id: string;
   household_id: string;
-  template_id: string | null;
   name: string;
   category_id: string;
   frequency: Frequency;
-  custom_interval_days: number | null;
   assigned_to: string | null;
   mental_load_score: number; // ancien score 0-5, conservé pour compatibilité
   duration_estimate: string | null; // very_short, short, medium, long, very_long
   physical_effort: string | null; // none, light, medium, high
   scoring_category: string | null; // catégorie de scoring (children, meals, etc.)
-  score_breakdown: Record<string, unknown> | null; // ScoreBreakdown JSON
-  global_score: number | null; // score global calculé par l'algo (2-36)
   user_score: number | null; // score choisi par l'utilisateur (0-10), pré-rempli par l'algo
   assigned_to_phantom_id: string | null; // assigné à un membre fantôme
   is_fixed_assignment: boolean; // true = toujours assignée à la même personne
   notifications_enabled: boolean; // false = pas de rappels pour cette tâche
   estimated_cost: number | null; // coût estimé en euros (optionnel)
   next_due_at: string | null;
-  starts_at: string | null;
   is_active: boolean;
   created_by: string;
   created_at: string;
@@ -244,27 +239,29 @@ export type TaskFilters = {
 };
 
 /** Statut d'un échange de tâches */
-export type TaskExchangeStatus = 'pending' | 'accepted' | 'rejected' | 'expired';
+export type TaskExchangeStatus = 'pending' | 'accepted' | 'refused' | 'expired';
 
 /** Proposition d'échange de tâches entre membres */
 export type TaskExchange = {
   id: string;
   household_id: string;
-  from_user_id: string;
-  to_user_id: string;
-  offered_task_id: string;
-  requested_task_id: string;
+  /** Membre qui propose l'échange */
+  proposed_by: string;
+  /** Membre à qui la proposition est faite */
+  proposed_to: string;
+  /** Tâche proposée à l'échange */
+  task_id: string | null;
   status: TaskExchangeStatus;
+  message: string | null;
   created_at: string;
-  updated_at: string;
+  responded_at: string | null;
 };
 
 /** Échange enrichi pour l'UI */
 export type TaskExchangeWithDetails = TaskExchange & {
-  from_user: Pick<Profile, 'id' | 'display_name'>;
-  to_user: Pick<Profile, 'id' | 'display_name'>;
-  offered_task: Pick<HouseholdTask, 'id' | 'name'>;
-  requested_task: Pick<HouseholdTask, 'id' | 'name'>;
+  proposer: Pick<Profile, 'id' | 'display_name'>;
+  recipient: Pick<Profile, 'id' | 'display_name'>;
+  task: Pick<HouseholdTask, 'id' | 'name'> | null;
 };
 
 /** Resume analytics par membre */

@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
   const [tasks, completions] = await Promise.all([
     supabase.from('household_tasks')
-      .select('id, name, frequency, next_due_at, scoring_category, custom_interval_days')
+      .select('id, name, frequency, next_due_at, scoring_category')
       .eq('household_id', householdId)
       .eq('is_active', true),
     supabase.from('task_completions')

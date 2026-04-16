@@ -66,7 +66,7 @@ function TaskCard({ task, onComplete, onCompleteFor, onDelete, isCompleted, isAn
 
   if (isCompleted && !isAnimating) return null;
 
-  const sb = task.score_breakdown as Record<string, number> | null;
+  const sb: Record<string, number> | null = null; // score_breakdown removed from DB schema
 
   return (
     <div

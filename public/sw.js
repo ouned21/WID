@@ -73,6 +73,19 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
+// Notification journal du soir (schedulée localement via postMessage)
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SHOW_JOURNAL_REMINDER') {
+    self.registration.showNotification('📝 Raconte ta journée à Aura !', {
+      body: 'Prends 2 minutes pour noter ce que tu as fait aujourd\'hui.',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: 'aura-journal-reminder',
+      data: { url: '/journal' },
+    });
+  }
+});
+
 // Clic sur notification
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();

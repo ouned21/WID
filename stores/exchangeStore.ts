@@ -13,11 +13,11 @@ type ExchangeState = {
 
   fetchExchanges: (householdId: string) => Promise<void>;
   proposeExchange: (householdId: string, payload: {
-    to_user_id: string;
-    offered_task_id: string;
-    requested_task_id: string;
+    proposed_to: string;
+    task_id: string;
+    message?: string;
   }) => Promise<{ ok: boolean; error?: string }>;
-  respondToExchange: (exchangeId: string, action: 'accepted' | 'rejected') => Promise<{ ok: boolean; error?: string }>;
+  respondToExchange: (exchangeId: string, action: 'accepted' | 'refused') => Promise<{ ok: boolean; error?: string }>;
   reset: () => void;
 };
 
@@ -34,10 +34,9 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
       .from('task_exchanges')
       .select(`
         *,
-        from_user:profiles!task_exchanges_from_user_id_fkey(id, display_name),
-        to_user:profiles!task_exchanges_to_user_id_fkey(id, display_name),
-        offered_task:household_tasks!task_exchanges_offered_task_id_fkey(id, name),
-        requested_task:household_tasks!task_exchanges_requested_task_id_fkey(id, name)
+        proposer:profiles!task_exchanges_proposed_by_fkey(id, display_name),
+        recipient:profiles!task_exchanges_proposed_to_fkey(id, display_name),
+        task:household_tasks!task_exchanges_task_id_fkey(id, name)
       `)
       .eq('household_id', householdId)
       .eq('status', 'pending')
@@ -57,16 +56,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
     const userId = useAuthStore.getState().user?.id;
     if (!userId) return { ok: false, error: 'Non authentifié.' };
 
-    if (payload.offered_task_id === payload.requested_task_id) {
-      return { ok: false, error: 'Vous ne pouvez pas échanger une tâche contre elle-même.' };
-    }
-
     const { error } = await supabase.from('task_exchanges').insert({
       household_id: householdId,
-      from_user_id: userId,
-      to_user_id: payload.to_user_id,
-      offered_task_id: payload.offered_task_id,
-      requested_task_id: payload.requested_task_id,
+      proposed_by: userId,
+      proposed_to: payload.proposed_to,
+      task_id: payload.task_id,
+      message: payload.message ?? null,
       status: 'pending',
     });
 
@@ -85,29 +80,24 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
     if (!exchange) return { ok: false, error: 'Échange introuvable.' };
 
     // Vérifier que c'est bien le destinataire qui répond
-    if (exchange.to_user_id !== userId) {
+    if (exchange.proposed_to !== userId) {
       return { ok: false, error: 'Seul le destinataire peut répondre.' };
     }
 
     // Mettre à jour le statut
     const { error: updateError } = await supabase
       .from('task_exchanges')
-      .update({ status: action, updated_at: new Date().toISOString() })
+      .update({ status: action, responded_at: new Date().toISOString() })
       .eq('id', exchangeId);
 
     if (updateError) return { ok: false, error: updateError.message };
 
-    // Si accepté : swapper les assigned_to
-    if (action === 'accepted') {
+    // Si accepté et qu'une tâche est liée : transférer l'assignation vers le destinataire
+    if (action === 'accepted' && exchange.task_id) {
       await supabase
         .from('household_tasks')
-        .update({ assigned_to: exchange.to_user_id })
-        .eq('id', exchange.offered_task_id);
-
-      await supabase
-        .from('household_tasks')
-        .update({ assigned_to: exchange.from_user_id })
-        .eq('id', exchange.requested_task_id);
+        .update({ assigned_to: exchange.proposed_to })
+        .eq('id', exchange.task_id);
     }
 
     await get().fetchExchanges(exchange.household_id);

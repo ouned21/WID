@@ -35,13 +35,13 @@ export function computeMemberBalance(
   tasks: TaskListItem[],
   members: (Profile | HouseholdMember)[],
 ): MemberBalance[] {
-  const totalScore = tasks.reduce((sum, t) => sum + (t.global_score ?? t.mental_load_score), 0);
+  const totalScore = tasks.reduce((sum, t) => sum + (t.user_score != null ? t.user_score * 3.6 : t.mental_load_score * 7), 0);
   if (totalScore === 0 || members.length < 2) return [];
 
   return members.map((m) => {
     // Tâches assignées à ce membre (par assigned_to ou assigned_to_phantom_id)
     const myTasks = tasks.filter((t) => t.assigned_to === m.id || t.assigned_to_phantom_id === m.id);
-    const myScore = myTasks.reduce((sum, t) => sum + (t.global_score ?? t.mental_load_score), 0);
+    const myScore = myTasks.reduce((sum, t) => sum + (t.user_score != null ? t.user_score * 3.6 : t.mental_load_score * 7), 0);
     const currentPercent = Math.round((myScore / totalScore) * 100);
     const targetPercent = m.target_share_percent ?? Math.round(100 / members.length);
     const gap = currentPercent - targetPercent;
@@ -94,21 +94,23 @@ export function generateExchangeSuggestions(
       if (suggestions.length >= maxSuggestions) break;
 
       // Tâches de chacun, triées par score décroissant
+      const taskScore = (t: TaskListItem) => t.user_score != null ? t.user_score * 3.6 : t.mental_load_score * 7;
+
       const overTasks = tasks
         .filter((t) => (t.assigned_to === over.memberId || t.assigned_to_phantom_id === over.memberId) && !t.is_fixed_assignment)
-        .sort((a, b) => (b.global_score ?? b.mental_load_score) - (a.global_score ?? a.mental_load_score));
+        .sort((a, b) => taskScore(b) - taskScore(a));
 
       const underTasks = tasks
         .filter((t) => (t.assigned_to === under.memberId || t.assigned_to_phantom_id === under.memberId) && !t.is_fixed_assignment)
-        .sort((a, b) => (a.global_score ?? a.mental_load_score) - (b.global_score ?? b.mental_load_score));
+        .sort((a, b) => taskScore(a) - taskScore(b));
 
       if (overTasks.length === 0 || underTasks.length === 0) continue;
 
       // Chercher le meilleur swap : une tâche lourde d'over contre une tâche légère d'under
       for (const heavyTask of overTasks.slice(0, 5)) {
         for (const lightTask of underTasks.slice(0, 5)) {
-          const heavyScore = heavyTask.global_score ?? heavyTask.mental_load_score;
-          const lightScore = lightTask.global_score ?? lightTask.mental_load_score;
+          const heavyScore = taskScore(heavyTask);
+          const lightScore = taskScore(lightTask);
           const scoreDiff = heavyScore - lightScore;
 
           // Le swap doit réduire l'écart (pas l'inverser)

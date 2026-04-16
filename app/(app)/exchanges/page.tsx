@@ -12,18 +12,17 @@ export default function ExchangesPage() {
   const searchParams = useSearchParams();
   const { profile } = useAuthStore();
   const { tasks } = useTaskStore();
-  const { members, allMembers } = useHouseholdStore();
+  const { allMembers } = useHouseholdStore();
   const { exchanges, loading, fetchExchanges, proposeExchange, respondToExchange } = useExchangeStore();
 
   // Pré-remplir depuis les paramètres URL
-  const prefilledOfferId = searchParams.get('offer');
-  const prefilledRequestId = searchParams.get('request');
+  const prefilledTaskId = searchParams.get('task');
   const prefilledToId = searchParams.get('to');
 
-  const [showForm, setShowForm] = useState(!!prefilledOfferId);
+  const [showForm, setShowForm] = useState(!!prefilledTaskId);
   const [toUserId, setToUserId] = useState(prefilledToId ?? '');
-  const [offeredTaskId, setOfferedTaskId] = useState(prefilledOfferId ?? '');
-  const [requestedTaskId, setRequestedTaskId] = useState(prefilledRequestId ?? '');
+  const [taskId, setTaskId] = useState(prefilledTaskId ?? '');
+  const [message, setMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -35,26 +34,32 @@ export default function ExchangesPage() {
   const otherMembers = allMembers.filter((m) => m.id !== profile?.id && !m.isPhantom);
   // Seules les tâches variables (non fixées) sont échangeables
   const myTasks = tasks.filter((t) => t.assigned_to === profile?.id && !t.is_fixed_assignment);
-  const otherTasks = tasks.filter((t) => t.assigned_to === toUserId && !t.is_fixed_assignment);
-  const prefilledTask = offeredTaskId ? tasks.find((t) => t.id === offeredTaskId) : null;
 
-  const pendingForMe = exchanges.filter((e) => e.to_user_id === profile?.id);
-  const pendingByMe = exchanges.filter((e) => e.from_user_id === profile?.id);
+  const pendingForMe = exchanges.filter((e) => e.proposed_to === profile?.id);
+  const pendingByMe = exchanges.filter((e) => e.proposed_by === profile?.id);
 
   const handlePropose = async () => {
-    if (!profile?.household_id || !toUserId || !offeredTaskId || !requestedTaskId) {
+    if (!profile?.household_id || !toUserId || !taskId) {
       setError('Remplissez tous les champs.'); return;
     }
     setSubmitting(true); setError(null);
     const result = await proposeExchange(profile.household_id, {
-      to_user_id: toUserId, offered_task_id: offeredTaskId, requested_task_id: requestedTaskId,
+      proposed_to: toUserId,
+      task_id: taskId,
+      message: message.trim() || undefined,
     });
     setSubmitting(false);
-    if (result.ok) { setShowForm(false); setToUserId(''); setOfferedTaskId(''); setRequestedTaskId(''); }
-    else setError(result.error ?? 'Erreur.');
+    if (result.ok) {
+      setShowForm(false);
+      setToUserId('');
+      setTaskId('');
+      setMessage('');
+    } else {
+      setError(result.error ?? 'Erreur.');
+    }
   };
 
-  const handleRespond = async (exchangeId: string, action: 'accepted' | 'rejected') => {
+  const handleRespond = async (exchangeId: string, action: 'accepted' | 'refused') => {
     const result = await respondToExchange(exchangeId, action);
     if (!result.ok) setError(result.error ?? 'Erreur lors de la réponse.');
   };
@@ -78,8 +83,8 @@ export default function ExchangesPage() {
           {error && <p className="text-[14px]" style={{ color: '#ff3b30' }}>{error}</p>}
 
           <div>
-            <label className="text-[13px] text-[#8e8e93] block mb-1">Échanger avec</label>
-            <select value={toUserId} onChange={(e) => { setToUserId(e.target.value); setRequestedTaskId(''); }}
+            <label className="text-[13px] text-[#8e8e93] block mb-1">Proposer à</label>
+            <select value={toUserId} onChange={(e) => setToUserId(e.target.value)}
               className="w-full rounded-lg bg-[#f0f2f8] px-3 py-2.5 text-[15px] text-[#1c1c1e] outline-none">
               <option value="">Choisir un membre</option>
               {otherMembers.map((m) => <option key={m.id} value={m.id}>{m.display_name}</option>)}
@@ -87,29 +92,23 @@ export default function ExchangesPage() {
           </div>
 
           <div>
-            <label className="text-[13px] text-[#8e8e93] block mb-1">Je donne</label>
-            {prefilledTask ? (
-              <div className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: '#f0f4ff' }}>
-                <span className="text-[15px] font-medium" style={{ color: '#007aff' }}>{prefilledTask.name}</span>
-                <button onClick={() => setOfferedTaskId('')} className="text-[13px] text-[#8e8e93]">Changer</button>
-              </div>
-            ) : (
-              <select value={offeredTaskId} onChange={(e) => setOfferedTaskId(e.target.value)}
-                className="w-full rounded-lg bg-[#f0f2f8] px-3 py-2.5 text-[15px] text-[#1c1c1e] outline-none">
-                <option value="">Choisir une de mes tâches</option>
-                {myTasks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            )}
+            <label className="text-[13px] text-[#8e8e93] block mb-1">Tâche à céder</label>
+            <select value={taskId} onChange={(e) => setTaskId(e.target.value)}
+              className="w-full rounded-lg bg-[#f0f2f8] px-3 py-2.5 text-[15px] text-[#1c1c1e] outline-none">
+              <option value="">Choisir une de mes tâches</option>
+              {myTasks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
           </div>
 
           <div>
-            <label className="text-[13px] text-[#8e8e93] block mb-1">Je veux</label>
-            <select value={requestedTaskId} onChange={(e) => setRequestedTaskId(e.target.value)}
-              className="w-full rounded-lg bg-[#f0f2f8] px-3 py-2.5 text-[15px] text-[#1c1c1e] outline-none"
-              disabled={!toUserId}>
-              <option value="">Choisir une tâche de l&apos;autre</option>
-              {otherTasks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
+            <label className="text-[13px] text-[#8e8e93] block mb-1">Message (optionnel)</label>
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Ex : Je suis débordé cette semaine..."
+              className="w-full rounded-lg bg-[#f0f2f8] px-3 py-2.5 text-[15px] text-[#1c1c1e] outline-none placeholder:text-[#c7c7cc]"
+            />
           </div>
 
           <div className="flex gap-2">
@@ -135,19 +134,22 @@ export default function ExchangesPage() {
               <div key={ex.id} className="px-4 py-3 space-y-2"
                 style={i < pendingForMe.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
                 <p className="text-[15px] text-[#1c1c1e]">
-                  <strong>{ex.from_user?.display_name}</strong> vous propose d&apos;échanger
+                  <strong>{ex.proposer?.display_name}</strong> vous propose de prendre sa tâche
                 </p>
-                <div className="flex items-center gap-2 text-[14px]">
-                  <span className="rounded-lg px-2 py-1 bg-[#fff2f2] text-[#ff3b30] font-medium">{ex.offered_task?.name}</span>
-                  <span className="text-[#8e8e93]">↔</span>
-                  <span className="rounded-lg px-2 py-1 bg-[#f0f4ff] text-[#007aff] font-medium">{ex.requested_task?.name}</span>
-                </div>
+                {ex.task && (
+                  <div className="flex items-center gap-2 text-[14px]">
+                    <span className="rounded-lg px-2 py-1 bg-[#f0f4ff] text-[#007aff] font-medium">{ex.task.name}</span>
+                  </div>
+                )}
+                {ex.message && (
+                  <p className="text-[13px] text-[#8e8e93] italic">&laquo; {ex.message} &raquo;</p>
+                )}
                 <div className="flex gap-2">
                   <button onClick={() => handleRespond(ex.id, 'accepted')}
                     className="flex-1 rounded-lg py-[8px] text-[14px] font-semibold text-white" style={{ background: '#34c759' }}>
                     Accepter
                   </button>
-                  <button onClick={() => handleRespond(ex.id, 'rejected')}
+                  <button onClick={() => handleRespond(ex.id, 'refused')}
                     className="flex-1 rounded-lg py-[8px] text-[14px] font-semibold" style={{ color: '#ff3b30', background: '#fff2f2' }}>
                     Refuser
                   </button>
@@ -167,13 +169,11 @@ export default function ExchangesPage() {
               <div key={ex.id} className="px-4 py-3"
                 style={i < pendingByMe.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
                 <p className="text-[15px] text-[#1c1c1e]">
-                  Proposition à <strong>{ex.to_user?.display_name}</strong>
+                  Proposition à <strong>{ex.recipient?.display_name}</strong>
                 </p>
-                <div className="flex items-center gap-2 mt-1 text-[14px]">
-                  <span className="text-[#8e8e93]">{ex.offered_task?.name}</span>
-                  <span className="text-[#c7c7cc]">↔</span>
-                  <span className="text-[#8e8e93]">{ex.requested_task?.name}</span>
-                </div>
+                {ex.task && (
+                  <p className="text-[14px] text-[#8e8e93] mt-1">{ex.task.name}</p>
+                )}
                 <span className="text-[12px] text-[#ff9500] font-medium">En attente</span>
               </div>
             ))}
@@ -193,7 +193,7 @@ export default function ExchangesPage() {
         <div className="mx-4 rounded-2xl bg-white p-10 text-center" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
           <p className="text-[40px] mb-2">🤝</p>
           <p className="text-[17px] font-semibold text-[#1c1c1e]">Aucun échange en cours</p>
-          <p className="text-[15px] text-[#8e8e93] mt-1">Proposez un deal à un membre de votre foyer</p>
+          <p className="text-[15px] text-[#8e8e93] mt-1">Proposez de céder une tâche à un membre de votre foyer</p>
         </div>
       )}
     </div>

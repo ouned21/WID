@@ -157,7 +157,7 @@ export default function ProfilePage() {
     if (!newMode) {
       const { data: myTasks } = await supabase
         .from('household_tasks')
-        .select('id, frequency, custom_interval_days')
+        .select('id, frequency')
         .eq('household_id', profile.household_id)
         .eq('assigned_to', profile.id)
         .eq('is_active', true);
@@ -166,7 +166,7 @@ export default function ProfilePage() {
         const { computeNextDueAt } = await import('@/utils/taskDueDate');
         const now = new Date();
         for (const task of myTasks) {
-          const nextDueAt = computeNextDueAt(task.frequency, now, task.custom_interval_days);
+          const nextDueAt = computeNextDueAt(task.frequency, now);
           await supabase
             .from('household_tasks')
             .update({ next_due_at: nextDueAt?.toISOString() ?? null })

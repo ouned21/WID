@@ -254,7 +254,7 @@ export default function RecapPage() {
         });
 
         // Mettre à jour next_due_at
-        const nextDueAt = computeNextDueAt(task.frequency, now, task.custom_interval_days);
+        const nextDueAt = computeNextDueAt(task.frequency, now);
         await supabase
           .from('household_tasks')
           .update({ next_due_at: nextDueAt?.toISOString() ?? null })

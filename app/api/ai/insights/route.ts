@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       .select('id, display_name, target_share_percent')
       .eq('household_id', householdId),
     supabase.from('household_tasks')
-      .select('id, name, global_score, mental_load_score, scoring_category, frequency, next_due_at')
+      .select('id, name, user_score, mental_load_score, scoring_category, frequency, next_due_at')
       .eq('household_id', householdId)
       .eq('is_active', true),
   ]);

@@ -19,10 +19,6 @@ export function filterTasks(
   }
 
   return tasks.filter((task) => {
-    // Masquer les tâches dont la date de début est dans le futur
-    if (task.starts_at && new Date(task.starts_at) > now) {
-      return false;
-    }
     // Masquer les tâches assignées à un membre en vacances (pour tous les membres)
     if (task.assigned_to && vacationUserIds.has(task.assigned_to)) {
       return false;
