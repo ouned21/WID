@@ -117,6 +117,13 @@ export default function OnboardingPage() {
   const householdId = profile?.household_id;
   const userId = profile?.id;
 
+  // Filet de sécurité : si après 35s on est encore sur thinking, on débloque quand même
+  useEffect(() => {
+    if (step !== 'thinking') return;
+    const t = setTimeout(() => setGenerationDone(true), 35000);
+    return () => clearTimeout(t);
+  }, [step]);
+
   // Charger les équipements
   useEffect(() => {
     async function load() {
@@ -176,7 +183,10 @@ export default function OnboardingPage() {
 
   // Générer les tâches
   const generateTasks = useCallback(async () => {
-    if (!householdId || !userId) return;
+    if (!householdId || !userId) {
+      setGenerationDone(true); // débloque l'animation si pas encore de foyer
+      return;
+    }
     setError(null);
 
     try {
@@ -189,11 +199,6 @@ export default function OnboardingPage() {
 
       type TaskInput = { name: string; scoring_category: string; frequency: string; duration_estimate: string; physical_effort: string; mental_load_score: number; description?: string };
 
-      // Appel IA : générer les tâches via Claude
-      // Timeout 25s pour éviter le blocage si Claude est lent
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-
       // Résoudre les noms d'équipements pour les passer à Claude
       const { data: equipRows } = await supabase
         .from('onboarding_equipment')
@@ -204,15 +209,18 @@ export default function OnboardingPage() {
       let aiTasks: TaskInput[] = [];
       try {
         // Appel via Supabase Edge Function (150s timeout, pas Vercel)
-        const { data: fnData, error: fnError } = await supabase.functions.invoke('generate-tasks', {
+        // Race avec timeout 20s côté client pour ne jamais rester bloqué
+        const invokePromise = supabase.functions.invoke('generate-tasks', {
           body: { equipmentNames, family },
         });
-        clearTimeout(timeoutId);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 20000)
+        );
+        const { data: fnData, error: fnError } = await Promise.race([invokePromise, timeoutPromise]);
         if (!fnError && Array.isArray(fnData?.tasks)) {
           aiTasks = fnData.tasks;
         }
       } catch {
-        clearTimeout(timeoutId);
         // Fallback catalogue statique ci-dessous
       }
 
