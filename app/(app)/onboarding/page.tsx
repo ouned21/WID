@@ -245,23 +245,38 @@ export default function OnboardingPage() {
 
       let aiTasks: TaskInput[] = [];
       try {
-        const invokePromise = supabase.functions.invoke('generate-tasks', {
-          body: { equipmentNames, family },
-        });
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), 25000)
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+        const fetchPromise = fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-tasks`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+              'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            },
+            body: JSON.stringify({ equipmentNames, family }),
+          }
         );
-        const { data: fnData, error: fnError } = await Promise.race([invokePromise, timeoutPromise]);
-        if (fnError) {
-          console.error('[onboarding] Edge Function error:', fnError);
-        } else if (Array.isArray(fnData?.tasks)) {
-          aiTasks = fnData.tasks;
-          console.log('[onboarding] IA tasks:', aiTasks.length);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 30000)
+        );
+        const res = await Promise.race([fetchPromise, timeoutPromise]);
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json?.tasks) && json.tasks.length > 0) {
+            aiTasks = json.tasks;
+            console.log('[onboarding] IA OK:', aiTasks.length, 'tâches');
+          } else {
+            console.warn('[onboarding] IA réponse vide:', json);
+          }
         } else {
-          console.warn('[onboarding] Réponse inattendue:', fnData);
+          const text = await res.text();
+          console.error('[onboarding] IA HTTP', res.status, text);
         }
       } catch (e) {
-        console.error('[onboarding] invoke catch:', e);
+        console.error('[onboarding] IA fetch error:', e);
       }
 
       // Fallback sur un catalogue minimal si Claude échoue ou retourne vide
