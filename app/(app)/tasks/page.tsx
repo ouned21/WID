@@ -1,6 +1,7 @@
 'use client';
 
 import { taskScoreDisplay, taskLoad, scoreColor10 } from '@/utils/designSystem';
+import DeleteButton from '@/components/DeleteButton';
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
@@ -174,16 +175,7 @@ function TaskCard({ task, onComplete, onCompleteFor, onDelete, isCompleted, isAn
                   👤
                 </button>
               )}
-              <button onClick={(e) => {
-                e.preventDefault(); e.stopPropagation();
-                if (confirm('Supprimer cette tâche ?')) onDelete(task.id);
-              }}
-                className="rounded-lg p-[5px] transition-all"
-                style={{ color: '#ff3b30' }}>
-                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                </svg>
-              </button>
+              <DeleteButton onDelete={() => { if (confirm('Supprimer cette tâche ?')) onDelete(task.id); }} size={30} />
             </div>
           </div>
         </>

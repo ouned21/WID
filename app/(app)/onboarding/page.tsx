@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import DeleteButton from '@/components/DeleteButton';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
@@ -672,20 +673,7 @@ export default function OnboardingPage() {
                     {new Date(t.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                   </p>
                 )}
-                {/* Bouton supprimer */}
-                <button
-                  onClick={() => deleteTask(t.id)}
-                  className="flex-shrink-0 ml-1 w-8 h-8 rounded-full flex items-center justify-center transition-opacity active:opacity-50"
-                  style={{ background: 'rgba(255,59,48,0.1)' }}
-                  aria-label="Supprimer"
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ff3b30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-                    <path d="M10 11v6M14 11v6" />
-                    <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
-                  </svg>
-                </button>
+                <DeleteButton onDelete={() => deleteTask(t.id)} />
               </div>
             ))}
           </div>

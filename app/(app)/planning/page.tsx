@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import PostponeButton from '@/components/PostponeButton';
+import DeleteButton from '@/components/DeleteButton';
 import { taskScoreDisplay, scoreColor10, taskScoreCompare } from '@/utils/designSystem';
 import {
   addDays, addWeeks, addMonths, format, isSameDay,
@@ -168,10 +169,10 @@ function TaskActionSheet({ task, onClose }: { task: TaskListItem; onClose: () =>
               <span className="text-[15px] font-medium text-[#1c1c1e]">Voir les détails</span>
               <span className="text-[#c7c7cc]">›</span>
             </Link>
-            <button onClick={handleDelete}
-              className="w-full flex items-center justify-between px-4 py-3.5 active:bg-[#f2f2f7]">
+            <div className="flex items-center justify-between px-4 py-3">
               <span className="text-[15px] font-medium" style={{ color: '#ff3b30' }}>Supprimer</span>
-            </button>
+              <DeleteButton onDelete={handleDelete} size={32} />
+            </div>
           </div>
         </div>
       </div>
@@ -462,11 +463,9 @@ function ActionTaskRow({
           <div className="flex-1 flex items-center justify-center" style={{ borderRight: '0.5px solid #f0f2f8' }}>
             <PostponeButton taskId={task.id} />
           </div>
-          <button onClick={() => onArchive(task.id)}
-            className="flex-1 py-2.5 text-[13px] font-semibold text-center"
-            style={{ color: '#ff3b30' }}>
-            🗑
-          </button>
+          <div className="flex-1 flex items-center justify-center py-2">
+            <DeleteButton onDelete={() => onArchive(task.id)} size={30} />
+          </div>
         </div>
       ) : (
         <div className="border-t px-4 py-3" style={{ borderColor: '#f0f2f8', background: '#fafafa' }}>
