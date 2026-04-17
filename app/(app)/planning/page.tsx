@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
+import PostponeButton from '@/components/PostponeButton';
 import { taskScoreDisplay, scoreColor10, taskScoreCompare } from '@/utils/designSystem';
 import {
   addDays, addWeeks, addMonths, format, isSameDay,
@@ -77,48 +78,77 @@ function DayChip({
 // ── Carte de tâche (vue jour) ─────────────────────────────────────────────────
 
 function TaskCard({ task }: { task: TaskListItem }) {
+  const { completeTask, deleteTask } = useTaskStore();
   const score = taskScoreDisplay(task);
   const color = scoreColor10(score);
   const catColor = task.category?.color_hex ?? '#8e8e93';
   const emoji = CATEGORY_EMOJI[task.scoring_category ?? ''] ?? '📌';
   const assignee = task.assignee?.display_name ?? null;
+  const [showActions, setShowActions] = useState(false);
+  const [completing, setCompleting] = useState(false);
+
+  const handleComplete = async () => {
+    setCompleting(true);
+    await completeTask(task.id);
+    setCompleting(false);
+    setShowActions(false);
+  };
 
   return (
-    <Link href={`/tasks/${task.id}`}
-      className="flex items-center gap-3 px-4 py-3.5 transition-all active:scale-[0.98]"
-      style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
-      {/* Icône catégorie */}
-      <div className="flex items-center justify-center rounded-xl flex-shrink-0 text-[20px]"
-        style={{ width: 44, height: 44, background: `${catColor}15` }}>
-        {emoji}
-      </div>
-
-      {/* Contenu */}
-      <div className="flex-1 min-w-0">
-        <p className="text-[15px] font-semibold text-[#1c1c1e] truncate">{task.name}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          {assignee && (
-            <span className="text-[12px] text-[#8e8e93]">👤 {assignee}</span>
-          )}
-          {task.duration_estimate && (
-            <span className="text-[12px] text-[#8e8e93]">
-              ⏱ {
-                task.duration_estimate === 'very_short' ? '5 min' :
-                task.duration_estimate === 'short' ? '15 min' :
-                task.duration_estimate === 'medium' ? '30 min' :
-                task.duration_estimate === 'long' ? '1h' : '2h+'
-              }
-            </span>
-          )}
+    <div style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+      <button
+        onClick={() => setShowActions((v) => !v)}
+        className="w-full flex items-center gap-3 px-4 py-3.5 transition-all active:bg-[#f6f8ff] text-left"
+      >
+        <div className="flex items-center justify-center rounded-xl flex-shrink-0 text-[20px]"
+          style={{ width: 44, height: 44, background: `${catColor}15` }}>
+          {emoji}
         </div>
-      </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] font-semibold text-[#1c1c1e] truncate">{task.name}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            {assignee && <span className="text-[12px] text-[#8e8e93]">👤 {assignee}</span>}
+            {task.duration_estimate && (
+              <span className="text-[12px] text-[#8e8e93]">
+                ⏱ {task.duration_estimate === 'very_short' ? '5 min' : task.duration_estimate === 'short' ? '15 min' : task.duration_estimate === 'medium' ? '30 min' : task.duration_estimate === 'long' ? '1h' : '2h+'}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-[13px] font-bold" style={{ color }}>{score}/10</span>
+          <div className="w-2 h-2 rounded-full" style={{ background: catColor }} />
+        </div>
+      </button>
 
-      {/* Score */}
-      <div className="flex flex-col items-end gap-1">
-        <span className="text-[13px] font-bold" style={{ color }}>{score}/10</span>
-        <div className="w-2 h-2 rounded-full" style={{ background: catColor }} />
-      </div>
-    </Link>
+      {showActions && (
+        <div style={{ background: '#fafafa', borderTop: '0.5px solid #f0f2f8' }}>
+          <div className="flex">
+            <button onClick={handleComplete} disabled={completing}
+              className="flex-1 py-2.5 text-[13px] font-semibold disabled:opacity-50"
+              style={{ color: '#34c759', borderRight: '0.5px solid #f0f2f8' }}>
+              {completing ? '…' : '✓ Fait'}
+            </button>
+            <div className="flex-1" style={{ borderRight: '0.5px solid #f0f2f8' }}>
+              <PostponeButton taskId={task.id} onDone={() => setShowActions(false)} />
+            </div>
+            <button onClick={async () => {
+              if (!confirm('Supprimer cette tâche ?')) return;
+              await deleteTask(task.id);
+            }}
+              className="flex-1 py-2.5 text-[13px] font-semibold"
+              style={{ color: '#ff3b30' }}>
+              🗑
+            </button>
+          </div>
+          <Link href={`/tasks/${task.id}`}
+            className="block text-center py-2 text-[12px] font-medium"
+            style={{ color: '#8e8e93', borderTop: '0.5px solid #f0f2f8' }}>
+            Voir les détails →
+          </Link>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -357,10 +387,13 @@ function ActionTaskRow({
             style={{ color: '#007aff', borderRight: '0.5px solid #f0f2f8' }}>
             👤 Assigner
           </button>
+          <div className="flex-1 flex items-center justify-center" style={{ borderRight: '0.5px solid #f0f2f8' }}>
+            <PostponeButton taskId={task.id} />
+          </div>
           <button onClick={() => onArchive(task.id)}
             className="flex-1 py-2.5 text-[13px] font-semibold text-center"
             style={{ color: '#ff3b30' }}>
-            🗑 Retirer
+            🗑
           </button>
         </div>
       ) : (

@@ -46,7 +46,7 @@ export default function ProfilePage() {
   const [lovedInput, setLovedInput] = useState('');
   const [hatedTasks, setHatedTasks] = useState<string[]>([]);
   const [lovedTasks, setLovedTasks] = useState<string[]>([]);
-  const [preferredTimeSlot, setPreferredTimeSlot] = useState<'morning' | 'evening' | 'weekend' | 'flexible'>('flexible');
+  const [preferredTimeSlots, setPreferredTimeSlots] = useState<Set<string>>(new Set(['flexible']));
   const [unavailableDays, setUnavailableDays] = useState<number[]>([]);
   const [loadPreference, setLoadPreference] = useState<'light' | 'balanced' | 'heavy'>('balanced');
   const [freeformNote, setFreeformNote] = useState('');
@@ -65,7 +65,8 @@ export default function ProfilePage() {
       if (data) {
         setHatedTasks(data.hated_tasks ?? []);
         setLovedTasks(data.loved_tasks ?? []);
-        setPreferredTimeSlot(data.preferred_time_slot ?? 'flexible');
+        const raw = data.preferred_time_slot ?? 'flexible';
+        setPreferredTimeSlots(new Set(raw.split(',').filter(Boolean)));
         setUnavailableDays(data.unavailable_days ?? []);
         setLoadPreference(data.load_preference ?? 'balanced');
         setFreeformNote(data.freeform_note ?? '');
@@ -78,7 +79,7 @@ export default function ProfilePage() {
   const savePrefs = async (overrides?: {
     hatedTasks?: string[];
     lovedTasks?: string[];
-    preferredTimeSlot?: 'morning' | 'evening' | 'weekend' | 'flexible';
+    preferredTimeSlots?: Set<string>;
     unavailableDays?: number[];
     loadPreference?: 'light' | 'balanced' | 'heavy';
     freeformNote?: string;
@@ -86,11 +87,12 @@ export default function ProfilePage() {
     if (!profile?.id) return;
     setSavingPrefs(true);
     const supabase = createClient();
+    const slots = overrides?.preferredTimeSlots ?? preferredTimeSlots;
     const payload = {
       user_id: profile.id,
       hated_tasks: overrides?.hatedTasks ?? hatedTasks,
       loved_tasks: overrides?.lovedTasks ?? lovedTasks,
-      preferred_time_slot: overrides?.preferredTimeSlot ?? preferredTimeSlot,
+      preferred_time_slot: [...slots].join(',') || 'flexible',
       unavailable_days: overrides?.unavailableDays ?? unavailableDays,
       load_preference: overrides?.loadPreference ?? loadPreference,
       freeform_note: overrides?.freeformNote ?? freeformNote ?? null,
@@ -474,14 +476,32 @@ export default function ProfilePage() {
                 { v: 'evening', label: 'Soir', emoji: '🌙' },
                 { v: 'weekend', label: 'Weekend', emoji: '🏖' },
                 { v: 'flexible', label: 'Peu importe', emoji: '🤷' },
-              ].map((opt) => (
-                <button key={opt.v} onClick={() => { setPreferredTimeSlot(opt.v as 'morning' | 'evening' | 'weekend' | 'flexible'); savePrefs({ preferredTimeSlot: opt.v as 'morning' | 'evening' | 'weekend' | 'flexible' }); }}
-                  className="rounded-lg py-2 text-[11px] font-medium flex flex-col items-center gap-0.5"
-                  style={preferredTimeSlot === opt.v ? { background: '#007aff', color: 'white' } : { background: '#f0f2f8', color: '#3c3c43' }}>
-                  <span className="text-[14px]">{opt.emoji}</span>
-                  <span>{opt.label}</span>
-                </button>
-              ))}
+              ].map((opt) => {
+                const isSelected = opt.v === 'flexible'
+                  ? preferredTimeSlots.has('flexible')
+                  : preferredTimeSlots.has(opt.v);
+                return (
+                  <button key={opt.v} onClick={() => {
+                    const next = new Set(preferredTimeSlots);
+                    if (opt.v === 'flexible') {
+                      next.clear();
+                      next.add('flexible');
+                    } else {
+                      next.delete('flexible');
+                      if (next.has(opt.v)) next.delete(opt.v);
+                      else next.add(opt.v);
+                      if (next.size === 0) next.add('flexible');
+                    }
+                    setPreferredTimeSlots(next);
+                    savePrefs({ preferredTimeSlots: next });
+                  }}
+                    className="rounded-lg py-2 text-[11px] font-medium flex flex-col items-center gap-0.5"
+                    style={isSelected ? { background: '#007aff', color: 'white' } : { background: '#f0f2f8', color: '#3c3c43' }}>
+                    <span className="text-[14px]">{opt.emoji}</span>
+                    <span>{opt.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

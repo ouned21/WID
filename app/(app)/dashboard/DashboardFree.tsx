@@ -91,14 +91,14 @@ export default function DashboardFree() {
 
   // Feed : les actions d'Yova
   const feedItems = useMemo(() => {
-    const items: { emoji: string; title: string; body: string; action?: { label: string; href: string } }[] = [];
+    const items: { emoji: string; title: string; body: string; href?: string }[] = [];
 
     if (d.overdue.length > 0) {
       items.push({
         emoji: '⚠️',
         title: `${d.overdue.length} tâche${d.overdue.length > 1 ? 's' : ''} en retard`,
         body: d.overdue.slice(0, 3).map((t) => t.name).join(', ') + (d.overdue.length > 3 ? '…' : ''),
-        action: { label: 'Voir', href: '/tasks' },
+        href: '/tasks',
       });
     }
 
@@ -107,7 +107,7 @@ export default function DashboardFree() {
         emoji: '📅',
         title: `Aujourd'hui : ${d.today.length} tâche${d.today.length > 1 ? 's' : ''}`,
         body: d.today.slice(0, 3).map((t) => t.name).join(', ') + (d.today.length > 3 ? '…' : ''),
-        action: { label: 'Voir', href: '/tasks' },
+        href: '/tasks',
       });
     }
 
@@ -116,6 +116,7 @@ export default function DashboardFree() {
         emoji: '🔔',
         title: `Demain : ${d.tomorrow.length} tâche${d.tomorrow.length > 1 ? 's' : ''}`,
         body: d.tomorrow.slice(0, 2).map((t) => t.name).join(', ') + (d.tomorrow.length > 2 ? '…' : ''),
+        href: '/planning',
       });
     }
 
@@ -124,7 +125,7 @@ export default function DashboardFree() {
         emoji: '🗓',
         title: `Cette semaine : ${d.thisWeek.length} tâche${d.thisWeek.length > 1 ? 's' : ''}`,
         body: 'Yova les a planifiées pour toi',
-        action: { label: 'Voir le planning', href: '/planning' },
+        href: '/planning',
       });
     }
 
@@ -231,7 +232,7 @@ export default function DashboardFree() {
       <Link href="/tasks/recap" className="mx-4 rounded-2xl px-5 py-4 flex items-center justify-between text-white transition-transform active:scale-[0.98]"
         style={{ background: 'linear-gradient(135deg, #1c1c3e, #3a1c71)', boxShadow: '0 4px 16px rgba(28,28,62,0.3)' }}>
         <div>
-          <p className="text-[17px] font-bold">☀️ Comment se passe ta journée ?</p>
+          <p className="text-[17px] font-bold">📋 Comment se passe ta journée ?</p>
           <p className="text-[13px] text-white/70 mt-0.5">Coche ce que tu as fait, en 15 secondes</p>
         </div>
         <svg width="7" height="12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
@@ -243,24 +244,30 @@ export default function DashboardFree() {
           Ce qui se passe dans ton foyer
         </p>
         <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-          {feedItems.map((item, i) => (
-            <div
-              key={i}
-              className="px-4 py-4 flex items-start gap-3"
-              style={i < feedItems.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}
-            >
-              <span className="text-[22px] flex-shrink-0">{item.emoji}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-semibold text-[#1c1c1e]">{item.title}</p>
-                <p className="text-[12px] text-[#8e8e93] mt-0.5 leading-relaxed">{item.body}</p>
-                {item.action && (
-                  <Link href={item.action.href} className="inline-block mt-2 text-[12px] font-semibold" style={{ color: '#007aff' }}>
-                    {item.action.label} →
-                  </Link>
-                )}
+          {feedItems.map((item, i) => {
+            const inner = (
+              <>
+                <span className="text-[22px] flex-shrink-0">{item.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-semibold text-[#1c1c1e]">{item.title}</p>
+                  <p className="text-[12px] text-[#8e8e93] mt-0.5 leading-relaxed">{item.body}</p>
+                </div>
+                {item.href && <span className="text-[18px] text-[#c7c7cc] flex-shrink-0">›</span>}
+              </>
+            );
+            const style = i < feedItems.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {};
+            return item.href ? (
+              <Link key={i} href={item.href}
+                className="px-4 py-4 flex items-center gap-3 active:bg-[#f0f2f8] transition-colors"
+                style={style}>
+                {inner}
+              </Link>
+            ) : (
+              <div key={i} className="px-4 py-4 flex items-center gap-3" style={style}>
+                {inner}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

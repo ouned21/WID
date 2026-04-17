@@ -554,12 +554,20 @@ export default function RecapPage() {
         {/* Accès IA — premium */}
         <button
           onClick={() => router.push('/upgrade?feature=journal')}
-          className="w-full flex items-center justify-center gap-2 mb-3 py-2 rounded-xl text-[13px] font-semibold"
-          style={{ background: 'rgba(118,75,162,0.08)', color: '#764ba2' }}
+          className="w-full mb-3 rounded-2xl overflow-hidden text-left active:opacity-90 transition-opacity"
+          style={{ background: 'linear-gradient(135deg, #5856d6, #764ba2)', boxShadow: '0 4px 16px rgba(88,86,214,0.3)' }}
         >
-          <span>🤖</span>
-          <span>Plutôt dicter à Yova ?</span>
-          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#764ba2', color: 'white' }}>Premium</span>
+          <div className="px-4 py-3 flex items-center gap-3">
+            <span className="text-[32px]">🤖</span>
+            <div className="flex-1">
+              <p className="text-[15px] font-bold text-white">Laisse Yova analyser ta journée</p>
+              <p className="text-[12px] text-white opacity-80">Dicte, elle s&apos;occupe du reste</p>
+            </div>
+            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full flex-shrink-0"
+              style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}>
+              Premium
+            </span>
+          </div>
         </button>
 
         <button
