@@ -97,7 +97,7 @@ export default function DashboardFree() {
       items.push({
         emoji: '⚠️',
         title: `${d.overdue.length} tâche${d.overdue.length > 1 ? 's' : ''} en retard`,
-        body: d.overdue.slice(0, 3).map((t) => t.name).join(', ') + (d.overdue.length > 3 ? '…' : ''),
+        body: d.overdue.length === 1 ? d.overdue[0].name : `${d.overdue[0].name} + ${d.overdue.length - 1} autre${d.overdue.length > 2 ? 's' : ''}`,
         href: '/tasks',
       });
     }
@@ -106,7 +106,7 @@ export default function DashboardFree() {
       items.push({
         emoji: '📅',
         title: `Aujourd'hui : ${d.today.length} tâche${d.today.length > 1 ? 's' : ''}`,
-        body: d.today.slice(0, 3).map((t) => t.name).join(', ') + (d.today.length > 3 ? '…' : ''),
+        body: d.today.length === 1 ? d.today[0].name : `${d.today[0].name} + ${d.today.length - 1} autre${d.today.length > 2 ? 's' : ''}`,
         href: '/tasks',
       });
     }
@@ -115,8 +115,8 @@ export default function DashboardFree() {
       items.push({
         emoji: '🔔',
         title: `Demain : ${d.tomorrow.length} tâche${d.tomorrow.length > 1 ? 's' : ''}`,
-        body: d.tomorrow.slice(0, 2).map((t) => t.name).join(', ') + (d.tomorrow.length > 2 ? '…' : ''),
-        href: '/planning',
+        body: d.tomorrow.length === 1 ? d.tomorrow[0].name : `${d.tomorrow[0].name} + ${d.tomorrow.length - 1} autre${d.tomorrow.length > 2 ? 's' : ''}`,
+        href: `/planning?date=${new Date(Date.now() + 86400000).toISOString().slice(0, 10)}`,
       });
     }
 

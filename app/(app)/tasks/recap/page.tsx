@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import BackButton from '@/components/BackButton';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
@@ -377,9 +378,7 @@ export default function RecapPage() {
     <div className="pt-4 pb-28">
       {/* Header */}
       <div className="flex items-center justify-between px-4 mb-2">
-        <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>
-          ← Retour
-        </button>
+        <BackButton />
         <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Comment se passe ta journée ?</h2>
         <div className="w-16" />
       </div>

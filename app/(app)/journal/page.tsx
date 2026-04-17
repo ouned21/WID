@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import BackButton from '@/components/BackButton';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { createClient } from '@/lib/supabase';
@@ -225,7 +226,7 @@ export default function JournalPage() {
     <div className="pt-4 pb-8" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {/* Header */}
       <div className="px-4 flex items-center justify-between">
-        <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
+        <BackButton />
         <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Journal</h2>
         <button onClick={() => setShowHistory(!showHistory)} className="text-[13px] font-medium" style={{ color: '#007aff' }}>
           {showHistory ? 'Masquer' : 'Historique'}

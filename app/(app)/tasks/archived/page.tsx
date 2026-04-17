@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
+import BackButton from '@/components/BackButton';
 import { createClient } from '@/lib/supabase';
 
 type CompletionEntry = {
@@ -15,7 +15,6 @@ type CompletionEntry = {
 };
 
 export default function ArchivedTasksPage() {
-  const router = useRouter();
   const { profile } = useAuthStore();
   const [completions, setCompletions] = useState<CompletionEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,9 +43,7 @@ export default function ArchivedTasksPage() {
   return (
     <div className="pt-4 space-y-4 pb-8">
       <div className="flex items-center justify-between px-4">
-        <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>
-          ← Retour
-        </button>
+        <BackButton />
         <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Historique</h2>
         <div className="w-16" />
       </div>

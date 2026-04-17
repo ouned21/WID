@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import BackButton from '@/components/BackButton';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import {
@@ -133,7 +134,7 @@ export default function QuickLogPage() {
   return (
     <div className="pt-4">
       <div className="flex items-center justify-between px-4 mb-4">
-        <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
+        <BackButton />
         <h2 className="text-[17px] font-semibold text-[#1c1c1e]">J&apos;ai fait une tâche</h2>
         <div className="w-16" />
       </div>

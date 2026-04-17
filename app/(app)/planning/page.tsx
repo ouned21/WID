@@ -224,12 +224,14 @@ function TaskCard({ task }: { task: TaskListItem }) {
 
 // ── Vue Semaine ──────────────────────────────────────────────────────────────
 
-function WeekView({ tasks, weekStart }: { tasks: TaskListItem[]; weekStart: Date }) {
+function WeekView({ tasks, weekStart, initialDate }: { tasks: TaskListItem[]; weekStart: Date; initialDate?: Date }) {
   const today = new Date();
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  // Sélectionner aujourd'hui si dans la semaine, sinon le premier jour
-  const defaultDay = days.find((d) => isSameDay(d, today)) ?? days[0];
+  // Sélectionner initialDate si dans la semaine, sinon aujourd'hui, sinon le premier jour
+  const defaultDay = (initialDate && days.find((d) => isSameDay(d, initialDate)))
+    ?? days.find((d) => isSameDay(d, today))
+    ?? days[0];
   const [selectedDay, setSelectedDay] = useState<Date>(defaultDay);
 
   // Mettre à jour selectedDay si weekStart change
@@ -523,7 +525,7 @@ function SimpleTaskRow({ task }: { task: TaskListItem }) {
   );
 }
 
-function TaskActionSheet({ tasks, onClose, onArchive, onAssign }: TaskActionSheetProps) {
+function AllTasksSheet({ tasks, onClose, onArchive, onAssign }: TaskActionSheetProps) {
   const now = new Date();
   const in7Days = addDays(now, 7);
   const in30Days = addDays(now, 30);
@@ -704,7 +706,7 @@ function AllTasksSection({ tasks }: { tasks: TaskListItem[] }) {
 
       {/* Bottom sheet */}
       {showSheet && (
-        <TaskActionSheet
+        <AllTasksSheet
           tasks={sorted}
           onClose={() => setShowSheet(false)}
           onArchive={handleArchive}
@@ -722,10 +724,20 @@ export default function PlanningPage() {
   const { tasks, loading, fetchTasks } = useTaskStore();
 
   const [viewMode, setViewMode] = useState<ViewMode>('week');
-  const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
 
   const today = new Date();
+
+  // Lire le param ?date=YYYY-MM-DD pour pré-sélectionner une semaine
+  const searchParams = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search)
+    : null;
+  const dateParam = searchParams?.get('date');
+  const initialDate = dateParam ? new Date(dateParam) : today;
+  const initialWeekStart = startOfWeek(initialDate, { weekStartsOn: 1 });
+  const initialOffset = Math.round((initialWeekStart.getTime() - startOfWeek(today, { weekStartsOn: 1 }).getTime()) / (7 * 86400000));
+
+  const [weekOffset, setWeekOffset] = useState(initialOffset);
   const weekStart = startOfWeek(addWeeks(today, weekOffset), { weekStartsOn: 1 });
   const monthStart = startOfMonth(addMonths(today, monthOffset));
 
@@ -823,7 +835,7 @@ export default function PlanningPage() {
       ) : (
         <>
           {viewMode === 'week' ? (
-            <WeekView tasks={tasks} weekStart={weekStart} />
+            <WeekView tasks={tasks} weekStart={weekStart} initialDate={initialDate} />
           ) : (
             <MonthView tasks={tasks} monthStart={monthStart} />
           )}

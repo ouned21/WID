@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import BackButton from '@/components/BackButton';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
@@ -42,7 +43,7 @@ export default function TaskDetailPage() {
   if (!task) {
     return (
       <div className="pt-4 px-4">
-        <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
+        <BackButton />
         <div className="mt-8 text-center"><p className="text-[17px] text-[#8e8e93]">Tâche introuvable</p></div>
       </div>
     );
@@ -63,7 +64,7 @@ export default function TaskDetailPage() {
     <div className="pt-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between px-4">
-        <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
+        <BackButton />
         {saveStatus !== 'idle' && (
           <span className="text-[13px] font-medium" style={{
             color: saveStatus === 'saving' ? '#8e8e93' : saveStatus === 'saved' ? '#34c759' : '#ff3b30'
