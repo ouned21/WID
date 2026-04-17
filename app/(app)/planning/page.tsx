@@ -687,28 +687,7 @@ function AllTasksSection({ tasks }: { tasks: TaskListItem[] }) {
 
         {/* Preview list */}
         <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-          {preview.map((task, i) => {
-            const emoji = CATEGORY_EMOJI[task.scoring_category ?? ''] ?? '📌';
-            const catColor = task.category?.color_hex ?? '#8e8e93';
-            return (
-              <div key={task.id} className="flex items-center gap-3 px-4 py-3"
-                style={i < preview.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}>
-                <div className="flex items-center justify-center rounded-xl flex-shrink-0 text-[16px]"
-                  style={{ width: 38, height: 38, background: `${catColor}18` }}>
-                  {emoji}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-semibold text-[#1c1c1e] truncate">{task.name}</p>
-                  <p className="text-[12px] text-[#8e8e93]">
-                    {format(new Date(task.next_due_at!), 'EEE d MMM', { locale: fr })}
-                    {task.assignee?.display_name && (
-                      <span className="ml-2">· 👤 {task.assignee.display_name}</span>
-                    )}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
+          {preview.map((task) => <TaskCard key={task.id} task={task} />)}
 
           {/* Bouton "+ N autres" */}
           {remaining > 0 && (
