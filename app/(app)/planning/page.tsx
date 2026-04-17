@@ -75,30 +75,126 @@ function DayChip({
   );
 }
 
-// ── Carte de tâche (vue jour) ─────────────────────────────────────────────────
+// ── Bottom Sheet actions ──────────────────────────────────────────────────────
 
-function TaskCard({ task }: { task: TaskListItem }) {
-  const { completeTask, deleteTask } = useTaskStore();
-  const score = taskScoreDisplay(task);
-  const color = scoreColor10(score);
+function TaskActionSheet({ task, onClose }: { task: TaskListItem; onClose: () => void }) {
+  const { completeTask, deleteTask, updateTask } = useTaskStore();
+  const [completing, setCompleting] = useState(false);
+  const [postponing, setPostponing] = useState(false);
   const catColor = task.category?.color_hex ?? '#8e8e93';
   const emoji = CATEGORY_EMOJI[task.scoring_category ?? ''] ?? '📌';
-  const assignee = task.assignee?.display_name ?? null;
-  const [showActions, setShowActions] = useState(false);
-  const [completing, setCompleting] = useState(false);
 
   const handleComplete = async () => {
     setCompleting(true);
     await completeTask(task.id);
     setCompleting(false);
-    setShowActions(false);
+    onClose();
+  };
+
+  const handlePostpone = async (days: number) => {
+    setPostponing(true);
+    const next = new Date();
+    next.setDate(next.getDate() + days);
+    next.setHours(9, 0, 0, 0);
+    await updateTask(task.id, { next_due_at: next.toISOString() });
+    setPostponing(false);
+    onClose();
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Supprimer cette tâche ?')) return;
+    await deleteTask(task.id);
+    onClose();
   };
 
   return (
-    <div style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+    <div className="fixed inset-0 z-50 flex items-end" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
+      <div className="w-full rounded-t-3xl overflow-hidden pb-8" style={{ background: '#f2f2f7' }} onClick={(e) => e.stopPropagation()}>
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-2">
+          <div className="w-9 h-1 rounded-full" style={{ background: '#c7c7cc' }} />
+        </div>
+
+        {/* Task header */}
+        <div className="flex items-center gap-3 px-5 py-3 mb-2">
+          <div className="flex items-center justify-center rounded-xl text-[20px] flex-shrink-0"
+            style={{ width: 44, height: 44, background: `${catColor}18` }}>
+            {emoji}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[16px] font-bold text-[#1c1c1e] truncate">{task.name}</p>
+            {task.duration_estimate && (
+              <p className="text-[12px] text-[#8e8e93] mt-0.5">
+                {task.duration_estimate === 'very_short' ? '⏱ 5 min' : task.duration_estimate === 'short' ? '⏱ 15 min' : task.duration_estimate === 'medium' ? '⏱ 30 min' : task.duration_estimate === 'long' ? '⏱ 1h' : '⏱ 2h+'}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Marquer comme fait */}
+        <div className="px-4 mb-3">
+          <button onClick={handleComplete} disabled={completing}
+            className="w-full rounded-2xl py-4 text-[17px] font-bold text-white disabled:opacity-50 active:opacity-80 transition-opacity"
+            style={{ background: 'linear-gradient(135deg, #34c759, #30d158)' }}>
+            {completing ? '…' : '✓ Marquer comme fait'}
+          </button>
+        </div>
+
+        {/* Décaler */}
+        <div className="px-4 mb-3">
+          <p className="text-[11px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Décaler à…</p>
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'white' }}>
+            {[
+              { label: 'Demain', sub: 'Dans 1 jour', days: 1 },
+              { label: '+1 semaine', sub: 'Dans 7 jours', days: 7 },
+              { label: '+1 mois', sub: 'Dans 30 jours', days: 30 },
+            ].map((opt, i) => (
+              <button key={opt.days} onClick={() => handlePostpone(opt.days)} disabled={postponing}
+                className="w-full flex items-center justify-between px-4 py-3.5 active:bg-[#f2f2f7] transition-colors disabled:opacity-50"
+                style={{ borderBottom: i < 2 ? '0.5px solid #f0f2f8' : undefined }}>
+                <span className="text-[15px] font-medium text-[#1c1c1e]">{opt.label}</span>
+                <span className="text-[13px] text-[#8e8e93]">{opt.sub}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Voir les détails + Supprimer */}
+        <div className="px-4 rounded-2xl overflow-hidden" style={{ background: 'white', marginBottom: 0 }}>
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'white' }}>
+            <Link href={`/tasks/${task.id}`}
+              className="flex items-center justify-between px-4 py-3.5 active:bg-[#f2f2f7]"
+              style={{ borderBottom: '0.5px solid #f0f2f8' }}>
+              <span className="text-[15px] font-medium text-[#1c1c1e]">Voir les détails</span>
+              <span className="text-[#c7c7cc]">›</span>
+            </Link>
+            <button onClick={handleDelete}
+              className="w-full flex items-center justify-between px-4 py-3.5 active:bg-[#f2f2f7]">
+              <span className="text-[15px] font-medium" style={{ color: '#ff3b30' }}>Supprimer</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Carte de tâche (vue jour) ─────────────────────────────────────────────────
+
+function TaskCard({ task }: { task: TaskListItem }) {
+  const score = taskScoreDisplay(task);
+  const color = scoreColor10(score);
+  const catColor = task.category?.color_hex ?? '#8e8e93';
+  const emoji = CATEGORY_EMOJI[task.scoring_category ?? ''] ?? '📌';
+  const assignee = task.assignee?.display_name ?? null;
+  const [showSheet, setShowSheet] = useState(false);
+
+  return (
+    <>
       <button
-        onClick={() => setShowActions((v) => !v)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 transition-all active:bg-[#f6f8ff] text-left"
+        onClick={() => setShowSheet(true)}
+        className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-[#f6f8ff] text-left transition-colors"
+        style={{ borderBottom: '0.5px solid var(--ios-separator)' }}
       >
         <div className="flex items-center justify-center rounded-xl flex-shrink-0 text-[20px]"
           style={{ width: 44, height: 44, background: `${catColor}15` }}>
@@ -121,34 +217,8 @@ function TaskCard({ task }: { task: TaskListItem }) {
         </div>
       </button>
 
-      {showActions && (
-        <div style={{ background: '#fafafa', borderTop: '0.5px solid #f0f2f8' }}>
-          <div className="flex">
-            <button onClick={handleComplete} disabled={completing}
-              className="flex-1 py-2.5 text-[13px] font-semibold disabled:opacity-50"
-              style={{ color: '#34c759', borderRight: '0.5px solid #f0f2f8' }}>
-              {completing ? '…' : '✓ Fait'}
-            </button>
-            <div className="flex-1" style={{ borderRight: '0.5px solid #f0f2f8' }}>
-              <PostponeButton taskId={task.id} onDone={() => setShowActions(false)} />
-            </div>
-            <button onClick={async () => {
-              if (!confirm('Supprimer cette tâche ?')) return;
-              await deleteTask(task.id);
-            }}
-              className="flex-1 py-2.5 text-[13px] font-semibold"
-              style={{ color: '#ff3b30' }}>
-              🗑
-            </button>
-          </div>
-          <Link href={`/tasks/${task.id}`}
-            className="block text-center py-2 text-[12px] font-medium"
-            style={{ color: '#8e8e93', borderTop: '0.5px solid #f0f2f8' }}>
-            Voir les détails →
-          </Link>
-        </div>
-      )}
-    </div>
+      {showSheet && <TaskActionSheet task={task} onClose={() => setShowSheet(false)} />}
+    </>
   );
 }
 
