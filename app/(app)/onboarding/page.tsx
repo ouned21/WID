@@ -395,6 +395,13 @@ export default function OnboardingPage() {
     router.push('/planning');
   }, [router]);
 
+  // Supprimer une tâche générée (depuis l'écran résultats)
+  const deleteTask = useCallback(async (taskId: string) => {
+    const supabase = createClient();
+    await supabase.from('household_tasks').delete().eq('id', taskId);
+    setGeneratedTasks((prev) => prev.filter((t) => t.id !== taskId));
+  }, []);
+
   // =============================================================================
   // RENDU
   // =============================================================================
@@ -589,13 +596,6 @@ export default function OnboardingPage() {
       </div>
     );
   }
-
-  // Supprimer une tâche générée (depuis l'écran résultats)
-  const deleteTask = useCallback(async (taskId: string) => {
-    const supabase = createClient();
-    await supabase.from('household_tasks').delete().eq('id', taskId);
-    setGeneratedTasks((prev) => prev.filter((t) => t.id !== taskId));
-  }, []);
 
   // ─── Écran résultats ───
   if (step === 'results') {
