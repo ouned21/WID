@@ -431,10 +431,10 @@ export default function OnboardingPage() {
   }, [router]);
 
   // Supprimer une tâche générée (depuis l'écran résultats)
-  const deleteTask = useCallback(async (taskId: string) => {
-    const supabase = createClient();
-    await supabase.from('household_tasks').delete().eq('id', taskId);
+  const deleteTask = useCallback((taskId: string) => {
     setGeneratedTasks((prev) => prev.filter((t) => t.id !== taskId));
+    const supabase = createClient();
+    supabase.from('household_tasks').delete().eq('id', taskId);
   }, []);
 
   // =============================================================================
