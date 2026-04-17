@@ -103,31 +103,29 @@ function buildFallbackTasks(equipmentNames: string[]) {
   const eq = new Set(equipmentNames.map((n) => n.toLowerCase()));
   const tasks = [
     { name: 'Passer l\'aspirateur', scoring_category: 'cleaning', frequency: 'weekly', duration_estimate: 'short', physical_effort: 'medium', mental_load_score: 2 },
-    { name: 'Nettoyer les WC', scoring_category: 'hygiene', frequency: 'weekly', duration_estimate: 'very_short', physical_effort: 'light', mental_load_score: 2 },
     { name: 'Nettoyer la salle de bain', scoring_category: 'hygiene', frequency: 'weekly', duration_estimate: 'short', physical_effort: 'medium', mental_load_score: 2 },
+    { name: 'Nettoyer les toilettes', scoring_category: 'hygiene', frequency: 'weekly', duration_estimate: 'very_short', physical_effort: 'light', mental_load_score: 1 },
     { name: 'Faire les courses', scoring_category: 'shopping', frequency: 'weekly', duration_estimate: 'medium', physical_effort: 'light', mental_load_score: 3 },
     { name: 'Sortir les poubelles', scoring_category: 'cleaning', frequency: 'weekly', duration_estimate: 'very_short', physical_effort: 'light', mental_load_score: 1 },
-    { name: 'Ranger le salon', scoring_category: 'tidying', frequency: 'weekly', duration_estimate: 'short', physical_effort: 'light', mental_load_score: 2 },
-    { name: 'Nettoyer les vitres', scoring_category: 'cleaning', frequency: 'monthly', duration_estimate: 'medium', physical_effort: 'medium', mental_load_score: 2 },
-    { name: 'Dépoussiérer les meubles', scoring_category: 'cleaning', frequency: 'biweekly', duration_estimate: 'short', physical_effort: 'light', mental_load_score: 2 },
-    { name: 'Laver le sol de la cuisine', scoring_category: 'cleaning', frequency: 'weekly', duration_estimate: 'short', physical_effort: 'medium', mental_load_score: 2 },
-    { name: 'Préparer les repas de la semaine', scoring_category: 'meals', frequency: 'weekly', duration_estimate: 'long', physical_effort: 'medium', mental_load_score: 4 },
+    { name: 'Ranger et dépoussiérer', scoring_category: 'tidying', frequency: 'weekly', duration_estimate: 'short', physical_effort: 'light', mental_load_score: 2 },
+    { name: 'Cuisiner les repas', scoring_category: 'meals', frequency: 'weekly', duration_estimate: 'long', physical_effort: 'medium', mental_load_score: 4 },
+    { name: 'Gérer le courrier et les factures', scoring_category: 'admin', frequency: 'monthly', duration_estimate: 'short', physical_effort: 'none', mental_load_score: 3 },
   ];
   if (eq.has('lave-linge') || eq.has('lave linge')) {
-    tasks.push({ name: 'Faire une lessive', scoring_category: 'laundry', frequency: 'weekly', duration_estimate: 'short', physical_effort: 'light', mental_load_score: 2 });
-    tasks.push({ name: 'Plier et ranger le linge', scoring_category: 'laundry', frequency: 'weekly', duration_estimate: 'short', physical_effort: 'light', mental_load_score: 2 });
+    tasks.push({ name: 'Faire la lessive', scoring_category: 'laundry', frequency: 'weekly', duration_estimate: 'short', physical_effort: 'light', mental_load_score: 2 });
+    tasks.push({ name: 'Ranger le linge propre', scoring_category: 'laundry', frequency: 'weekly', duration_estimate: 'short', physical_effort: 'light', mental_load_score: 2 });
   }
   if (eq.has('lave-vaisselle') || eq.has('lave vaisselle')) {
-    tasks.push({ name: 'Vider le lave-vaisselle', scoring_category: 'meals', frequency: 'daily', duration_estimate: 'very_short', physical_effort: 'light', mental_load_score: 1 });
+    tasks.push({ name: 'Gérer le lave-vaisselle', scoring_category: 'meals', frequency: 'daily', duration_estimate: 'very_short', physical_effort: 'light', mental_load_score: 1 });
   }
   if (eq.has('four')) {
     tasks.push({ name: 'Nettoyer le four', scoring_category: 'cleaning', frequency: 'monthly', duration_estimate: 'medium', physical_effort: 'medium', mental_load_score: 2 });
   }
-  if (eq.has('jardin') || eq.has('pelouse')) {
-    tasks.push({ name: 'Tondre la pelouse', scoring_category: 'outdoor', frequency: 'biweekly', duration_estimate: 'medium', physical_effort: 'high', mental_load_score: 2 });
+  if (eq.has('jardin') || eq.has('jardin / pelouse')) {
+    tasks.push({ name: 'Entretenir le jardin', scoring_category: 'outdoor', frequency: 'biweekly', duration_estimate: 'medium', physical_effort: 'high', mental_load_score: 2 });
   }
   if (eq.has('voiture')) {
-    tasks.push({ name: 'Laver la voiture', scoring_category: 'vehicle', frequency: 'monthly', duration_estimate: 'medium', physical_effort: 'medium', mental_load_score: 2 });
+    tasks.push({ name: 'Entretenir la voiture', scoring_category: 'vehicle', frequency: 'monthly', duration_estimate: 'medium', physical_effort: 'medium', mental_load_score: 2 });
   }
   return tasks;
 }
