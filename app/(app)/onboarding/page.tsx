@@ -96,6 +96,43 @@ function AnimatedThinking({ steps, onDone, isReady }: { steps: string[]; onDone:
 }
 
 // =============================================================================
+// FALLBACK CATALOGUE (si IA indisponible)
+// =============================================================================
+
+function buildFallbackTasks(equipmentNames: string[]) {
+  const eq = new Set(equipmentNames.map((n) => n.toLowerCase()));
+  const tasks = [
+    { name: 'Passer l\'aspirateur', scoring_category: 'cleaning', frequency: 'weekly', duration_estimate: 'short', physical_effort: 'medium', mental_load_score: 2 },
+    { name: 'Nettoyer les WC', scoring_category: 'hygiene', frequency: 'weekly', duration_estimate: 'very_short', physical_effort: 'light', mental_load_score: 2 },
+    { name: 'Nettoyer la salle de bain', scoring_category: 'hygiene', frequency: 'weekly', duration_estimate: 'short', physical_effort: 'medium', mental_load_score: 2 },
+    { name: 'Faire les courses', scoring_category: 'shopping', frequency: 'weekly', duration_estimate: 'medium', physical_effort: 'light', mental_load_score: 3 },
+    { name: 'Sortir les poubelles', scoring_category: 'cleaning', frequency: 'weekly', duration_estimate: 'very_short', physical_effort: 'light', mental_load_score: 1 },
+    { name: 'Ranger le salon', scoring_category: 'tidying', frequency: 'weekly', duration_estimate: 'short', physical_effort: 'light', mental_load_score: 2 },
+    { name: 'Nettoyer les vitres', scoring_category: 'cleaning', frequency: 'monthly', duration_estimate: 'medium', physical_effort: 'medium', mental_load_score: 2 },
+    { name: 'Dépoussiérer les meubles', scoring_category: 'cleaning', frequency: 'biweekly', duration_estimate: 'short', physical_effort: 'light', mental_load_score: 2 },
+    { name: 'Laver le sol de la cuisine', scoring_category: 'cleaning', frequency: 'weekly', duration_estimate: 'short', physical_effort: 'medium', mental_load_score: 2 },
+    { name: 'Préparer les repas de la semaine', scoring_category: 'meals', frequency: 'weekly', duration_estimate: 'long', physical_effort: 'medium', mental_load_score: 4 },
+  ];
+  if (eq.has('lave-linge') || eq.has('lave linge')) {
+    tasks.push({ name: 'Faire une lessive', scoring_category: 'laundry', frequency: 'weekly', duration_estimate: 'short', physical_effort: 'light', mental_load_score: 2 });
+    tasks.push({ name: 'Plier et ranger le linge', scoring_category: 'laundry', frequency: 'weekly', duration_estimate: 'short', physical_effort: 'light', mental_load_score: 2 });
+  }
+  if (eq.has('lave-vaisselle') || eq.has('lave vaisselle')) {
+    tasks.push({ name: 'Vider le lave-vaisselle', scoring_category: 'meals', frequency: 'daily', duration_estimate: 'very_short', physical_effort: 'light', mental_load_score: 1 });
+  }
+  if (eq.has('four')) {
+    tasks.push({ name: 'Nettoyer le four', scoring_category: 'cleaning', frequency: 'monthly', duration_estimate: 'medium', physical_effort: 'medium', mental_load_score: 2 });
+  }
+  if (eq.has('jardin') || eq.has('pelouse')) {
+    tasks.push({ name: 'Tondre la pelouse', scoring_category: 'outdoor', frequency: 'biweekly', duration_estimate: 'medium', physical_effort: 'high', mental_load_score: 2 });
+  }
+  if (eq.has('voiture')) {
+    tasks.push({ name: 'Laver la voiture', scoring_category: 'vehicle', frequency: 'monthly', duration_estimate: 'medium', physical_effort: 'medium', mental_load_score: 2 });
+  }
+  return tasks;
+}
+
+// =============================================================================
 // PAGE
 // =============================================================================
 
@@ -208,46 +245,31 @@ export default function OnboardingPage() {
 
       let aiTasks: TaskInput[] = [];
       try {
-        // Appel via Supabase Edge Function (150s timeout, pas Vercel)
-        // Race avec timeout 20s côté client pour ne jamais rester bloqué
         const invokePromise = supabase.functions.invoke('generate-tasks', {
           body: { equipmentNames, family },
         });
         const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), 20000)
+          setTimeout(() => reject(new Error('timeout')), 25000)
         );
         const { data: fnData, error: fnError } = await Promise.race([invokePromise, timeoutPromise]);
-        if (!fnError && Array.isArray(fnData?.tasks)) {
+        if (fnError) {
+          console.error('[onboarding] Edge Function error:', fnError);
+        } else if (Array.isArray(fnData?.tasks)) {
           aiTasks = fnData.tasks;
+          console.log('[onboarding] IA tasks:', aiTasks.length);
+        } else {
+          console.warn('[onboarding] Réponse inattendue:', fnData);
         }
-      } catch {
-        // Fallback catalogue statique ci-dessous
+      } catch (e) {
+        console.error('[onboarding] invoke catch:', e);
       }
 
-      // Fallback sur le catalogue statique si Claude échoue ou retourne vide
+      // Fallback sur un catalogue minimal si Claude échoue ou retourne vide
       let tasksToInsert: TaskInput[] = aiTasks;
 
       if (tasksToInsert.length === 0) {
-        const { data: fallbackAssoc } = await supabase
-          .from('task_associations')
-          .select('*')
-          .eq('trigger_type', 'equipment')
-          .in('trigger_value', [...selectedEquipment]);
-        if (fallbackAssoc && fallbackAssoc.length > 0) {
-          tasksToInsert = fallbackAssoc.map((a: Record<string, unknown>) => ({
-            name: String(a.suggested_name ?? ''),
-            scoring_category: String(a.suggested_scoring_category ?? 'cleaning'),
-            frequency: String(a.suggested_frequency ?? 'weekly'),
-            duration_estimate: String(a.suggested_duration ?? 'short'),
-            physical_effort: String(a.suggested_physical ?? 'light'),
-            mental_load_score: Number(a.suggested_mental_load_score) || 3,
-            description: a.description ? String(a.description) : undefined,
-          }));
-        } else {
-          setGeneratedTasks([]);
-          setGenerationDone(true);
-          return;
-        }
+        console.warn('[onboarding] IA vide, fallback catalogue minimal');
+        tasksToInsert = buildFallbackTasks(equipmentNames);
       }
 
       // Catégorie : mapping scoring_category → UUID (UUIDs fixes définis dans reset_part1)
