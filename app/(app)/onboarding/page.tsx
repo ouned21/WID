@@ -244,19 +244,18 @@ export default function OnboardingPage() {
       let aiTasks: TaskInput[] = [];
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-        const fetchPromise = fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-tasks`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-              'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            },
-            body: JSON.stringify({ equipmentNames, family }),
-          }
-        );
+        const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+        const token = session?.access_token ?? ANON_KEY;
+        const fnUrl = 'https://igvgludtwgambetxroat.supabase.co/functions/v1/generate-tasks';
+        const fetchPromise = fetch(fnUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'apikey': ANON_KEY,
+          },
+          body: JSON.stringify({ equipmentNames, family }),
+        });
         const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('timeout')), 30000)
         );
