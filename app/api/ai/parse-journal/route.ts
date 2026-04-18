@@ -446,7 +446,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
         name: item.name,
         category_id: categoryId,
         frequency: item.frequency as never,
-        mental_load_score: scoreBreakdown.mental_score,
+        mental_load_score: scoreBreakdown.mental_load_score,
         user_score: autoScore10,
         scoring_category: item.category,
         duration_estimate: item.duration,
