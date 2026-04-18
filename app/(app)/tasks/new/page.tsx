@@ -26,6 +26,95 @@ import type { Frequency, TaskCategory } from '@/types/database';
 import { inferTaskMetadata } from '@/utils/taskInference';
 import { createClient } from '@/lib/supabase';
 
+// ─── Moteur d'autocomplétion intelligent ────────────────────────────────────
+
+/** Supprime les accents pour la comparaison (ménage → menage) */
+function normalize(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Score de pertinence d'un template pour une requête.
+ * Retourne -1 si aucun match. Plus le score est élevé, plus c'est pertinent.
+ *
+ * Niveaux (ordre décroissant) :
+ *   10000 exact · 9000 préfixe · 8000 début-de-mot · 7000 substring · 3000 fuzzy
+ * Bonus : popularité foyer (+2000 max) + sort_order global (+500 max)
+ */
+function scoreTemplate(
+  name: string,
+  query: string,
+  usageCount: number,
+  sortOrder: number,
+): number {
+  const n = normalize(name);
+  const q = normalize(query);
+  if (!q) return -1;
+
+  let base = 0;
+
+  if (n === q) {
+    base = 10000;
+  } else if (n.startsWith(q)) {
+    base = 9000;
+  } else if (n.split(/[\s\-'']/g).some((w) => w.startsWith(q))) {
+    base = 8000;
+  } else if (n.includes(q)) {
+    // Plus c'est tôt dans le nom, meilleur c'est
+    base = 7000 - n.indexOf(q) * 10;
+  } else {
+    // Fuzzy : tous les caractères de la requête présents dans l'ordre
+    let qi = 0;
+    let streak = 0;
+    let best = 0;
+    for (let i = 0; i < n.length && qi < q.length; i++) {
+      if (n[i] === q[qi]) {
+        qi++;
+        streak++;
+        if (streak > best) best = streak;
+      } else {
+        streak = 0;
+      }
+    }
+    if (qi < q.length) return -1; // pas de match du tout
+    base = 3000 + best * 100;
+  }
+
+  // +2000 max selon popularité dans ce foyer
+  base += Math.min(usageCount * 400, 2000);
+  // +500 max selon popularité globale (sort_order bas = plus populaire)
+  base += Math.max(0, 500 - (sortOrder ?? 999));
+
+  return base;
+}
+
+/**
+ * Retourne des fragments JSX avec les lettres correspondantes en gras.
+ * Fonctionne sur le nom original (avec accents) mais match en normalisé.
+ */
+function highlightMatch(name: string, query: string): React.ReactNode[] {
+  const nNorm = normalize(name);
+  const qNorm = normalize(query);
+  if (!qNorm || !nNorm.includes(qNorm)) {
+    // Pour les matches fuzzy / mot-début : on bold juste la query dans le nom si substring simple
+    const idx = nNorm.indexOf(qNorm);
+    if (idx === -1) return [name];
+    return [
+      name.slice(0, idx),
+      <strong key="m" style={{ color: '#007aff' }}>{name.slice(idx, idx + qNorm.length)}</strong>,
+      name.slice(idx + qNorm.length),
+    ];
+  }
+  const idx = nNorm.indexOf(qNorm);
+  return [
+    name.slice(0, idx),
+    <strong key="m" style={{ color: '#007aff' }}>{name.slice(idx, idx + qNorm.length)}</strong>,
+    name.slice(idx + qNorm.length),
+  ];
+}
+
+// ─── Auto-détection de catégorie par mots-clés du titre ─────────────────────
+
 // Auto-détection de catégorie par mots-clés du titre
 function detectCategory(title: string): ScoringCategory | null {
   const t = title.toLowerCase();
@@ -105,19 +194,42 @@ export default function NewTaskPage() {
 
   // Catégories DB + templates (pour autocomplétion)
   const [dbCategories, setDbCategories] = useState<TaskCategory[]>([]);
-  const [allTemplates, setAllTemplates] = useState<{ id: string; name: string; scoring_category: string | null; default_duration: string | null; default_physical: string | null; default_frequency: string | null }[]>([]);
+  const [allTemplates, setAllTemplates] = useState<{
+    id: string;
+    name: string;
+    scoring_category: string | null;
+    default_duration: string | null;
+    default_physical: string | null;
+    default_frequency: string | null;
+    sort_order: number | null;
+  }[]>([]);
+  // Usage count par template_id dans ce foyer (pour boost personnalisé)
+  const [templateUsage, setTemplateUsage] = useState<Map<string, number>>(new Map());
+
   useEffect(() => {
     async function load() {
       const supabase = createClient();
-      const [catRes, tplRes] = await Promise.all([
+      const householdId = profile?.household_id;
+      const [catRes, tplRes, usageRes] = await Promise.all([
         supabase.from('task_categories').select('*').order('sort_order'),
-        supabase.from('task_templates').select('id, name, scoring_category, default_duration, default_physical, default_frequency').order('name'),
+        supabase.from('task_templates').select('id, name, scoring_category, default_duration, default_physical, default_frequency, sort_order').order('sort_order'),
+        householdId
+          ? supabase.from('household_tasks').select('template_id').eq('household_id', householdId).not('template_id', 'is', null)
+          : Promise.resolve({ data: [] }),
       ]);
       if (catRes.data) setDbCategories(catRes.data as TaskCategory[]);
       if (tplRes.data) setAllTemplates(tplRes.data);
+      // Compter les usages par template
+      if (usageRes.data && usageRes.data.length > 0) {
+        const counts = new Map<string, number>();
+        for (const row of usageRes.data) {
+          if (row.template_id) counts.set(row.template_id, (counts.get(row.template_id) ?? 0) + 1);
+        }
+        setTemplateUsage(counts);
+      }
     }
     load();
-  }, []);
+  }, [profile?.household_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Inputs
   const [name, setName] = useState('');
@@ -149,14 +261,55 @@ export default function NewTaskPage() {
   const [showSubTasks, setShowSubTasks] = useState(false);
   const [creatingSubTasks, setCreatingSubTasks] = useState(false);
 
-  // Autocomplétion depuis les templates
+  // Autocomplétion intelligente : fuzzy + scoring multi-facteurs
   const templateSuggestions = useMemo(() => {
     if (name.trim().length < 2 || !showSuggestions) return [];
-    const q = name.trim().toLowerCase();
+    const q = name.trim();
     return allTemplates
-      .filter((t) => t.name.toLowerCase().includes(q))
-      .slice(0, 5);
-  }, [name, allTemplates, showSuggestions]);
+      .map((t) => ({
+        ...t,
+        _score: scoreTemplate(t.name, q, templateUsage.get(t.id) ?? 0, t.sort_order ?? 999),
+      }))
+      .filter((t) => t._score >= 0)
+      .sort((a, b) => b._score - a._score)
+      .slice(0, 6);
+  }, [name, allTemplates, showSuggestions, templateUsage]);
+
+  // Index de la suggestion sélectionnée au clavier (-1 = aucune)
+  const [focusedSuggestion, setFocusedSuggestion] = useState(-1);
+
+  // Reset focus quand les suggestions changent
+  useEffect(() => { setFocusedSuggestion(-1); }, [templateSuggestions]);
+
+  // Appliquer un template (partagé entre Yova et Advanced, clavier et clic)
+  const applyTemplate = useCallback((tpl: typeof templateSuggestions[0]) => {
+    setName(tpl.name);
+    if (tpl.scoring_category) setScoringCategory(tpl.scoring_category as ScoringCategory);
+    if (tpl.default_duration) setDuration(tpl.default_duration as DurationEstimate);
+    if (tpl.default_physical) setPhysical(tpl.default_physical as PhysicalEffort);
+    if (tpl.default_frequency) setFrequency(tpl.default_frequency as Frequency);
+    setSelectedTemplateId(tpl.id);
+    setShowSuggestions(false);
+    setFocusedSuggestion(-1);
+  }, []);
+
+  // Navigation clavier dans les suggestions
+  const handleSuggestionKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!templateSuggestions.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedSuggestion((i) => Math.min(i + 1, templateSuggestions.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedSuggestion((i) => Math.max(i - 1, -1));
+    } else if (e.key === 'Enter' && focusedSuggestion >= 0) {
+      e.preventDefault();
+      applyTemplate(templateSuggestions[focusedSuggestion]);
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setFocusedSuggestion(-1);
+    }
+  }, [templateSuggestions, focusedSuggestion, applyTemplate]);
 
   // Score utilisateur : pré-rempli par l'algo, ajustable via slider
   const [userScore, setUserScore] = useState<number | null>(null);
@@ -577,36 +730,49 @@ export default function NewTaskPage() {
             <input
               type="text"
               value={name}
-              onChange={(e) => { setName(e.target.value); setSelectedTemplateId(null); }}
+              onChange={(e) => { setName(e.target.value); setSelectedTemplateId(null); setShowSuggestions(true); }}
               onFocus={() => setShowSuggestions(true)}
+              onKeyDown={handleSuggestionKeyDown}
               autoFocus
               maxLength={100}
               className="w-full text-[20px] font-semibold text-[#1c1c1e] bg-transparent outline-none border-b-2"
               style={{ borderColor: showPreview ? '#007aff' : '#e5e5ea', paddingBottom: '8px' }}
               placeholder="Ex : Repasser le linge" />
 
-            {/* Autocomplétion templates */}
+            {/* Autocomplétion intelligente */}
             {templateSuggestions.length > 0 && name.trim().length >= 2 && (
-              <div className="mt-3 rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-                {templateSuggestions.map((tpl, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => {
-                      setName(tpl.name);
-                      if (tpl.scoring_category) setScoringCategory(tpl.scoring_category as ScoringCategory);
-                      if (tpl.default_duration) setDuration(tpl.default_duration as DurationEstimate);
-                      if (tpl.default_physical) setPhysical(tpl.default_physical as PhysicalEffort);
-                      if (tpl.default_frequency) setFrequency(tpl.default_frequency as Frequency);
-                      setSelectedTemplateId(tpl.id);
-                      setShowSuggestions(false);
-                    }}
-                    className="w-full px-4 py-3 text-left flex items-center justify-between text-[15px]"
-                    style={i < templateSuggestions.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
-                    <span className="text-[#1c1c1e] font-medium">{tpl.name}</span>
-                    <span className="text-[12px] text-[#8e8e93]">Modèle</span>
-                  </button>
-                ))}
+              <div className="mt-3 rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)', border: '0.5px solid rgba(0,0,0,0.06)' }}>
+                {templateSuggestions.map((tpl, i) => {
+                  const catOpt = SCORING_CATEGORY_OPTIONS.find((o) => o.value === tpl.scoring_category);
+                  const durOpt = DURATION_OPTIONS.find((o) => o.value === tpl.default_duration);
+                  const isFocused = focusedSuggestion === i;
+                  const usageCount = templateUsage.get(tpl.id) ?? 0;
+                  return (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => applyTemplate(tpl)}
+                      className="w-full px-4 py-3 text-left flex items-center gap-3 transition-colors"
+                      style={{
+                        background: isFocused ? '#f0f4ff' : 'transparent',
+                        borderBottom: i < templateSuggestions.length - 1 ? '0.5px solid var(--ios-separator)' : 'none',
+                      }}>
+                      {/* Emoji catégorie */}
+                      <span className="text-[18px] flex-shrink-0">{catOpt?.emoji ?? '📋'}</span>
+                      <div className="flex-1 min-w-0">
+                        {/* Nom avec highlight */}
+                        <p className="text-[15px] text-[#1c1c1e] font-medium truncate">
+                          {highlightMatch(tpl.name, name.trim())}
+                        </p>
+                        {/* Méta : durée + badge "Utilisé" si déjà dans le foyer */}
+                        <p className="text-[11px] text-[#8e8e93] mt-0.5">
+                          {durOpt?.label ?? ''}
+                          {usageCount > 0 && <span className="ml-2 text-[10px] font-semibold text-[#34c759]">✓ Déjà utilisé {usageCount}×</span>}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -989,29 +1155,40 @@ export default function NewTaskPage() {
             <input type="text" required maxLength={100} value={name}
               onChange={(e) => { setName(e.target.value); setShowSuggestions(true); setSelectedTemplateId(null); }}
               onFocus={() => setShowSuggestions(true)}
+              onKeyDown={handleSuggestionKeyDown}
               autoFocus
               className="w-full text-[20px] font-semibold text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
               placeholder="Ex : Préparer le dîner" />
 
-            {/* Autocomplétion templates */}
+            {/* Autocomplétion intelligente */}
             {templateSuggestions.length > 0 && (
-              <div className="mt-2 rounded-lg overflow-hidden" style={{ border: '1px solid var(--ios-separator)' }}>
-                {templateSuggestions.map((tpl, i) => (
-                  <button key={i} type="button"
-                    onClick={() => {
-                      setName(tpl.name);
-                      if (tpl.scoring_category) setScoringCategory(tpl.scoring_category as ScoringCategory);
-                      if (tpl.default_duration) setDuration(tpl.default_duration as DurationEstimate);
-                      if (tpl.default_physical) setPhysical(tpl.default_physical as PhysicalEffort);
-                      setSelectedTemplateId(tpl.id);
-                      setShowSuggestions(false);
-                    }}
-                    className="w-full px-3 py-2.5 text-left text-[15px] text-[#1c1c1e] flex items-center justify-between"
-                    style={i < templateSuggestions.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
-                    <span>{tpl.name}</span>
-                    <span className="text-[12px] text-[#8e8e93]">Modèle</span>
-                  </button>
-                ))}
+              <div className="mt-2 rounded-lg overflow-hidden" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)', border: '0.5px solid rgba(0,0,0,0.06)' }}>
+                {templateSuggestions.map((tpl, i) => {
+                  const catOpt = SCORING_CATEGORY_OPTIONS.find((o) => o.value === tpl.scoring_category);
+                  const durOpt = DURATION_OPTIONS.find((o) => o.value === tpl.default_duration);
+                  const isFocused = focusedSuggestion === i;
+                  const usageCount = templateUsage.get(tpl.id) ?? 0;
+                  return (
+                    <button key={tpl.id} type="button"
+                      onClick={() => applyTemplate(tpl)}
+                      className="w-full px-3 py-2.5 text-left flex items-center gap-3 transition-colors"
+                      style={{
+                        background: isFocused ? '#f0f4ff' : 'transparent',
+                        borderBottom: i < templateSuggestions.length - 1 ? '0.5px solid var(--ios-separator)' : 'none',
+                      }}>
+                      <span className="text-[16px] flex-shrink-0">{catOpt?.emoji ?? '📋'}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[15px] text-[#1c1c1e] truncate">
+                          {highlightMatch(tpl.name, name.trim())}
+                        </p>
+                        <p className="text-[11px] text-[#8e8e93]">
+                          {durOpt?.label ?? ''}
+                          {usageCount > 0 && <span className="ml-2 text-[10px] font-semibold text-[#34c759]">✓ {usageCount}×</span>}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
