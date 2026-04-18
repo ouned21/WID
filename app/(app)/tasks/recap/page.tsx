@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import BackButton from '@/components/BackButton';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
@@ -11,7 +10,9 @@ import { computeNextDueAt } from '@/utils/taskDueDate';
 import { createClient } from '@/lib/supabase';
 import type { TaskListItem, TaskTemplate, HouseholdMember } from '@/types/database';
 
-// -- Checkbox -----------------------------------------------------------------
+// =============================================================================
+// COMPONENTS (dark theme)
+// =============================================================================
 
 function CheckRow({
   label,
@@ -32,63 +33,49 @@ function CheckRow({
       type="button"
       onClick={preChecked ? undefined : onToggle}
       disabled={preChecked}
-      className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
-      style={preChecked ? { opacity: 0.5 } : {}}
+      className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors active:opacity-70"
+      style={{ opacity: preChecked ? 0.45 : 1 }}
     >
-      {/* Checkbox cercle 28px (touch target 44px via padding) */}
+      {/* Circle checkbox */}
       <span
         className="flex-shrink-0 flex items-center justify-center rounded-full transition-all"
         style={{
-          width: 28,
-          height: 28,
-          background: isActive ? (preChecked ? '#8e8e93' : '#007aff') : 'transparent',
-          border: isActive ? 'none' : '2px solid #c7c7cc',
+          width: 26,
+          height: 26,
+          background: isActive ? (preChecked ? 'rgba(255,255,255,0.3)' : 'linear-gradient(135deg,#5856d6,#007aff)') : 'transparent',
+          border: isActive ? 'none' : '1.5px solid rgba(255,255,255,0.25)',
         }}
       >
         {isActive && (
-          <svg width="14" height="14" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+          <svg width="12" height="12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
             <path d="M5 13l4 4L19 7" />
           </svg>
         )}
       </span>
 
-      {/* Nom */}
-      <span
-        className={`flex-1 text-[15px] ${preChecked ? 'line-through text-[#8e8e93]' : 'text-[#1c1c1e]'}`}
-      >
+      <span className={`flex-1 text-[14px] ${preChecked ? 'line-through' : ''}`}
+        style={{ color: preChecked ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.88)' }}>
         {label}
       </span>
 
-      {/* Icône catégorie */}
-      {icon && <span className="text-[16px] flex-shrink-0">{icon}</span>}
+      {icon && <span className="text-[15px] flex-shrink-0">{icon}</span>}
     </button>
   );
 }
 
-// -- Section label ------------------------------------------------------------
-
-function SectionLabel({ title }: { title: string }) {
-  return (
-    <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-2 px-1">
-      {title}
-    </p>
-  );
-}
-
-// -- Page principale ----------------------------------------------------------
+// =============================================================================
+// PAGE
+// =============================================================================
 
 export default function RecapPage() {
   const router = useRouter();
-  const { profile } = useAuthStore();
+  const { profile, isInitialized } = useAuthStore();
   const { tasks, fetchTasks } = useTaskStore();
   const { allMembers } = useHouseholdStore();
 
-  // État local
   const [checkedTaskIds, setCheckedTaskIds] = useState<Set<string>>(new Set());
   const [preCheckedIds, setPreCheckedIds] = useState<Set<string>>(new Set());
   const [checkedTemplateIds, setCheckedTemplateIds] = useState<Set<string>>(new Set());
-  // Pour les tâches "aussi fait aujourd'hui", qui l'a réellement faite
-  // clé = taskId, valeur = memberId (réel ou fantôme)
   const [completedByMap, setCompletedByMap] = useState<Record<string, string>>({});
   const [freeText, setFreeText] = useState('');
   const [freeTextChecked, setFreeTextChecked] = useState(false);
@@ -102,27 +89,28 @@ export default function RecapPage() {
   const userId = profile?.id;
   const householdId = profile?.household_id;
 
-  // Charger les données au montage
+  // ── Load data ──
   useEffect(() => {
-    if (!userId || !householdId) return;
+    // Attendre que l'auth soit initialisée
+    if (!isInitialized) return;
+    // Auth ok mais pas de foyer → rien à charger
+    if (!userId || !householdId) {
+      setLoading(false);
+      return;
+    }
 
     async function loadData() {
       setLoading(true);
       const supabase = createClient();
-
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
 
-      // Charger en parallèle
       const [completionsResult, templatesResult] = await Promise.all([
-        // 1. Complétions d'aujourd'hui par cet utilisateur
         supabase
           .from('task_completions')
           .select('task_id')
           .eq('completed_by', userId)
           .gte('completed_at', startOfToday.toISOString()),
-
-        // 2. Templates du soir / flexibles
         supabase
           .from('task_templates')
           .select('*')
@@ -130,42 +118,31 @@ export default function RecapPage() {
           .order('sort_order', { ascending: true }),
       ]);
 
-      // Pré-cocher les tâches déjà faites
       const doneIds = new Set<string>(
         (completionsResult.data ?? []).map((c: { task_id: string }) => c.task_id)
       );
       setPreCheckedIds(doneIds);
-
-      // Templates
       setTemplates((templatesResult.data as TaskTemplate[]) ?? []);
 
-      // S'assurer que les tâches sont chargées
-      if (tasks.length === 0) {
-        await fetchTasks(householdId!);
+      if (tasks.length === 0 && householdId) {
+        await fetchTasks(householdId);
       }
 
       setLoading(false);
     }
 
     loadData();
-  }, [userId, householdId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isInitialized, userId, householdId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sections dérivées
+  // ── Sections ──
   const sections = useMemo(() => {
     if (!userId) return { myTasks: [], otherTasks: [], suggestions: [] };
 
     const allSections = splitTasksIntoSections(tasks);
     const todayAndOverdue = [...allSections.overdue, ...allSections.today];
 
-    // Section 1 : mes tâches (assignées à moi, dues aujourd'hui ou en retard)
     const myTasks = todayAndOverdue.filter((t) => t.assigned_to === userId);
-
-    // Section 2 : tâches des autres (non assignées ou assignées à d'autres)
-    const otherTasks = allSections.today.filter(
-      (t) => t.assigned_to !== userId
-    );
-
-    // Section 3 : suggestions (templates pas encore dans le foyer)
+    const otherTasks = allSections.today.filter((t) => t.assigned_to !== userId);
     const existingNames = new Set(tasks.map((t) => t.name.toLowerCase()));
     const suggestions = templates
       .filter((t) => !existingNames.has(t.name.toLowerCase()))
@@ -174,8 +151,6 @@ export default function RecapPage() {
     return { myTasks, otherTasks, suggestions };
   }, [tasks, templates, userId]);
 
-  // Toggle checkbox tâche
-  // Pour les tâches "autres" (otherTasks), initialise le completedByMap avec l'assigné par défaut
   const toggleTask = useCallback((taskId: string, defaultCompletedBy?: string) => {
     setCheckedTaskIds((prev) => {
       const next = new Set(prev);
@@ -191,17 +166,14 @@ export default function RecapPage() {
     });
   }, []);
 
-  // Toggle checkbox template
   const toggleTemplate = useCallback((templateId: string) => {
     setCheckedTemplateIds((prev) => {
       const next = new Set(prev);
-      if (next.has(templateId)) next.delete(templateId);
-      else next.add(templateId);
+      if (next.has(templateId)) next.delete(templateId); else next.add(templateId);
       return next;
     });
   }, []);
 
-  // Nombre de nouvelles sélections
   const newCheckedCount = useMemo(() => {
     let count = 0;
     for (const id of checkedTaskIds) {
@@ -212,10 +184,8 @@ export default function RecapPage() {
     return count;
   }, [checkedTaskIds, preCheckedIds, checkedTemplateIds, freeTextChecked, freeText]);
 
-  // Soumission
   const handleSubmit = useCallback(async () => {
     if (!userId || !householdId || newCheckedCount === 0) return;
-
     setSubmitting(true);
     setError(null);
 
@@ -224,23 +194,14 @@ export default function RecapPage() {
       const now = new Date();
       const nowISO = now.toISOString();
 
-      // 1. Compléter les tâches existantes nouvellement cochées
       const newTaskIds = [...checkedTaskIds].filter((id) => !preCheckedIds.has(id));
 
       for (const taskId of newTaskIds) {
         const task = tasks.find((t) => t.id === taskId);
         if (!task) continue;
 
-        // Résoudre qui a réellement fait la tâche :
-        // - Pour les "other tasks", l'utilisateur peut avoir choisi un autre membre via completedByMap
-        // - Pour "my tasks", c'est toujours l'utilisateur courant
         const chosenMemberId = completedByMap[taskId];
-        const chosenMember = chosenMemberId
-          ? allMembers.find((m) => m.id === chosenMemberId)
-          : null;
-
-        // Si le membre choisi est un fantôme → completed_by_phantom_id
-        // Sinon → completed_by = le membre réel choisi (ou userId par défaut)
+        const chosenMember = chosenMemberId ? allMembers.find((m) => m.id === chosenMemberId) : null;
         const isChosenPhantom = chosenMember?.isPhantom ?? false;
         const completedByReal = isChosenPhantom ? userId : (chosenMemberId ?? userId);
         const completedByPhantom = isChosenPhantom ? chosenMemberId : (task.assigned_to_phantom_id ?? null);
@@ -254,15 +215,12 @@ export default function RecapPage() {
           mental_load_score: task.mental_load_score,
         });
 
-        // Mettre à jour next_due_at
         const nextDueAt = computeNextDueAt(task.frequency, now);
-        await supabase
-          .from('household_tasks')
+        await supabase.from('household_tasks')
           .update({ next_due_at: nextDueAt?.toISOString() ?? null })
           .eq('id', taskId);
       }
 
-      // 2. Quick log pour les templates cochés
       for (const templateId of checkedTemplateIds) {
         const template = templates.find((t) => t.id === templateId);
         if (!template) continue;
@@ -296,11 +254,9 @@ export default function RecapPage() {
         }
       }
 
-      // 3. Quick log pour le texte libre
       if (freeTextChecked && freeText.trim()) {
         const { data: cats } = await supabase.from('task_categories').select('id').limit(1);
         const categoryId = cats?.[0]?.id ?? '';
-
         const { data: taskData } = await supabase
           .from('household_tasks')
           .insert({
@@ -330,10 +286,7 @@ export default function RecapPage() {
         }
       }
 
-      // 4. Rafraîchir le store une seule fois
       await fetchTasks(householdId);
-
-      // Succès
       setCompletedCount(newCheckedCount);
       setShowSuccess(true);
       setTimeout(() => router.push('/dashboard'), 2500);
@@ -344,76 +297,105 @@ export default function RecapPage() {
     }
   }, [userId, householdId, checkedTaskIds, preCheckedIds, checkedTemplateIds, completedByMap, allMembers, freeTextChecked, freeText, tasks, templates, newCheckedCount, fetchTasks, router]);
 
-  // Écran de succès
+  // ── Succès ──
   if (showSuccess) {
     return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center px-4">
-        <div
-          className="text-[72px] font-black mb-2"
-          style={{
-            color: '#34c759',
-            animation: 'scaleIn 0.4s ease-out',
-          }}
-        >
+      <div className="flex min-h-[70vh] flex-col items-center justify-center px-4"
+        style={{ background: '#15152a' }}>
+        <div className="text-[72px] font-black mb-2" style={{ color: '#34c759' }}>
           {completedCount}
         </div>
-        <p className="text-[22px] font-bold text-[#1c1c1e]">
+        <p className="text-[22px] font-bold text-white">
           {completedCount === 1 ? 'tâche enregistrée' : 'tâches enregistrées'}
         </p>
-        <p className="text-[17px] text-[#8e8e93] mt-2">Bravo, bonne soirée 💪</p>
+        <p className="text-[17px] mt-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          Bravo, bonne soirée 💪
+        </p>
       </div>
     );
   }
 
-  // Date formatée
   const dateStr = new Date().toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
+    weekday: 'long', day: 'numeric', month: 'long',
   });
 
-  const hasContent = sections.myTasks.length > 0 || sections.otherTasks.length > 0 || sections.suggestions.length > 0;
+  const hasContent =
+    sections.myTasks.length > 0 ||
+    sections.otherTasks.length > 0 ||
+    sections.suggestions.length > 0;
 
+  // =============================================================================
+  // RENDER — dark theme (mockup Screen 3)
+  // =============================================================================
   return (
-    <div className="pt-4 pb-28">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 mb-2">
-        <BackButton />
-        <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Comment se passe ta journée ?</h2>
-        <div className="w-16" />
+    <div className="min-h-screen pb-40"
+      style={{
+        background: '#15152a',
+        // Compensate for the app layout padding
+        marginLeft: '-16px',
+        marginRight: '-16px',
+        marginTop: '-24px',
+        paddingLeft: '16px',
+        paddingRight: '16px',
+        paddingTop: '16px',
+      }}>
+
+      {/* ── Header ── */}
+      <div className="mb-5">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-1 text-[13px] font-semibold mb-4"
+          style={{ color: 'rgba(255,255,255,0.4)' }}>
+          <svg width="7" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12">
+            <path d="M6 1L1 6l5 5" />
+          </svg>
+          Retour
+        </button>
+        <h2 className="text-[22px] font-black text-white leading-tight">
+          Comment se passe ta journée ?
+        </h2>
+        <p className="text-[13px] mt-1 capitalize" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          {dateStr}
+        </p>
       </div>
 
-      {/* Date */}
-      <p className="px-4 text-[13px] text-[#8e8e93] mb-4 capitalize">{dateStr}</p>
-
       {error && (
-        <div className="mx-4 mb-4 rounded-xl px-4 py-3 text-[14px]" style={{ background: '#fff2f2', color: '#ff3b30' }}>
+        <div className="mb-4 rounded-xl px-4 py-3 text-[13px]"
+          style={{ background: 'rgba(255,59,48,0.18)', border: '1px solid rgba(255,59,48,0.28)', color: '#ff8c8c' }}>
           {error}
         </div>
       )}
 
+      {/* ── Contenu ── */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 rounded-full border-2 border-[#007aff] border-t-transparent animate-spin" />
+          <div className="h-8 w-8 rounded-full border-2 border-t-transparent animate-spin"
+            style={{ borderColor: 'rgba(255,255,255,0.15)', borderTopColor: '#5856d6' }} />
         </div>
       ) : !hasContent ? (
-        /* État vide — seulement le champ libre */
-        <div className="mx-4 space-y-4">
-          <div className="rounded-2xl bg-white p-6 text-center" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-            <p className="text-[32px] mb-2">🌙</p>
-            <p className="text-[17px] font-semibold text-[#1c1c1e]">Rien de prévu ce soir</p>
-            <p className="text-[14px] text-[#8e8e93] mt-1">Tu peux quand même noter ce que tu as fait</p>
-          </div>
+        <div className="rounded-2xl px-5 py-8 text-center mb-4"
+          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <p className="text-[32px] mb-2">🌙</p>
+          <p className="text-[16px] font-bold text-white">Rien de prévu ce soir</p>
+          <p className="text-[13px] mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            Tu peux quand même noter ce que tu as fait
+          </p>
         </div>
       ) : (
         <div className="space-y-5">
-          {/* Section 1 : Tes tâches */}
+
+          {/* Section : Tes tâches */}
           {sections.myTasks.length > 0 && (
-            <div className="mx-4">
-              <SectionLabel title="Tes tâches" />
-              <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[1.5px] mb-2 px-1"
+                style={{ color: 'rgba(255,255,255,0.35)' }}>
+                Tes tâches
+              </p>
+              <div className="rounded-2xl overflow-hidden"
+                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)' }}>
                 {sections.myTasks.map((task, i) => (
-                  <div key={task.id} style={i < sections.myTasks.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
+                  <div key={task.id}
+                    style={i < sections.myTasks.length - 1 ? { borderBottom: '0.5px solid rgba(255,255,255,0.07)' } : {}}>
                     <CheckRow
                       label={task.name}
                       icon={task.category?.icon}
@@ -427,53 +409,47 @@ export default function RecapPage() {
             </div>
           )}
 
-          {/* Section 2 : Aussi fait aujourd'hui ? */}
+          {/* Section : Aussi fait aujourd'hui ? */}
           {sections.otherTasks.length > 0 && (
-            <div className="mx-4">
-              <SectionLabel title="Aussi fait aujourd'hui ?" />
-              <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-                {sections.otherTasks.map((task, i) => {
-                  // Membre par défaut : assigné à la tâche, ou utilisateur courant
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[1.5px] mb-2 px-1"
+                style={{ color: 'rgba(255,255,255,0.35)' }}>
+                Aussi fait aujourd&apos;hui ?
+              </p>
+              <div className="rounded-2xl overflow-hidden"
+                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                {sections.otherTasks.map((task: TaskListItem, i) => {
                   const defaultMemberId =
-                    task.assigned_to_phantom_id ??
-                    task.assigned_to ??
-                    userId ??
-                    '';
+                    task.assigned_to_phantom_id ?? task.assigned_to ?? userId ?? '';
                   const isChecked = checkedTaskIds.has(task.id);
-
                   return (
-                    <div key={task.id} style={i < sections.otherTasks.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
+                    <div key={task.id}
+                      style={i < sections.otherTasks.length - 1 ? { borderBottom: '0.5px solid rgba(255,255,255,0.07)' } : {}}>
                       <CheckRow
                         label={task.name}
                         icon={task.category?.icon}
                         checked={isChecked}
                         onToggle={() => toggleTask(task.id, defaultMemberId)}
                       />
-                      {/* Sélecteur "Fait par :" affiché seulement si la tâche est cochée */}
                       {isChecked && allMembers.length > 1 && (
-                        <div
-                          className="flex items-center gap-2 px-4 pb-3 flex-wrap"
-                          style={{ borderTop: '0.5px solid var(--ios-separator)' }}
-                        >
-                          <span className="text-[12px] text-[#8e8e93] flex-shrink-0">Fait par :</span>
+                        <div className="flex items-center gap-2 px-4 pb-3 flex-wrap"
+                          style={{ borderTop: '0.5px solid rgba(255,255,255,0.07)' }}>
+                          <span className="text-[11px] flex-shrink-0"
+                            style={{ color: 'rgba(255,255,255,0.4)' }}>
+                            Fait par :
+                          </span>
                           {allMembers.map((member: HouseholdMember) => {
                             const selected = (completedByMap[task.id] ?? defaultMemberId) === member.id;
                             return (
-                              <button
-                                key={member.id}
-                                type="button"
-                                onClick={() =>
-                                  setCompletedByMap((m) => ({ ...m, [task.id]: member.id }))
-                                }
-                                className="flex items-center gap-1 px-2 py-1 rounded-full text-[12px] font-medium transition-all"
+                              <button key={member.id} type="button"
+                                onClick={() => setCompletedByMap((m) => ({ ...m, [task.id]: member.id }))}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-semibold transition-all"
                                 style={{
-                                  background: selected ? '#007aff' : '#f2f2f7',
-                                  color: selected ? '#fff' : '#1c1c1e',
-                                }}
-                              >
-                                {member.isPhantom && (
-                                  <span className="text-[10px]">👤</span>
-                                )}
+                                  background: selected
+                                    ? 'linear-gradient(135deg,#5856d6,#007aff)'
+                                    : 'rgba(255,255,255,0.1)',
+                                  color: selected ? 'white' : 'rgba(255,255,255,0.7)',
+                                }}>
                                 {member.display_name}
                               </button>
                             );
@@ -487,13 +463,32 @@ export default function RecapPage() {
             </div>
           )}
 
-          {/* Section 3 : Suggestions */}
+          {/* Section : Suggestions */}
           {sections.suggestions.length > 0 && (
-            <div className="mx-4">
-              <SectionLabel title="Suggestions" />
-              <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+            <div>
+              {/* Bulle Yova — comme le mockup */}
+              <div className="flex gap-2 mb-3 px-1">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white"
+                  style={{ background: 'linear-gradient(135deg,#5856d6,#007aff)' }}>
+                  Y
+                </div>
+                <div className="rounded-2xl rounded-tl-sm px-3 py-2 max-w-[84%]"
+                  style={{ background: 'rgba(255,255,255,0.09)' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-[1.5px] mb-1"
+                    style={{ color: 'rgba(255,255,255,0.35)' }}>
+                    Yova
+                  </p>
+                  <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                    Tu as peut-être aussi fait…
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl overflow-hidden"
+                style={{ background: 'rgba(88,86,214,0.1)', border: '1px solid rgba(88,86,214,0.22)' }}>
                 {sections.suggestions.map((tpl, i) => (
-                  <div key={tpl.id} style={i < sections.suggestions.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
+                  <div key={tpl.id}
+                    style={i < sections.suggestions.length - 1 ? { borderBottom: '0.5px solid rgba(88,86,214,0.15)' } : {}}>
                     <CheckRow
                       label={tpl.name}
                       checked={checkedTemplateIds.has(tpl.id)}
@@ -507,28 +502,24 @@ export default function RecapPage() {
         </div>
       )}
 
-      {/* Section 4 : Texte libre */}
-      <div className="mx-4 mt-5">
-        <SectionLabel title="Autre chose..." />
-        <div className="rounded-2xl bg-white overflow-hidden flex items-center" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-          {/* Checkbox pour le texte libre */}
+      {/* ── Barre saisie libre (style chat-bar du mockup) ── */}
+      <div className="mt-6">
+        <p className="text-[10px] font-bold uppercase tracking-[1.5px] mb-2 px-1"
+          style={{ color: 'rgba(255,255,255,0.35)' }}>
+          Autre chose…
+        </p>
+        <div className="flex items-center gap-2 rounded-[22px] px-4 py-2"
+          style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
           {freeText.trim() && (
-            <button
-              type="button"
-              onClick={() => setFreeTextChecked(!freeTextChecked)}
-              className="pl-4 flex-shrink-0"
-            >
-              <span
-                className="flex items-center justify-center rounded-full transition-all"
+            <button type="button" onClick={() => setFreeTextChecked(!freeTextChecked)} className="flex-shrink-0">
+              <span className="flex items-center justify-center rounded-full transition-all"
                 style={{
-                  width: 28,
-                  height: 28,
-                  background: freeTextChecked ? '#007aff' : 'transparent',
-                  border: freeTextChecked ? 'none' : '2px solid #c7c7cc',
-                }}
-              >
+                  width: 24, height: 24,
+                  background: freeTextChecked ? 'linear-gradient(135deg,#5856d6,#007aff)' : 'transparent',
+                  border: freeTextChecked ? 'none' : '1.5px solid rgba(255,255,255,0.25)',
+                }}>
                 {freeTextChecked && (
-                  <svg width="14" height="14" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+                  <svg width="11" height="11" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
                     <path d="M5 13l4 4L19 7" />
                   </svg>
                 )}
@@ -542,28 +533,43 @@ export default function RecapPage() {
               setFreeText(e.target.value);
               if (!e.target.value.trim()) setFreeTextChecked(false);
             }}
-            className="flex-1 px-4 py-3 text-[15px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
+            className="flex-1 py-2 text-[13px] bg-transparent outline-none"
+            style={{ color: 'rgba(255,255,255,0.85)' }}
             placeholder="Autre chose fait aujourd'hui ?"
           />
+          {/* Placeholder style override */}
+          <style>{`input::placeholder { color: rgba(255,255,255,0.28); }`}</style>
+          {freeText.trim() && !freeTextChecked && (
+            <button
+              type="button"
+              onClick={() => setFreeTextChecked(true)}
+              className="flex-shrink-0 flex items-center justify-center rounded-full w-7 h-7"
+              style={{ background: 'linear-gradient(135deg,#5856d6,#1a7fe8)' }}>
+              <svg width="10" height="10" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Bouton Terminé — sticky en bas */}
-      <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3" style={{ background: 'linear-gradient(transparent, #f6f8ff 30%)' }}>
-        {/* Accès IA — premium */}
+      {/* ── Boutons fixés en bas ── */}
+      <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3"
+        style={{ background: 'linear-gradient(transparent, #15152a 35%)' }}>
+
+        {/* Premium teaser — style mockup */}
         <button
           onClick={() => router.push('/upgrade?feature=journal')}
           className="w-full mb-3 rounded-2xl overflow-hidden text-left active:opacity-90 transition-opacity"
-          style={{ background: 'linear-gradient(135deg, #5856d6, #764ba2)', boxShadow: '0 4px 16px rgba(88,86,214,0.3)' }}
-        >
+          style={{ background: 'linear-gradient(135deg,#5856d6,#764ba2)', boxShadow: '0 4px 16px rgba(88,86,214,0.3)' }}>
           <div className="px-4 py-3 flex items-center gap-3">
-            <span className="text-[32px]">🤖</span>
+            <span className="text-[28px]">🤖</span>
             <div className="flex-1">
-              <p className="text-[15px] font-bold text-white">Laisse Yova analyser ta journée</p>
-              <p className="text-[12px] text-white opacity-80">Dicte, elle s&apos;occupe du reste</p>
+              <p className="text-[14px] font-bold text-white">Laisse Yova analyser ta journée</p>
+              <p className="text-[12px] text-white/70">Dicte, elle s&apos;occupe du reste</p>
             </div>
-            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full flex-shrink-0"
-              style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+              style={{ background: 'rgba(255,255,255,0.18)', color: 'white' }}>
               Premium
             </span>
           </div>
@@ -572,15 +578,17 @@ export default function RecapPage() {
         <button
           onClick={handleSubmit}
           disabled={submitting || newCheckedCount === 0}
-          className="w-full rounded-xl py-[14px] text-[17px] font-semibold text-white disabled:opacity-40 transition-all"
-          style={{ background: newCheckedCount > 0 ? '#34c759' : '#8e8e93' }}
-        >
+          className="w-full rounded-2xl py-[15px] text-[17px] font-bold text-white disabled:opacity-35 transition-all"
+          style={{
+            background: newCheckedCount > 0
+              ? 'linear-gradient(135deg,#34c759,#30d158)'
+              : 'rgba(255,255,255,0.12)',
+          }}>
           {submitting
-            ? 'Enregistrement...'
+            ? 'Enregistrement…'
             : newCheckedCount > 0
-              ? `Terminé (${newCheckedCount})`
-              : 'Coche ce que tu as fait'
-          }
+              ? `Terminé · ${newCheckedCount} tâche${newCheckedCount > 1 ? 's' : ''} ✓`
+              : 'Coche ce que tu as fait'}
         </button>
       </div>
     </div>
