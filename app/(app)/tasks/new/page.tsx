@@ -66,6 +66,7 @@ export default function NewTaskPage() {
     algoScore36: number;
     dueDate: string;
     dueTime: string;
+    templateId: string | null;
   };
   const [pendingTasks, setPendingTasks] = useState<PendingTask[]>([]);
   const [swipeIndex, setSwipeIndex] = useState(0);
@@ -104,13 +105,13 @@ export default function NewTaskPage() {
 
   // Catégories DB + templates (pour autocomplétion)
   const [dbCategories, setDbCategories] = useState<TaskCategory[]>([]);
-  const [allTemplates, setAllTemplates] = useState<{ name: string; scoring_category: string | null; default_duration: string | null; default_physical: string | null; default_frequency: string | null }[]>([]);
+  const [allTemplates, setAllTemplates] = useState<{ id: string; name: string; scoring_category: string | null; default_duration: string | null; default_physical: string | null; default_frequency: string | null }[]>([]);
   useEffect(() => {
     async function load() {
       const supabase = createClient();
       const [catRes, tplRes] = await Promise.all([
         supabase.from('task_categories').select('*').order('sort_order'),
-        supabase.from('task_templates').select('name, scoring_category, default_duration, default_physical, default_frequency').order('name'),
+        supabase.from('task_templates').select('id, name, scoring_category, default_duration, default_physical, default_frequency').order('name'),
       ]);
       if (catRes.data) setDbCategories(catRes.data as TaskCategory[]);
       if (tplRes.data) setAllTemplates(tplRes.data);
@@ -140,6 +141,7 @@ export default function NewTaskPage() {
   const [startsAt, setStartsAt] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
   // Sous-tâches suggérées après création
   const [subTaskSuggestions, setSubTaskSuggestions] = useState<{ id: string; suggested_name: string; suggested_frequency: string; relative_days: number }[]>([]);
@@ -263,8 +265,19 @@ export default function NewTaskPage() {
       scoring_category: scoringCategory,
       is_fixed_assignment: isFixedAssignment,
       notifications_enabled: notificationsEnabled,
+      // Catalogue
+      template_id: selectedTemplateId,
     });
     if (result.ok) {
+      // Collecte silencieuse : tâche sans template → suggestion personnalisée
+      if (!selectedTemplateId) {
+        const supabaseSugg = createClient();
+        supabaseSugg.from('custom_task_suggestions').insert({
+          name: name.trim(),
+          household_id: profile.household_id,
+          source: 'task_creation',
+        }).then(() => {}); // fire-and-forget
+      }
       // Chercher des sous-tâches associées (événements, mots-clés)
       const supabase2 = createClient();
       const keywords = name.trim().toLowerCase().split(/\s+/);
@@ -382,6 +395,7 @@ export default function NewTaskPage() {
       algoScore36: score.global_score,
       dueDate,
       dueTime,
+      templateId: selectedTemplateId,
     };
     setPendingTasks((prev) => [...prev, newPending]);
     // Reset pour saisir la prochaine
@@ -393,7 +407,8 @@ export default function NewTaskPage() {
     setPhysical('light');
     setFrequency('weekly');
     setAutoDetected(false);
-  }, [name, scoringCategory, frequency, duration, physical, userScore, score.global_score, dueDate, dueTime]);
+    setSelectedTemplateId(null);
+  }, [name, scoringCategory, frequency, duration, physical, userScore, score.global_score, dueDate, dueTime, selectedTemplateId]);
 
   // Transition vers l'écran de swipe assignation (en s'assurant que la tâche courante est commit si l'input est rempli)
   const goToAssign = useCallback(() => {
@@ -409,12 +424,13 @@ export default function NewTaskPage() {
         algoScore36: score.global_score,
         dueDate,
         dueTime,
+        templateId: selectedTemplateId,
       };
       setPendingTasks((prev) => [...prev, newPending]);
     }
     setSwipeIndex(0);
     setYovaStep('assign');
-  }, [name, scoringCategory, frequency, duration, physical, userScore, score.global_score, dueDate, dueTime]);
+  }, [name, scoringCategory, frequency, duration, physical, userScore, score.global_score, dueDate, dueTime, selectedTemplateId]);
 
   // Assignation d'une tâche du batch à un membre → passage à la suivante ou création finale
   const assignBatchTask = useCallback(async (memberId: string | null) => {
@@ -489,7 +505,16 @@ export default function NewTaskPage() {
         is_fixed_assignment: false,
         notifications_enabled: true,
         created_by: profile.id,
+        template_id: t.templateId ?? null,
       });
+      // Collecte silencieuse : tâche sans template → suggestion personnalisée
+      if (!t.templateId) {
+        supabase2.from('custom_task_suggestions').insert({
+          name: t.name,
+          household_id: profile.household_id,
+          source: 'task_creation',
+        }).then(() => {}); // fire-and-forget
+      }
     }
 
     setBatchCreating(false);
@@ -552,7 +577,7 @@ export default function NewTaskPage() {
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => { setName(e.target.value); setSelectedTemplateId(null); }}
               onFocus={() => setShowSuggestions(true)}
               autoFocus
               maxLength={100}
@@ -573,6 +598,7 @@ export default function NewTaskPage() {
                       if (tpl.default_duration) setDuration(tpl.default_duration as DurationEstimate);
                       if (tpl.default_physical) setPhysical(tpl.default_physical as PhysicalEffort);
                       if (tpl.default_frequency) setFrequency(tpl.default_frequency as Frequency);
+                      setSelectedTemplateId(tpl.id);
                       setShowSuggestions(false);
                     }}
                     className="w-full px-4 py-3 text-left flex items-center justify-between text-[15px]"
@@ -961,7 +987,7 @@ export default function NewTaskPage() {
           <div className="px-4 py-4" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
             <label className="text-[13px] text-[#8e8e93] block mb-1">Qu&apos;est-ce que c&apos;est ?</label>
             <input type="text" required maxLength={100} value={name}
-              onChange={(e) => { setName(e.target.value); setShowSuggestions(true); }}
+              onChange={(e) => { setName(e.target.value); setShowSuggestions(true); setSelectedTemplateId(null); }}
               onFocus={() => setShowSuggestions(true)}
               autoFocus
               className="w-full text-[20px] font-semibold text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
@@ -977,6 +1003,7 @@ export default function NewTaskPage() {
                       if (tpl.scoring_category) setScoringCategory(tpl.scoring_category as ScoringCategory);
                       if (tpl.default_duration) setDuration(tpl.default_duration as DurationEstimate);
                       if (tpl.default_physical) setPhysical(tpl.default_physical as PhysicalEffort);
+                      setSelectedTemplateId(tpl.id);
                       setShowSuggestions(false);
                     }}
                     className="w-full px-3 py-2.5 text-left text-[15px] text-[#1c1c1e] flex items-center justify-between"
