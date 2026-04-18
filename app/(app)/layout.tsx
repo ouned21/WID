@@ -15,14 +15,14 @@ const NAV_ITEMS = [
       <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" />
     </svg>
   )},
-  { href: '/tasks/recap', label: 'Journal', icon: (
-    <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-      <path d="M4 19.5A2.5 2.5 0 016.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" /><path d="M8 8h8M8 12h6" />
-    </svg>
-  )},
   { href: '/planning', label: 'Planning', icon: (
     <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
       <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
+    </svg>
+  )},
+  { href: '/journal', label: 'Journal', icon: (
+    <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+      <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
     </svg>
   )},
   { href: '/profile', label: 'Profil', icon: (
@@ -68,8 +68,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setQuickName('');
   }, [quickName]);
 
+  const isOnboarding = pathname.startsWith('/onboarding');
+
   // Ne pas afficher le FAB sur la page de création ni pendant l'onboarding
-  const showFab = !pathname.startsWith('/tasks/new') && !pathname.startsWith('/onboarding');
+  const showFab = !pathname.startsWith('/tasks/new') && !isOnboarding;
 
   useEffect(() => {
     if (!isInitialized) initialize();
@@ -120,15 +122,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col" style={{ background: '#f6f8ff' }}>
-      {/* Avatar flottant (remplace le header complet) */}
-      <Link
-        href="/profile"
-        className="fixed top-3 right-3 z-40 flex h-10 w-10 items-center justify-center rounded-full text-[15px] font-semibold text-white"
-        style={{ background: '#007aff', boxShadow: '0 2px 8px rgba(0,122,255,0.3)' }}
-        aria-label={`Profil de ${profile?.display_name ?? 'utilisateur'}`}
-      >
-        {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
-      </Link>
+      {/* Avatar flottant — masqué pendant l'onboarding */}
+      {!isOnboarding && (
+        <Link
+          href="/profile"
+          className="fixed top-3 right-3 z-40 flex h-10 w-10 items-center justify-center rounded-full text-[15px] font-semibold text-white"
+          style={{ background: '#007aff', boxShadow: '0 2px 8px rgba(0,122,255,0.3)' }}
+          aria-label={`Profil de ${profile?.display_name ?? 'utilisateur'}`}
+        >
+          {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
+        </Link>
+      )}
 
       {/* Contenu */}
       <main className="flex-1 px-4 pt-6 pb-28">
@@ -184,8 +188,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </button>
       )}
 
-      {/* Floating tab bar */}
-      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-32px)] max-w-lg rounded-[22px] bg-white/92 backdrop-blur-xl" style={{
+      {/* Floating tab bar — masquée pendant l'onboarding */}
+      {!isOnboarding && <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-32px)] max-w-lg rounded-[22px] bg-white/92 backdrop-blur-xl" style={{
         boxShadow: '0 8px 32px rgba(15,23,42,0.12), 0 2px 8px rgba(15,23,42,0.06)',
       }}>
         <div className="flex">
@@ -207,7 +211,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             );
           })}
         </div>
-      </nav>
+      </nav>}
     </div>
   );
 }

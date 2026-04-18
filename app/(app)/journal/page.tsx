@@ -235,23 +235,25 @@ export default function JournalPage() {
 
       {/* Bloc principal : saisie */}
       <div className="mx-4">
+        {/* Bulle Yova */}
         <div className="rounded-3xl p-5 mb-4" style={{
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           boxShadow: '0 8px 24px rgba(118, 75, 162, 0.2)',
         }}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full text-[20px]" style={{ background: 'rgba(255,255,255,0.25)' }}>
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full text-[20px] flex-shrink-0 mt-0.5" style={{ background: 'rgba(255,255,255,0.25)' }}>
               🤖
             </div>
             <div>
-              <p className="text-[17px] font-bold text-white">Yova</p>
-              <p className="text-[12px] text-white opacity-80">Raconte-moi ta journée</p>
+              <p className="text-[11px] uppercase tracking-[0.15em] font-bold text-white/60 mb-1">Yova</p>
+              <p className="text-[17px] font-bold text-white leading-snug">
+                Qu&apos;est-ce que t&apos;as géré aujourd&apos;hui que personne n&apos;a vu ?
+              </p>
+              <p className="text-[13px] text-white/70 mt-1.5 leading-relaxed">
+                Réponds en une phrase. Je classe, je note, ça compte dans ton score.
+              </p>
             </div>
           </div>
-          <p className="text-[14px] text-white opacity-90 leading-relaxed">
-            Dis-moi simplement ce que tu as fait aujourd&apos;hui, en une phrase ou deux.
-            Je note tout et je mets à jour ton foyer.
-          </p>
         </div>
 
         <textarea
@@ -259,9 +261,9 @@ export default function JournalPage() {
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
           maxLength={2000}
-          rows={5}
+          rows={4}
           disabled={sending}
-          placeholder="Ce matin j'ai sorti le chien et fait les courses. Ce soir Barbara a préparé le dîner..."
+          placeholder="J'ai appelé l'assurance, pris rdv chez le dentiste et commandé les fournitures scolaires…"
           className="w-full text-[16px] rounded-2xl px-4 py-3 bg-white text-[#1c1c1e] outline-none placeholder:text-[#c7c7cc] resize-none disabled:opacity-50"
           style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
           autoFocus
@@ -327,62 +329,76 @@ export default function JournalPage() {
         </div>
       )}
 
-      {/* Résultat du parsing */}
+      {/* Résultat du parsing — style chat */}
       {result && result.code !== 'AI_LIMIT_REACHED' && (
-        <div className="mx-4 rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          {/* Réponse Yova */}
-          <div className="px-5 py-4" style={{ background: '#EEF4FF', borderBottom: '0.5px solid var(--ios-separator)' }}>
+        <div className="mx-4 space-y-3">
+
+          {/* Bulle réponse Yova */}
+          <div className="rounded-3xl p-5" style={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            boxShadow: '0 4px 16px rgba(118,75,162,0.2)',
+          }}>
             <div className="flex items-start gap-3">
-              <span className="text-[24px]">{result.mood_tone ? MOOD_EMOJI[result.mood_tone] ?? '🤖' : '🤖'}</span>
-              <p className="text-[15px] text-[#1c1c1e] leading-relaxed flex-1">{result.ai_response}</p>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full text-[18px] flex-shrink-0 mt-0.5"
+                style={{ background: 'rgba(255,255,255,0.25)' }}>
+                {result.mood_tone ? MOOD_EMOJI[result.mood_tone] ?? '🤖' : '🤖'}
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.12em] font-bold text-white/60 mb-1">Yova</p>
+                <p className="text-[15px] text-white leading-relaxed">{result.ai_response}</p>
+              </div>
             </div>
           </div>
 
-          {/* Complétions enregistrées */}
-          {result.completions.length > 0 && (
-            <div className="px-5 py-4" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
-              <p className="text-[11px] font-bold text-[#34c759] uppercase tracking-wide mb-3">
-                ✓ {result.completions.length} tâche{result.completions.length > 1 ? 's' : ''} enregistrée{result.completions.length > 1 ? 's' : ''}
-              </p>
-              <div className="space-y-2">
-                {result.completions.map((c, i) => (
-                  <div key={i} className="flex items-center justify-between text-[14px]">
-                    <span className="text-[#1c1c1e]">{c.task_name}</span>
-                    <div className="flex items-center gap-2 text-[11px] text-[#8e8e93]">
-                      {c.duration_minutes && <span>{c.duration_minutes}min</span>}
-                      <span className={c.confidence >= 0.8 ? 'text-[#34c759]' : c.confidence >= 0.5 ? 'text-[#ff9500]' : 'text-[#ff3b30]'}>
-                        {Math.round(c.confidence * 100)}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
+          {/* Récap tâches enregistrées */}
+          {(result.completions.length > 0 || (result.auto_created && result.auto_created.length > 0)) && (
+            <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+              <div className="px-5 pt-4 pb-2">
+                <p className="text-[11px] font-bold text-[#34c759] uppercase tracking-wide">
+                  ✓ J&apos;ai noté
+                </p>
+              </div>
+
+              {result.completions.map((c, i) => (
+                <div
+                  key={i}
+                  className="px-5 py-3 flex items-center gap-3"
+                  style={{ borderTop: '0.5px solid var(--ios-separator)' }}
+                >
+                  <span className="text-[16px]">✅</span>
+                  <span className="flex-1 text-[14px] text-[#1c1c1e] font-medium">{c.task_name}</span>
+                  {c.duration_minutes && (
+                    <span className="text-[12px] text-[#8e8e93]">{c.duration_minutes} min</span>
+                  )}
+                </div>
+              ))}
+
+              {result.auto_created?.map((t, i) => (
+                <div
+                  key={`ac-${i}`}
+                  className="px-5 py-3 flex items-center gap-3"
+                  style={{ borderTop: '0.5px solid var(--ios-separator)' }}
+                >
+                  <span className="text-[16px]">✨</span>
+                  <span className="flex-1 text-[14px] text-[#1c1c1e] font-medium">{t.name}</span>
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                    style={{ background: '#EEF4FF', color: '#007aff' }}>Nouveau</span>
+                </div>
+              ))}
+
+              <div className="px-5 py-3" style={{ borderTop: '0.5px solid var(--ios-separator)' }}>
+                <p className="text-[12px] text-[#8e8e93]">
+                  Ça compte dans ton score de la semaine.
+                </p>
               </div>
             </div>
           )}
 
-          {/* Tâches auto-créées */}
-          {result.auto_created && result.auto_created.length > 0 && (
-            <div className="px-5 py-4" style={result.unmatched.length > 0 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
-              <p className="text-[11px] font-bold text-[#007aff] uppercase tracking-wide mb-3">
-                ✨ {result.auto_created.length} nouvelle{result.auto_created.length > 1 ? 's' : ''} tâche{result.auto_created.length > 1 ? 's' : ''} créée{result.auto_created.length > 1 ? 's' : ''} & enregistrée{result.auto_created.length > 1 ? 's' : ''}
-              </p>
-              <div className="space-y-2">
-                {result.auto_created.map((t, i) => (
-                  <div key={i} className="flex items-center gap-2 text-[14px]">
-                    <span className="text-[16px]">✨</span>
-                    <span className="text-[#1c1c1e]">{t.name}</span>
-                    <span className="ml-auto text-[11px] text-[#007aff] font-semibold">Nouveau</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Items non matchés */}
+          {/* Items non-tâches */}
           {result.unmatched.length > 0 && (
-            <div className="px-5 py-4">
+            <div className="rounded-2xl bg-white px-5 py-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
               <p className="text-[11px] font-bold text-[#ff9500] uppercase tracking-wide mb-2">
-                ℹ︎ Pas une tâche
+                Hors foyer — pas enregistré
               </p>
               <div className="space-y-1">
                 {result.unmatched.map((u, i) => (

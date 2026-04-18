@@ -342,15 +342,6 @@ export default function RecapPage() {
 
       {/* ── Header ── */}
       <div className="mb-5">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-1 text-[13px] font-semibold mb-4"
-          style={{ color: 'rgba(255,255,255,0.4)' }}>
-          <svg width="7" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12">
-            <path d="M6 1L1 6l5 5" />
-          </svg>
-          Retour
-        </button>
         <h2 className="text-[22px] font-black text-white leading-tight">
           Comment se passe ta journée ?
         </h2>
@@ -553,9 +544,9 @@ export default function RecapPage() {
         </div>
       </div>
 
-      {/* ── Boutons fixés en bas ── */}
-      <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3"
-        style={{ background: 'linear-gradient(transparent, #15152a 35%)' }}>
+      {/* ── Boutons fixés en bas — au-dessus de la nav bar ── */}
+      <div className="fixed left-0 right-0 px-4 pb-4 pt-3"
+        style={{ bottom: 76, background: 'linear-gradient(transparent, #15152a 35%)' }}>
 
         {/* Premium teaser — style mockup */}
         <button

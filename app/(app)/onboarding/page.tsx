@@ -43,8 +43,11 @@ type TaskTemplate = {
 type Step =
   | 'equipment'  // Écran 1 : Sélection équipements
   | 'family'     // Écran 2 : Composition familiale
-  | 'catalog'    // Écran 3 : Sélection tâches catalogue
-  | 'results';   // Écran 4 : Résultats
+  | 'baseline'   // Écran 3 : Baseline émotionnelle (qui fait le plus ?)
+  | 'catalog'    // Écran 4 : Sélection tâches catalogue
+  | 'results';   // Écran 5 : Résultats
+
+type BaselineChoice = 'me' | 'partner' | 'balanced';
 
 // =============================================================================
 // CONSTANTS
@@ -123,12 +126,16 @@ export default function OnboardingPage() {
   // ── Famille ──
   const [family, setFamily] = useState<FamilyMember[]>([]);
 
+  // ── Baseline ──
+  const [baselineChoice, setBaselineChoice] = useState<BaselineChoice | null>(null);
+
   // ── Catalogue ──
   const [catalogTemplates, setCatalogTemplates] = useState<TaskTemplate[]>([]);
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(new Set());
   const [customTaskInput, setCustomTaskInput] = useState('');
   const [customTaskNames, setCustomTaskNames] = useState<string[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [showAllTemplates, setShowAllTemplates] = useState(false);
 
   // ── Résultats ──
   const [generatedTasks, setGeneratedTasks] = useState<{
@@ -249,165 +256,115 @@ export default function OnboardingPage() {
     setFamily((prev) => prev.filter((m) => m.id !== id));
   }, []);
 
-  // ── Créer les tâches depuis le catalogue (sans IA) ──
+  // ── Créer les tâches depuis le catalogue via API route (service role, bypass RLS) ──
   const createFromCatalog = useCallback(async () => {
-    if (!householdId || !userId) return;
+    if (!householdId || !userId) {
+      setError('Foyer introuvable. Recharge la page.');
+      return;
+    }
     setIsCreating(true);
     setError(null);
 
     try {
       const supabase = createClient();
 
+      // Lire les catégories (lecture publique, pas de RLS)
       const { data: categories } = await supabase.from('task_categories').select('*').order('sort_order');
       const catMap = new Map<string, { id: string; name: string; icon: string; color_hex: string }>();
       for (const cat of (categories ?? [])) catMap.set(cat.id, cat);
-      const defaultCatId = categories?.[0]?.id ?? '';
+      const defaultCatId = categories?.[0]?.id ?? '11111111-1111-1111-1111-111111111111';
 
-      // Éviter les doublons
+      // Éviter les doublons avec les tâches existantes
       const { data: existingTasks } = await supabase
-        .from('household_tasks')
-        .select('name')
-        .eq('household_id', householdId)
-        .eq('is_active', true);
+        .from('household_tasks').select('name').eq('household_id', householdId).eq('is_active', true);
       const seen = new Set<string>((existingTasks ?? []).map((t: { name: string }) => t.name.toLowerCase()));
 
       type TaskRow = {
-        household_id: string; name: string; category_id: string; frequency: string;
-        mental_load_score: number; scoring_category: string; duration_estimate: string;
-        physical_effort: string; is_active: boolean; is_fixed_assignment: boolean;
-        notifications_enabled: boolean; created_by: string; assigned_to: null; next_due_at: string;
+        name: string; category_id: string; frequency: string; mental_load_score: number;
+        scoring_category: string; duration_estimate: string; physical_effort: string;
+        is_active: boolean; is_fixed_assignment: boolean; notifications_enabled: boolean;
+        assigned_to: null; next_due_at: string;
       };
-      type CreatedMeta = {
-        catId: string;
-        cat: { id: string; name: string; icon: string; color_hex: string } | undefined;
-        nextDueIso: string;
-      };
+      type CreatedMeta = { catId: string; cat: { id: string; name: string; icon: string; color_hex: string } | undefined; nextDueIso: string };
 
       const rowsToInsert: TaskRow[] = [];
       const metaByName: Record<string, CreatedMeta> = {};
 
-      // Templates sélectionnés
-      const selectedTemplates = catalogTemplates.filter((t) => selectedTemplateIds.has(t.id));
-
-      for (const t of selectedTemplates) {
+      for (const t of catalogTemplates.filter((t) => selectedTemplateIds.has(t.id))) {
         const key = t.name.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
-
         const catId = SCORING_TO_CAT_ID[t.scoring_category ?? ''] || defaultCatId;
         const freq = t.default_frequency || 'weekly';
-        const freqDays = FREQ_WINDOW[freq] ?? 30;
-        const dayOffset = freq === 'daily' ? 0 : Math.floor(Math.random() * freqDays);
+        const dayOffset = freq === 'daily' ? 0 : Math.floor(Math.random() * (FREQ_WINDOW[freq] ?? 30));
         const nextDue = new Date(Date.now() + dayOffset * 86400000);
         nextDue.setHours(9, 0, 0, 0);
         const nextDueIso = nextDue.toISOString();
-
         rowsToInsert.push({
-          household_id: householdId,
-          name: t.name,
-          category_id: catId,
-          frequency: freq,
+          name: t.name, category_id: catId, frequency: freq,
           mental_load_score: t.default_mental_load_score ?? 3,
           scoring_category: t.scoring_category ?? 'cleaning',
           duration_estimate: t.default_duration ?? 'short',
           physical_effort: t.default_physical ?? 'medium',
-          is_active: true,
-          is_fixed_assignment: false,
-          notifications_enabled: true,
-          created_by: userId,
-          assigned_to: null,
-          next_due_at: nextDueIso,
+          is_active: true, is_fixed_assignment: false, notifications_enabled: true,
+          assigned_to: null, next_due_at: nextDueIso,
         });
         metaByName[t.name] = { catId, cat: catMap.get(catId), nextDueIso };
       }
 
-      // Tâches personnalisées
       for (const name of customTaskNames) {
         const key = name.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
-
-        const catId = defaultCatId;
         const nextDue = new Date(Date.now() + 7 * 86400000);
         nextDue.setHours(9, 0, 0, 0);
         const nextDueIso = nextDue.toISOString();
-
         rowsToInsert.push({
-          household_id: householdId,
-          name,
-          category_id: catId,
-          frequency: 'weekly',
-          mental_load_score: 3,
-          scoring_category: 'cleaning',
-          duration_estimate: 'short',
-          physical_effort: 'medium',
-          is_active: true,
-          is_fixed_assignment: false,
-          notifications_enabled: true,
-          created_by: userId,
-          assigned_to: null,
-          next_due_at: nextDueIso,
+          name, category_id: defaultCatId, frequency: 'weekly', mental_load_score: 3,
+          scoring_category: 'cleaning', duration_estimate: 'short', physical_effort: 'medium',
+          is_active: true, is_fixed_assignment: false, notifications_enabled: true,
+          assigned_to: null, next_due_at: nextDueIso,
         });
-        metaByName[name] = { catId, cat: catMap.get(catId), nextDueIso };
+        metaByName[name] = { catId: defaultCatId, cat: catMap.get(defaultCatId), nextDueIso };
       }
 
-      const created: typeof generatedTasks = [];
+      // Appel API route (service role, contourne RLS)
+      const phantomMembers = family
+        .filter((m) => m.type !== 'pet' && m.name.trim())
+        .map((m) => ({ display_name: m.name.trim() }));
 
-      if (rowsToInsert.length > 0) {
-        const { data: insertedTasks } = await supabase
-          .from('household_tasks')
-          .insert(rowsToInsert)
-          .select('id, name');
+      const res = await fetch('/api/onboarding/create-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskRows: rowsToInsert, phantomMembers, customSuggestions: customTaskNames }),
+      });
 
-        for (const t of (insertedTasks ?? [])) {
-          const meta = metaByName[t.name];
-          if (meta) {
-            created.push({
-              id: t.id,
-              name: t.name,
-              category_id: meta.catId,
-              category_name: meta.cat?.name,
-              category_icon: meta.cat?.icon,
-              category_color: meta.cat?.color_hex,
-              next_due_at: meta.nextDueIso,
-            });
-          }
-        }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? `Erreur ${res.status}`);
       }
 
-      // Collecter silencieusement les tâches personnalisées
-      if (customTaskNames.length > 0) {
-        await supabase.from('custom_task_suggestions').insert(
-          customTaskNames.map((name) => ({ name, household_id: householdId, source: 'onboarding' }))
-        );
-      }
+      const { tasks: insertedTasks } = await res.json() as { tasks: { id: string; name: string }[] };
+
+      const created = (insertedTasks ?? []).map((t) => {
+        const meta = metaByName[t.name];
+        return {
+          id: t.id, name: t.name,
+          category_id: meta?.catId ?? defaultCatId,
+          category_name: meta?.cat?.name,
+          category_icon: meta?.cat?.icon,
+          category_color: meta?.cat?.color_hex,
+          next_due_at: meta?.nextDueIso,
+        };
+      });
 
       setGeneratedTasks(created);
-
-      // Créer les membres fantômes
-      const { data: existingPhantoms } = await supabase
-        .from('phantom_members')
-        .select('display_name')
-        .eq('household_id', householdId);
-      const existingNames = new Set((existingPhantoms ?? []).map((p: { display_name: string }) => p.display_name.toLowerCase()));
-
-      for (const member of family) {
-        if (member.type === 'pet') continue;
-        const name = member.name.trim();
-        if (!name || existingNames.has(name.toLowerCase())) continue;
-        await supabase.from('phantom_members').insert({
-          household_id: householdId,
-          display_name: name,
-          created_by: userId,
-        });
-      }
-
       await fetchHousehold(householdId);
       if (householdId) await fetchTasks(householdId);
       setStep('results');
     } catch (err) {
       console.error('[onboarding] Erreur:', err);
-      setError('Une erreur est survenue. Réessaie.');
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue. Réessaie.');
     } finally {
       setIsCreating(false);
     }
@@ -432,7 +389,7 @@ export default function OnboardingPage() {
     return (
       <div className="pt-4 pb-28">
         <div className="px-4 mb-6">
-          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 1 / 3</p>
+          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 1 / 4</p>
           <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
             Qu&apos;as-tu dans<br />ton foyer ?
           </h2>
@@ -496,7 +453,7 @@ export default function OnboardingPage() {
     return (
       <div className="pt-4 pb-28">
         <div className="px-4 mb-6">
-          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 2 / 3</p>
+          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 2 / 4</p>
           <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
             Qui vit<br />avec toi ?
           </h2>
@@ -561,10 +518,7 @@ export default function OnboardingPage() {
         <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3"
           style={{ background: 'linear-gradient(transparent, #f6f8ff 30%)' }}>
           <button
-            onClick={() => {
-              setStep('catalog');
-              loadCatalogTemplates();
-            }}
+            onClick={() => setStep('baseline')}
             className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white"
             style={{
               background: 'linear-gradient(135deg, #007aff, #5856d6)',
@@ -578,14 +532,83 @@ export default function OnboardingPage() {
     );
   }
 
-  // ─── Écran 3 : Catalogue ───
+  // ─── Écran 3 : Baseline émotionnelle ───
+  if (step === 'baseline') {
+    const OPTIONS: { value: BaselineChoice; emoji: string; label: string; sub: string; target: number }[] = [
+      { value: 'me',       emoji: '🙋',  label: 'Moi, clairement',         sub: 'Je gère l\'essentiel du foyer',   target: 45 },
+      { value: 'partner',  emoji: '🤷',  label: 'Mon partenaire',           sub: 'Il ou elle fait plus que moi',    target: 55 },
+      { value: 'balanced', emoji: '⚖️',  label: 'C\'est plutôt équilibré',  sub: 'On partage à peu près à égalité', target: 50 },
+    ];
+
+    const handleBaseline = async (choice: BaselineChoice, target: number) => {
+      setBaselineChoice(choice);
+      if (userId) {
+        const supabase = createClient();
+        await supabase.from('profiles').update({ target_share_percent: target }).eq('id', userId);
+      }
+      setStep('catalog');
+      loadCatalogTemplates();
+    };
+
+    return (
+      <div className="min-h-screen flex flex-col" style={{
+        background: 'linear-gradient(180deg, #0a1628 0%, #1a2f52 100%)',
+      }}>
+        <div className="flex-1 flex flex-col justify-center px-6 py-12">
+          {/* Step indicator */}
+          <p className="text-[12px] font-semibold uppercase tracking-[0.2em] mb-8 text-center"
+            style={{ color: 'rgba(255,255,255,0.45)' }}>
+            Étape 3 / 4
+          </p>
+
+          {/* Question */}
+          <div className="text-center mb-10">
+            <div className="text-[52px] mb-5">🏠</div>
+            <h2 className="text-[26px] font-black text-white leading-tight mb-3">
+              En ce moment,<br />qui fait le plus<br />à la maison ?
+            </h2>
+            <p className="text-[14px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              Un tap. Pas de jugement.<br />C&apos;est le point de départ de ton score.
+            </p>
+          </div>
+
+          {/* Options */}
+          <div className="space-y-3">
+            {OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => handleBaseline(opt.value, opt.target)}
+                className="w-full rounded-2xl px-5 py-4 flex items-center gap-4 transition-transform active:scale-[0.97] text-left"
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(10px)',
+                }}
+              >
+                <span className="text-[32px] flex-shrink-0">{opt.emoji}</span>
+                <div className="flex-1">
+                  <p className="text-[16px] font-bold text-white">{opt.label}</p>
+                  <p className="text-[12px] mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>{opt.sub}</p>
+                </div>
+                <svg width="7" height="12" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12">
+                  <path d="M1 1l5 5-5 5" />
+                </svg>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Écran 4 : Catalogue ───
   if (step === 'catalog') {
     const totalSelected = selectedTemplateIds.size + customTaskNames.length;
 
     return (
       <div className="pt-4 pb-32">
         <div className="px-4 mb-5">
-          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 3 / 3</p>
+          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 4 / 4</p>
           <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
             Quelles tâches<br />veux-tu suivre ?
           </h2>
@@ -601,6 +624,14 @@ export default function OnboardingPage() {
         ) : (
           <>
             {Object.entries(catalogGroups).map(([cat, templates]) => {
+              // En mode compact, ne montrer que les tâches pré-sélectionnées
+              const visible = showAllTemplates
+                ? templates
+                : templates.filter((t) => selectedTemplateIds.has(t.id));
+
+              // Ignorer les catégories sans tâches pertinentes
+              if (visible.length === 0) return null;
+
               const { label, emoji } = SCORING_CAT_DISPLAY[cat] ?? { label: cat, emoji: '📌' };
               return (
                 <div key={cat} className="mb-5">
@@ -608,7 +639,7 @@ export default function OnboardingPage() {
                     {emoji} {label}
                   </p>
                   <div className="flex flex-wrap gap-2 px-4">
-                    {templates.map((t) => {
+                    {visible.map((t) => {
                       const sel = selectedTemplateIds.has(t.id);
                       return (
                         <button
@@ -631,6 +662,19 @@ export default function OnboardingPage() {
                 </div>
               );
             })}
+
+            {/* Lien "voir toutes les tâches" */}
+            {!showAllTemplates && (
+              <div className="px-4 mb-4">
+                <button
+                  onClick={() => setShowAllTemplates(true)}
+                  className="text-[13px] font-semibold"
+                  style={{ color: '#007aff' }}
+                >
+                  + Voir toutes les tâches disponibles ({catalogTemplates.length - selectedTemplateIds.size} autres)
+                </button>
+              </div>
+            )}
 
             {/* Tâche personnalisée */}
             <div className="mx-4 mt-2 mb-4">
@@ -699,7 +743,7 @@ export default function OnboardingPage() {
     );
   }
 
-  // ─── Écran 4 : Résultats ───
+  // ─── Écran 5 : Résultats ───
   if (step === 'results') {
     const sortedTasks = [...generatedTasks].sort((a, b) => {
       const da = a.next_due_at ? new Date(a.next_due_at).getTime() : Infinity;

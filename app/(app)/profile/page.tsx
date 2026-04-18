@@ -30,7 +30,7 @@ function DashboardStyleButton({ value, label, desc, emoji }: { value: DashboardS
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { profile, signOut, refreshProfile } = useAuthStore();
+  const { profile, user, signOut, refreshProfile } = useAuthStore();
   const { household, members, phantomMembers, renameHousehold, addPhantomMember, removePhantomMember, linkPhantomToReal } = useHouseholdStore();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
@@ -844,6 +844,22 @@ export default function ProfilePage() {
           </button>
         </div>
       </div>
+
+      {/* Admin catalogue — fondateur uniquement */}
+      {user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL && (
+        <div className="mx-4 mb-4 rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          <button
+            onClick={() => router.push('/admin/catalog')}
+            className="w-full px-4 py-3 flex items-center gap-3 text-left">
+            <span className="text-[18px]">🔧</span>
+            <div>
+              <p className="text-[14px] text-[#8e8e93] font-medium">Admin · Catalogue</p>
+              <p className="text-[11px] text-[#c7c7cc]">Promotions auto · suggestions · enrichissement IA</p>
+            </div>
+            <span className="ml-auto text-[#c7c7cc] text-[17px]">›</span>
+          </button>
+        </div>
+      )}
 
       {/* Liens légaux */}
       <div className="mx-4 mt-6 pb-8 text-center">
