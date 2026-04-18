@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
+import PostponeButton from '@/components/PostponeButton';
+import DeleteButton from '@/components/DeleteButton';
 import { taskScoreDisplay, scoreColor10, taskScoreCompare } from '@/utils/designSystem';
 import {
   addDays, addWeeks, addMonths, format, isSameDay,
@@ -12,8 +14,10 @@ import {
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import type { TaskListItem } from '@/types/database';
+import TasksTab from '../tasks/page';
 
 type ViewMode = 'week' | 'month';
+type PlanningTab = 'planning' | 'tasks';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   cleaning: '🧹', tidying: '🗂', shopping: '🛒', laundry: '👕',
@@ -74,6 +78,110 @@ function DayChip({
   );
 }
 
+// ── Bottom Sheet actions ──────────────────────────────────────────────────────
+
+function TaskActionSheet({ task, onClose }: { task: TaskListItem; onClose: () => void }) {
+  const { completeTask, deleteTask, updateTask } = useTaskStore();
+  const [completing, setCompleting] = useState(false);
+  const [postponing, setPostponing] = useState(false);
+  const catColor = task.category?.color_hex ?? '#8e8e93';
+  const emoji = CATEGORY_EMOJI[task.scoring_category ?? ''] ?? '📌';
+
+  const handleComplete = async () => {
+    setCompleting(true);
+    await completeTask(task.id);
+    setCompleting(false);
+    onClose();
+  };
+
+  const handlePostpone = async (days: number) => {
+    setPostponing(true);
+    const next = new Date();
+    next.setDate(next.getDate() + days);
+    next.setHours(9, 0, 0, 0);
+    await updateTask(task.id, { next_due_at: next.toISOString() });
+    setPostponing(false);
+    onClose();
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Supprimer cette tâche ?')) return;
+    await deleteTask(task.id);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
+      <div className="w-full rounded-t-3xl overflow-hidden pb-8" style={{ background: '#f2f2f7' }} onClick={(e) => e.stopPropagation()}>
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-2">
+          <div className="w-9 h-1 rounded-full" style={{ background: '#c7c7cc' }} />
+        </div>
+
+        {/* Task header */}
+        <div className="flex items-center gap-3 px-5 py-3 mb-2">
+          <div className="flex items-center justify-center rounded-xl text-[20px] flex-shrink-0"
+            style={{ width: 44, height: 44, background: `${catColor}18` }}>
+            {emoji}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[16px] font-bold text-[#1c1c1e] truncate">{task.name}</p>
+            {task.duration_estimate && (
+              <p className="text-[12px] text-[#8e8e93] mt-0.5">
+                {task.duration_estimate === 'very_short' ? '⏱ 5 min' : task.duration_estimate === 'short' ? '⏱ 15 min' : task.duration_estimate === 'medium' ? '⏱ 30 min' : task.duration_estimate === 'long' ? '⏱ 1h' : '⏱ 2h+'}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Marquer comme fait */}
+        <div className="px-4 mb-3">
+          <button onClick={handleComplete} disabled={completing}
+            className="w-full rounded-2xl py-4 text-[17px] font-bold text-white disabled:opacity-50 active:opacity-80 transition-opacity"
+            style={{ background: 'linear-gradient(135deg, #34c759, #30d158)' }}>
+            {completing ? '…' : '✓ Marquer comme fait'}
+          </button>
+        </div>
+
+        {/* Décaler */}
+        <div className="px-4 mb-3">
+          <p className="text-[11px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Décaler à…</p>
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'white' }}>
+            {[
+              { label: 'Demain', sub: 'Dans 1 jour', days: 1 },
+              { label: '+1 semaine', sub: 'Dans 7 jours', days: 7 },
+              { label: '+1 mois', sub: 'Dans 30 jours', days: 30 },
+            ].map((opt, i) => (
+              <button key={opt.days} onClick={() => handlePostpone(opt.days)} disabled={postponing}
+                className="w-full flex items-center justify-between px-4 py-3.5 active:bg-[#f2f2f7] transition-colors disabled:opacity-50"
+                style={{ borderBottom: i < 2 ? '0.5px solid #f0f2f8' : undefined }}>
+                <span className="text-[15px] font-medium text-[#1c1c1e]">{opt.label}</span>
+                <span className="text-[13px] text-[#8e8e93]">{opt.sub}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Voir les détails + Supprimer */}
+        <div className="px-4 rounded-2xl overflow-hidden" style={{ background: 'white', marginBottom: 0 }}>
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'white' }}>
+            <Link href={`/tasks/${task.id}`}
+              className="flex items-center justify-between px-4 py-3.5 active:bg-[#f2f2f7]"
+              style={{ borderBottom: '0.5px solid #f0f2f8' }}>
+              <span className="text-[15px] font-medium text-[#1c1c1e]">Voir les détails</span>
+              <span className="text-[#c7c7cc]">›</span>
+            </Link>
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-[15px] font-medium" style={{ color: '#ff3b30' }}>Supprimer</span>
+              <DeleteButton onDelete={handleDelete} size={32} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Carte de tâche (vue jour) ─────────────────────────────────────────────────
 
 function TaskCard({ task }: { task: TaskListItem }) {
@@ -82,54 +190,51 @@ function TaskCard({ task }: { task: TaskListItem }) {
   const catColor = task.category?.color_hex ?? '#8e8e93';
   const emoji = CATEGORY_EMOJI[task.scoring_category ?? ''] ?? '📌';
   const assignee = task.assignee?.display_name ?? null;
+  const [showSheet, setShowSheet] = useState(false);
 
   return (
-    <Link href={`/tasks/${task.id}`}
-      className="flex items-center gap-3 px-4 py-3.5 transition-all active:scale-[0.98]"
-      style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
-      {/* Icône catégorie */}
-      <div className="flex items-center justify-center rounded-xl flex-shrink-0 text-[20px]"
-        style={{ width: 44, height: 44, background: `${catColor}15` }}>
-        {emoji}
-      </div>
-
-      {/* Contenu */}
-      <div className="flex-1 min-w-0">
-        <p className="text-[15px] font-semibold text-[#1c1c1e] truncate">{task.name}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          {assignee && (
-            <span className="text-[12px] text-[#8e8e93]">👤 {assignee}</span>
-          )}
-          {task.duration_estimate && (
-            <span className="text-[12px] text-[#8e8e93]">
-              ⏱ {
-                task.duration_estimate === 'very_short' ? '5 min' :
-                task.duration_estimate === 'short' ? '15 min' :
-                task.duration_estimate === 'medium' ? '30 min' :
-                task.duration_estimate === 'long' ? '1h' : '2h+'
-              }
-            </span>
-          )}
+    <>
+      <button
+        onClick={() => setShowSheet(true)}
+        className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-[#f6f8ff] text-left transition-colors"
+        style={{ borderBottom: '0.5px solid var(--ios-separator)' }}
+      >
+        <div className="flex items-center justify-center rounded-xl flex-shrink-0 text-[20px]"
+          style={{ width: 44, height: 44, background: `${catColor}15` }}>
+          {emoji}
         </div>
-      </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] font-semibold text-[#1c1c1e] truncate">{task.name}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            {assignee && <span className="text-[12px] text-[#8e8e93]">👤 {assignee}</span>}
+            {task.duration_estimate && (
+              <span className="text-[12px] text-[#8e8e93]">
+                ⏱ {task.duration_estimate === 'very_short' ? '5 min' : task.duration_estimate === 'short' ? '15 min' : task.duration_estimate === 'medium' ? '30 min' : task.duration_estimate === 'long' ? '1h' : '2h+'}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-[13px] font-bold" style={{ color }}>{score}/10</span>
+          <div className="w-2 h-2 rounded-full" style={{ background: catColor }} />
+        </div>
+      </button>
 
-      {/* Score */}
-      <div className="flex flex-col items-end gap-1">
-        <span className="text-[13px] font-bold" style={{ color }}>{score}/10</span>
-        <div className="w-2 h-2 rounded-full" style={{ background: catColor }} />
-      </div>
-    </Link>
+      {showSheet && <TaskActionSheet task={task} onClose={() => setShowSheet(false)} />}
+    </>
   );
 }
 
 // ── Vue Semaine ──────────────────────────────────────────────────────────────
 
-function WeekView({ tasks, weekStart }: { tasks: TaskListItem[]; weekStart: Date }) {
+function WeekView({ tasks, weekStart, initialDate }: { tasks: TaskListItem[]; weekStart: Date; initialDate?: Date }) {
   const today = new Date();
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  // Sélectionner aujourd'hui si dans la semaine, sinon le premier jour
-  const defaultDay = days.find((d) => isSameDay(d, today)) ?? days[0];
+  // Sélectionner initialDate si dans la semaine, sinon aujourd'hui, sinon le premier jour
+  const defaultDay = (initialDate && days.find((d) => isSameDay(d, initialDate)))
+    ?? days.find((d) => isSameDay(d, today))
+    ?? days[0];
   const [selectedDay, setSelectedDay] = useState<Date>(defaultDay);
 
   // Mettre à jour selectedDay si weekStart change
@@ -357,11 +462,12 @@ function ActionTaskRow({
             style={{ color: '#007aff', borderRight: '0.5px solid #f0f2f8' }}>
             👤 Assigner
           </button>
-          <button onClick={() => onArchive(task.id)}
-            className="flex-1 py-2.5 text-[13px] font-semibold text-center"
-            style={{ color: '#ff3b30' }}>
-            🗑 Retirer
-          </button>
+          <div className="flex-1 flex items-center justify-center" style={{ borderRight: '0.5px solid #f0f2f8' }}>
+            <PostponeButton taskId={task.id} />
+          </div>
+          <div className="flex-1 flex items-center justify-center py-2">
+            <DeleteButton onDelete={() => onArchive(task.id)} size={30} />
+          </div>
         </div>
       ) : (
         <div className="border-t px-4 py-3" style={{ borderColor: '#f0f2f8', background: '#fafafa' }}>
@@ -420,7 +526,7 @@ function SimpleTaskRow({ task }: { task: TaskListItem }) {
   );
 }
 
-function TaskActionSheet({ tasks, onClose, onArchive, onAssign }: TaskActionSheetProps) {
+function AllTasksSheet({ tasks, onClose, onArchive, onAssign }: TaskActionSheetProps) {
   const now = new Date();
   const in7Days = addDays(now, 7);
   const in30Days = addDays(now, 30);
@@ -584,28 +690,7 @@ function AllTasksSection({ tasks }: { tasks: TaskListItem[] }) {
 
         {/* Preview list */}
         <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-          {preview.map((task, i) => {
-            const emoji = CATEGORY_EMOJI[task.scoring_category ?? ''] ?? '📌';
-            const catColor = task.category?.color_hex ?? '#8e8e93';
-            return (
-              <div key={task.id} className="flex items-center gap-3 px-4 py-3"
-                style={i < preview.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}>
-                <div className="flex items-center justify-center rounded-xl flex-shrink-0 text-[16px]"
-                  style={{ width: 38, height: 38, background: `${catColor}18` }}>
-                  {emoji}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-semibold text-[#1c1c1e] truncate">{task.name}</p>
-                  <p className="text-[12px] text-[#8e8e93]">
-                    {format(new Date(task.next_due_at!), 'EEE d MMM', { locale: fr })}
-                    {task.assignee?.display_name && (
-                      <span className="ml-2">· 👤 {task.assignee.display_name}</span>
-                    )}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
+          {preview.map((task) => <TaskCard key={task.id} task={task} />)}
 
           {/* Bouton "+ N autres" */}
           {remaining > 0 && (
@@ -622,7 +707,7 @@ function AllTasksSection({ tasks }: { tasks: TaskListItem[] }) {
 
       {/* Bottom sheet */}
       {showSheet && (
-        <TaskActionSheet
+        <AllTasksSheet
           tasks={sorted}
           onClose={() => setShowSheet(false)}
           onArchive={handleArchive}
@@ -640,10 +725,24 @@ export default function PlanningPage() {
   const { tasks, loading, fetchTasks } = useTaskStore();
 
   const [viewMode, setViewMode] = useState<ViewMode>('week');
-  const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
 
   const today = new Date();
+
+  // Lire les params URL (?date=YYYY-MM-DD, ?tab=tasks|planning)
+  const searchParams = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search)
+    : null;
+  const tabParam = searchParams?.get('tab') as PlanningTab | null;
+  const [planningTab, setPlanningTab] = useState<PlanningTab>(
+    tabParam === 'tasks' ? 'tasks' : 'planning',
+  );
+  const dateParam = searchParams?.get('date');
+  const initialDate = dateParam ? new Date(dateParam) : today;
+  const initialWeekStart = startOfWeek(initialDate, { weekStartsOn: 1 });
+  const initialOffset = Math.round((initialWeekStart.getTime() - startOfWeek(today, { weekStartsOn: 1 }).getTime()) / (7 * 86400000));
+
+  const [weekOffset, setWeekOffset] = useState(initialOffset);
   const weekStart = startOfWeek(addWeeks(today, weekOffset), { weekStartsOn: 1 });
   const monthStart = startOfMonth(addMonths(today, monthOffset));
 
@@ -667,85 +766,115 @@ export default function PlanningPage() {
   return (
     <div className="pb-8" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-      {/* Header */}
-      <div className="px-4 pt-4 flex items-end justify-between">
-        <div>
-          <h2 className="text-[28px] font-bold text-[#1c1c1e]">Planning</h2>
-          <p className="text-[13px] text-[#8e8e93] mt-0.5">
-            {viewMode === 'week'
-              ? `${weekStats.totalTasks} tâche${weekStats.totalTasks > 1 ? 's' : ''} · ${weekStats.totalLoad} pts cette semaine`
-              : format(monthStart, 'MMMM yyyy', { locale: fr })}
-          </p>
-        </div>
-
-        {/* Toggle semaine / mois */}
-        <div className="flex rounded-xl overflow-hidden p-0.5" style={{ background: '#f0f2f8' }}>
-          <button onClick={() => setViewMode('week')}
-            className="px-4 py-1.5 text-[13px] font-semibold rounded-lg transition-all"
-            style={viewMode === 'week'
-              ? { background: 'white', color: '#007aff', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }
+      {/* ─── TABS Planning / Tâches ─── */}
+      <div className="px-4 pt-4">
+        <div className="flex rounded-2xl p-1" style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <button
+            onClick={() => setPlanningTab('planning')}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-semibold transition-all"
+            style={planningTab === 'planning'
+              ? { background: 'linear-gradient(135deg, #007aff, #5856d6)', color: 'white', boxShadow: '0 2px 8px rgba(0,122,255,0.25)' }
               : { color: '#8e8e93' }}>
-            Semaine
+            📅 Planning
           </button>
-          <button onClick={() => setViewMode('month')}
-            className="px-4 py-1.5 text-[13px] font-semibold rounded-lg transition-all"
-            style={viewMode === 'month'
-              ? { background: 'white', color: '#007aff', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }
+          <button
+            onClick={() => setPlanningTab('tasks')}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-semibold transition-all"
+            style={planningTab === 'tasks'
+              ? { background: 'linear-gradient(135deg, #007aff, #5856d6)', color: 'white', boxShadow: '0 2px 8px rgba(0,122,255,0.25)' }
               : { color: '#8e8e93' }}>
-            Mois
+            ✅ Tâches
           </button>
         </div>
       </div>
 
-      {/* Navigation temporelle */}
-      <div className="flex items-center justify-between px-4">
-        <button
-          onClick={() => viewMode === 'week' ? setWeekOffset(weekOffset - 1) : setMonthOffset(monthOffset - 1)}
-          className="flex items-center justify-center rounded-xl w-9 h-9"
-          style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', color: '#007aff' }}>
-          ‹
-        </button>
+      {/* ─── TAB TÂCHES ─── */}
+      {planningTab === 'tasks' && <TasksTab />}
 
-        <button
-          onClick={() => { setWeekOffset(0); setMonthOffset(0); }}
-          className="text-[14px] font-semibold capitalize"
-          style={{ color: (weekOffset === 0 && monthOffset === 0) ? '#8e8e93' : '#007aff' }}>
-          {viewMode === 'week' ? weekLabel : monthLabel}
-        </button>
-
-        <button
-          onClick={() => viewMode === 'week' ? setWeekOffset(weekOffset + 1) : setMonthOffset(monthOffset + 1)}
-          className="flex items-center justify-center rounded-xl w-9 h-9"
-          style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', color: '#007aff' }}>
-          ›
-        </button>
-      </div>
-
-      {/* Contenu */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[#e5e5ea] border-t-[#007aff]" />
-        </div>
-      ) : tasks.length === 0 ? (
-        <div className="mx-4 rounded-3xl bg-white py-16 text-center"
-          style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-          <p className="text-[48px] mb-3">📅</p>
-          <p className="text-[17px] font-bold text-[#1c1c1e]">Aucune tâche planifiée</p>
-          <p className="text-[13px] text-[#8e8e93] mt-1 mb-4">Crée des tâches pour les voir ici</p>
-          <Link href="/tasks/new"
-            className="inline-block rounded-xl px-5 py-2.5 text-[14px] font-bold text-white"
-            style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)' }}>
-            + Créer une tâche
-          </Link>
-        </div>
-      ) : (
+      {/* ─── TAB PLANNING ─── */}
+      {planningTab === 'planning' && (
         <>
-          {viewMode === 'week' ? (
-            <WeekView tasks={tasks} weekStart={weekStart} />
+          {/* Header */}
+          <div className="px-4 flex items-end justify-between">
+            <div>
+              <h2 className="text-[28px] font-bold text-[#1c1c1e]">Planning</h2>
+              <p className="text-[13px] text-[#8e8e93] mt-0.5">
+                {viewMode === 'week'
+                  ? `${weekStats.totalTasks} tâche${weekStats.totalTasks > 1 ? 's' : ''} · ${weekStats.totalLoad} pts cette semaine`
+                  : format(monthStart, 'MMMM yyyy', { locale: fr })}
+              </p>
+            </div>
+
+            {/* Toggle semaine / mois */}
+            <div className="flex rounded-xl overflow-hidden p-0.5" style={{ background: '#f0f2f8' }}>
+              <button onClick={() => setViewMode('week')}
+                className="px-4 py-1.5 text-[13px] font-semibold rounded-lg transition-all"
+                style={viewMode === 'week'
+                  ? { background: 'white', color: '#007aff', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }
+                  : { color: '#8e8e93' }}>
+                Semaine
+              </button>
+              <button onClick={() => setViewMode('month')}
+                className="px-4 py-1.5 text-[13px] font-semibold rounded-lg transition-all"
+                style={viewMode === 'month'
+                  ? { background: 'white', color: '#007aff', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }
+                  : { color: '#8e8e93' }}>
+                Mois
+              </button>
+            </div>
+          </div>
+
+          {/* Navigation temporelle */}
+          <div className="flex items-center justify-between px-4">
+            <button
+              onClick={() => viewMode === 'week' ? setWeekOffset(weekOffset - 1) : setMonthOffset(monthOffset - 1)}
+              className="flex items-center justify-center rounded-xl w-9 h-9"
+              style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', color: '#007aff' }}>
+              ‹
+            </button>
+
+            <button
+              onClick={() => { setWeekOffset(0); setMonthOffset(0); }}
+              className="text-[14px] font-semibold capitalize"
+              style={{ color: (weekOffset === 0 && monthOffset === 0) ? '#8e8e93' : '#007aff' }}>
+              {viewMode === 'week' ? weekLabel : monthLabel}
+            </button>
+
+            <button
+              onClick={() => viewMode === 'week' ? setWeekOffset(weekOffset + 1) : setMonthOffset(monthOffset + 1)}
+              className="flex items-center justify-center rounded-xl w-9 h-9"
+              style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', color: '#007aff' }}>
+              ›
+            </button>
+          </div>
+
+          {/* Contenu */}
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[#e5e5ea] border-t-[#007aff]" />
+            </div>
+          ) : tasks.length === 0 ? (
+            <div className="mx-4 rounded-3xl bg-white py-16 text-center"
+              style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+              <p className="text-[48px] mb-3">📅</p>
+              <p className="text-[17px] font-bold text-[#1c1c1e]">Aucune tâche planifiée</p>
+              <p className="text-[13px] text-[#8e8e93] mt-1 mb-4">Crée des tâches pour les voir ici</p>
+              <Link href="/tasks/new"
+                className="inline-block rounded-xl px-5 py-2.5 text-[14px] font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)' }}>
+                + Créer une tâche
+              </Link>
+            </div>
           ) : (
-            <MonthView tasks={tasks} monthStart={monthStart} />
+            <>
+              {viewMode === 'week' ? (
+                <WeekView tasks={tasks} weekStart={weekStart} initialDate={initialDate} />
+              ) : (
+                <MonthView tasks={tasks} monthStart={monthStart} />
+              )}
+              <AllTasksSection tasks={tasks} />
+            </>
           )}
-          <AllTasksSection tasks={tasks} />
         </>
       )}
     </div>

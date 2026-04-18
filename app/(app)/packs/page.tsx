@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import BackButton from '@/components/BackButton';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { createClient } from '@/lib/supabase';
@@ -121,7 +122,7 @@ export default function PacksPage() {
   return (
     <div className="pt-4 pb-28">
       <div className="px-4 mb-6">
-        <button onClick={() => router.back()} className="text-[15px] font-medium mb-3" style={{ color: '#007aff' }}>← Retour</button>
+        <BackButton />
         <h2 className="text-[28px] font-bold text-[#1c1c1e]">Packs Projets</h2>
         <p className="text-[15px] text-[#8e8e93] mt-1">Des dizaines de tâches pré-organisées pour vos grands projets.</p>
       </div>

@@ -707,7 +707,7 @@ export default function NewTaskPage() {
             <div className="mx-4 mb-4 rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
               <div className="px-4 py-2.5 flex items-center justify-between" style={{ background: '#EEF4FF', borderBottom: '0.5px solid var(--ios-separator)' }}>
                 <p className="text-[12px] font-semibold uppercase tracking-wide" style={{ color: '#007aff' }}>
-                  {pendingTasks.length} tâche{pendingTasks.length > 1 ? 's' : ''} en attente d&apos;assignation
+                  {pendingTasks.length} tâche{pendingTasks.length > 1 ? 's' : ''}{' '}en attente d&apos;assignation
                 </p>
               </div>
               {pendingTasks.map((pt, i) => (
@@ -815,21 +815,32 @@ export default function NewTaskPage() {
                   style={{ background: '#007aff' }}>
                   + Nouvelle tâche
                 </button>
-                {/* 2. Plus de tâches : commit la courante si besoin et passe à l'assignation */}
+                {/* 2. Valider et terminer : crée la tâche sans assigner */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await addCurrentToBatch();
+                    router.push('/tasks');
+                  }}
+                  className="w-full rounded-xl py-3 text-[15px] font-semibold"
+                  style={{ background: '#34c759', color: 'white' }}>
+                  ✓ Valider et terminer
+                </button>
+                {/* 3. Assigner : commit la courante et passe à l'assignation */}
                 <button
                   type="button"
                   onClick={goToAssign}
                   className="w-full rounded-xl py-3 text-[15px] font-semibold"
                   style={{ background: '#f0f2f8', color: '#1c1c1e' }}>
-                  Plus de tâches →
+                  Assigner →
                 </button>
-                {/* 3. Voir les détails : mode avancé */}
+                {/* 4. Options avancées : mode avancé */}
                 <button
                   type="button"
                   onClick={() => setMode('advanced')}
                   className="w-full rounded-xl py-2 text-[14px] font-medium"
                   style={{ background: 'transparent', color: '#8e8e93' }}>
-                  Voir les détails
+                  Options avancées ▾
                 </button>
               </div>
             </div>
@@ -842,7 +853,7 @@ export default function NewTaskPage() {
       );
     }
 
-    // ─── ÉTAPE 2 : Swipe assignation du batch ─────────────────────────────────
+    // ─── ÉTAPE 2 : Assignation du batch ─────────────────────────────────────
     if (yovaStep === 'assign') {
       const currentPending = pendingTasks[swipeIndex];
 
@@ -850,17 +861,23 @@ export default function NewTaskPage() {
       if (!currentPending) {
         return (
           <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center">
-            <div className="text-[48px] mb-4">📭</div>
-            <p className="text-[17px] font-semibold text-[#1c1c1e] mb-2">Aucune tâche à assigner</p>
+            <div className="text-[48px] mb-4">✅</div>
+            <p className="text-[17px] font-semibold text-[#1c1c1e] mb-2">Tâches créées !</p>
             <button
-              onClick={() => setYovaStep('input')}
+              onClick={() => router.push('/tasks')}
               className="mt-4 rounded-xl px-6 py-3 text-[15px] font-semibold text-white"
               style={{ background: '#007aff' }}
             >
-              Retour à la saisie
+              Voir mes tâches
             </button>
           </div>
         );
+      }
+
+      // Solo : auto-assign au premier membre et passer à la suivante
+      if (realMembers.length === 1) {
+        assignBatchTask(realMembers[0].id);
+        return null;
       }
 
       const currentCatEmoji = SCORING_CATEGORY_OPTIONS.find((o) => o.value === currentPending.scoringCategory)?.emoji ?? '📋';
@@ -1045,27 +1062,49 @@ export default function NewTaskPage() {
             </div>
           </div>
 
-          {/* Fallback : boutons pour chaque membre (au cas où le swipe ne marche pas / accessibilité) */}
+          {/* Boutons membres (fallback swipe + accessibilité) */}
           <div className="mx-4 mt-4 space-y-2">
             {realMembers.length === 0 && (
               <p className="text-center text-[13px] text-[#8e8e93] py-4">
                 Aucun membre dans ce foyer. Invite quelqu&apos;un depuis ton profil.
               </p>
             )}
-            {realMembers.length === 1 && realMembers.map((member) => (
-              <button
-                key={member.id}
-                onClick={() => assignBatchTask(member.id)}
-                disabled={batchCreating}
-                className="w-full rounded-2xl py-[14px] text-[16px] font-bold text-white transition-transform active:scale-[0.97] disabled:opacity-50"
-                style={{
-                  background: 'linear-gradient(135deg, #007aff, #5856d6)',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-                }}
-              >
-                {batchCreating ? 'Création...' : member.display_name}
-              </button>
-            ))}
+            {realMembers.length >= 2 && (
+              <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                <p className="text-[12px] font-semibold text-[#8e8e93] uppercase tracking-wide px-4 py-2.5"
+                  style={{ borderBottom: '0.5px solid #f0f2f8' }}>
+                  Qui s&apos;en occupe ?
+                </p>
+                {realMembers.map((member, i) => (
+                  <button
+                    key={member.id}
+                    onClick={() => assignBatchTask(member.id)}
+                    disabled={batchCreating}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors active:bg-[#f0f2f8] disabled:opacity-50"
+                    style={i < realMembers.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}
+                  >
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[14px] font-bold flex-shrink-0"
+                      style={{ background: member.isPhantom ? '#8e8e93' : 'linear-gradient(135deg, #007aff, #5856d6)' }}>
+                      {member.display_name[0].toUpperCase()}
+                    </div>
+                    <span className="text-[15px] font-semibold text-[#1c1c1e]">
+                      {member.isPhantom ? '👻 ' : ''}{member.display_name}
+                    </span>
+                  </button>
+                ))}
+                <button
+                  onClick={() => assignBatchTask(null)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                  style={{ borderTop: '0.5px solid #f0f2f8' }}
+                >
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ background: '#f0f2f8' }}>
+                    <span className="text-[14px]">—</span>
+                  </div>
+                  <span className="text-[15px] text-[#8e8e93]">Passer (non assigné)</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {error && (

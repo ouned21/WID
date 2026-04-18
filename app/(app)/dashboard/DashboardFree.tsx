@@ -7,103 +7,39 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { taskLoad } from '@/utils/designSystem';
+import { addDays, startOfWeek, isSameDay, format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 /**
  * Dashboard Free — le miroir, pas l'outil.
  *
- * Priorité 1 : qui fait quoi (barres membres)
- * Priorité 2 : urgence du jour
- * Priorité 3 : insight rapide (calculé en local, sans API)
- * Priorité 4 : accès Journal
+ * Vue Score    : répartition membres + insight Yova + journal + tâches du jour
+ * Vue Planning : semaine en un coup d'œil + tâches du jour pour moi
+ *
+ * Score est la vue par défaut. Le dernier choix est mémorisé (yova_home_view).
  */
 
-const CATEGORY_LABELS: Record<string, string> = {
-  cleaning: 'ménage', tidying: 'rangement', shopping: 'courses',
-  laundry: 'linge', meals: 'cuisine', children: 'enfants',
-  admin: 'admin', transport: 'transport', household_management: 'gestion',
-  outdoor: 'extérieur', hygiene: 'hygiène', pets: 'animaux',
-  vehicle: 'véhicule', misc: 'divers',
-};
-
-import type { TaskListItem, HouseholdMember } from '@/types/database';
-
-/** Génère un insight rapide à partir des tâches assignées — pas d'API. */
-function computeQuickInsight(
-  tasks: TaskListItem[],
-  members: HouseholdMember[],
-  myId: string,
-): string | null {
-  if (tasks.length === 0 || members.length < 2) return null;
-
-  // Compter la charge par membre et par catégorie
-  const memberLoad: Record<string, number> = {};
-  const myCatLoad: Record<string, number> = {};
-  const totalCatLoad: Record<string, number> = {};
-
-  for (const t of tasks) {
-    const memberId = t.assigned_to ?? '';
-    const load = taskLoad(t);
-    const cat = t.scoring_category ?? 'misc';
-
-    memberLoad[memberId] = (memberLoad[memberId] ?? 0) + load;
-    totalCatLoad[cat] = (totalCatLoad[cat] ?? 0) + load;
-    if (memberId === myId) {
-      myCatLoad[cat] = (myCatLoad[cat] ?? 0) + load;
-    }
-  }
-
-  const totalLoad = Object.values(memberLoad).reduce((s, v) => s + v, 0);
-  const myLoad = memberLoad[myId] ?? 0;
-  const myPct = totalLoad > 0 ? Math.round((myLoad / totalLoad) * 100) : 0;
-
-  // Si forte asymétrie globale
-  if (myPct >= 70) {
-    return `Tu prends en charge ${myPct}% des tâches du foyer en ce moment.`;
-  }
-  if (myPct <= 30 && totalLoad > 0) {
-    return `Ton partenaire assure ${100 - myPct}% des tâches. Il serait bien de rééquilibrer.`;
-  }
-
-  // Chercher la catégorie où l'utilisateur est le plus dominant
-  let maxDom = 0;
-  let domCat = '';
-  for (const [cat, load] of Object.entries(myCatLoad)) {
-    const total = totalCatLoad[cat] ?? 1;
-    const dom = load / total;
-    if (dom > maxDom && total > 0) {
-      maxDom = dom;
-      domCat = cat;
-    }
-  }
-  if (maxDom >= 0.85 && domCat) {
-    const label = CATEGORY_LABELS[domCat] ?? domCat;
-    return `Tu gères la quasi-totalité des tâches de ${label} dans le foyer.`;
-  }
-
-  // Chercher la catégorie la plus en retard
-  const now = Date.now();
-  const overdueByCat: Record<string, number> = {};
-  for (const t of tasks) {
-    if (t.next_due_at && new Date(t.next_due_at).getTime() < now) {
-      const cat = t.scoring_category ?? 'misc';
-      overdueByCat[cat] = (overdueByCat[cat] ?? 0) + 1;
-    }
-  }
-  const topOverdueCat = Object.entries(overdueByCat).sort((a, b) => b[1] - a[1])[0];
-  if (topOverdueCat && topOverdueCat[1] >= 2) {
-    const label = CATEGORY_LABELS[topOverdueCat[0]] ?? topOverdueCat[0];
-    return `${topOverdueCat[1]} tâches de ${label} attendent depuis quelques jours.`;
-  }
-
-  return null;
-}
+type HomeView = 'planning' | 'score';
+const HOME_VIEW_KEY = 'yova_home_view';
 
 export default function DashboardFree() {
   const router = useRouter();
   const { profile } = useAuthStore();
   const { tasks, fetchTasks } = useTaskStore();
   const { allMembers, fetchHousehold } = useHouseholdStore();
-  const [animBars, setAnimBars] = useState(false);
+
+  // Vue mémorisée (score par défaut)
+  const [homeView, setHomeView] = useState<HomeView>('score');
+
+  useEffect(() => {
+    const saved = localStorage.getItem(HOME_VIEW_KEY) as HomeView | null;
+    if (saved === 'score' || saved === 'planning') setHomeView(saved);
+  }, []);
+
+  const switchView = (v: HomeView) => {
+    setHomeView(v);
+    localStorage.setItem(HOME_VIEW_KEY, v);
+  };
 
   useEffect(() => {
     if (profile?.household_id) {
@@ -112,66 +48,60 @@ export default function DashboardFree() {
     }
   }, [profile?.household_id, fetchTasks, fetchHousehold]);
 
-  // Animer les barres une fois les données chargées
-  useEffect(() => {
-    if (tasks.length > 0) {
-      const t = setTimeout(() => setAnimBars(true), 100);
-      return () => clearTimeout(t);
-    }
-  }, [tasks.length]);
-
+  // ── Calculs temporels ────────────────────────────────────────────────────────
   const d = useMemo(() => {
-    // Charge par membre
-    const byMember = allMembers.map((m) => {
-      const mt = tasks.filter((t) => t.assigned_to === m.id || t.assigned_to_phantom_id === m.id);
-      return {
-        id: m.id,
-        name: m.display_name,
-        isMe: m.id === profile?.id,
-        isPhantom: m.isPhantom,
-        load: mt.reduce((s, t) => s + taskLoad(t), 0),
-        count: mt.length,
-      };
-    }).sort((a, b) => b.load - a.load);
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrowStart = new Date(todayStart.getTime() + 86400000);
+    const weekEnd = new Date(todayStart.getTime() + 7 * 86400000);
 
-    const totalLoad = byMember.reduce((s, m) => s + m.load, 0);
-    const withPct = byMember.map((m) => ({
-      ...m,
-      pct: totalLoad > 0 ? Math.round((m.load / totalLoad) * 100) : 0,
-    }));
+    const my = tasks.filter((t) => t.assigned_to === profile?.id);
+    const myLoad = my.reduce((s, t) => s + taskLoad(t), 0);
 
-    // Vrai déséquilibre si écart > 20 pts entre les deux premiers
-    const isImbalanced = withPct.length >= 2 && Math.abs(withPct[0].pct - withPct[1].pct) > 20;
-
-    // Tâches urgentes
-    const now = Date.now();
-    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
-    const overdue = tasks.filter((t) => t.next_due_at && new Date(t.next_due_at).getTime() < now);
-    const todayDue = tasks.filter((t) => {
+    const overdue = tasks.filter((t) => t.next_due_at && new Date(t.next_due_at) < todayStart);
+    const today = tasks.filter((t) => {
       if (!t.next_due_at) return false;
-      const d = new Date(t.next_due_at).getTime();
-      return d >= now && d <= todayEnd.getTime();
+      const x = new Date(t.next_due_at);
+      return x >= todayStart && x < tomorrowStart;
+    });
+    const myToday = today.filter((t) => t.assigned_to === profile?.id);
+    const tomorrow = tasks.filter((t) => {
+      if (!t.next_due_at) return false;
+      const x = new Date(t.next_due_at);
+      return x >= tomorrowStart && x < new Date(tomorrowStart.getTime() + 86400000);
+    });
+    const thisWeek = tasks.filter((t) => {
+      if (!t.next_due_at) return false;
+      const x = new Date(t.next_due_at);
+      return x >= tomorrowStart && x < weekEnd;
     });
 
-    const urgent = overdue[0] ?? todayDue[0] ?? null;
+    return { myLoad, overdue, today, myToday, tomorrow, thisWeek, totalActive: tasks.length };
+  }, [tasks, profile?.id]);
 
-    return { byMember: withPct, totalLoad, isImbalanced, urgent, overdueCount: overdue.length };
-  }, [tasks, allMembers, profile?.id]);
+  // ── Données semaine pour la vue Planning ────────────────────────────────────
+  const weekDays = useMemo(() => {
+    const ws = startOfWeek(new Date(), { weekStartsOn: 1 });
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = addDays(ws, i);
+      const dayTasks = tasks.filter((t) => t.next_due_at && isSameDay(new Date(t.next_due_at), day));
+      const load = dayTasks.reduce((s, t) => s + taskLoad(t), 0);
+      return { day, count: dayTasks.length, load };
+    });
+  }, [tasks]);
 
-  const quickInsight = useMemo(
-    () => computeQuickInsight(tasks, allMembers, profile?.id ?? ''),
-    [tasks, allMembers, profile?.id],
+  const peakDay = useMemo(
+    () => weekDays.reduce((max, d) => (d.count > max.count ? d : max), weekDays[0]),
+    [weekDays],
   );
 
+  // ── UI helpers ───────────────────────────────────────────────────────────────
   const greeting = (() => {
     const h = new Date().getHours();
     return h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
   })();
 
   const firstName = profile?.display_name?.split(' ')[0] ?? '';
-
-  // Couleurs par membre
-  const COLORS = ['#007aff', '#af52de', '#ff9500', '#34c759'];
 
   return (
     <div className="pt-4 pb-10" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -182,200 +112,409 @@ export default function DashboardFree() {
         <h2 className="text-[26px] font-bold text-[#1c1c1e] leading-tight">{firstName}</h2>
       </div>
 
-      {/* ═══ CARTE MIROIR PRINCIPALE ═══ */}
-      <div className="mx-4 rounded-3xl bg-white overflow-hidden" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.07)' }}>
+      {/* ═══════ TOGGLE VUE — pill sombre avec indicateur glissant ═══════ */}
+      <div className="px-4">
+        <div
+          className="flex p-1 rounded-2xl relative"
+          style={{
+            background: 'rgba(22,22,34,0.92)',
+            backdropFilter: 'blur(12px)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
+          }}
+        >
+          {/* Indicateur glissant */}
+          <div
+            className="absolute top-1 bottom-1 rounded-xl"
+            style={{
+              width: 'calc(50% - 4px)',
+              left: homeView === 'score' ? '4px' : 'calc(50%)',
+              background: 'rgba(255,255,255,0.97)',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
+              transition: 'left 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+            }}
+          />
+          <button
+            onClick={() => switchView('score')}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-semibold relative z-10"
+            style={{ color: homeView === 'score' ? '#1c1c1e' : 'rgba(255,255,255,0.45)' }}
+          >
+            ⚖️ Score
+          </button>
+          <button
+            onClick={() => switchView('planning')}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-semibold relative z-10"
+            style={{ color: homeView === 'planning' ? '#1c1c1e' : 'rgba(255,255,255,0.45)' }}
+          >
+            📅 Planning
+          </button>
+        </div>
+      </div>
 
-        {/* — Répartition — */}
-        <div className="px-5 pt-5 pb-4">
-          <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-4">
-            Cette semaine
-          </p>
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/*                      VUE PLANNING                         */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {homeView === 'planning' && (
+        <>
+          {/* ── Carte semaine complète ── */}
+          <div className="mx-4">
+            <div className="rounded-3xl bg-white overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
 
-          {d.byMember.length === 0 ? (
-            <p className="text-[14px] text-[#8e8e93] text-center py-3">
-              Aucune tâche assignée pour l&apos;instant.
-            </p>
-          ) : d.byMember.length === 1 ? (
-            /* Solo (pas de partenaire) */
-            <div>
-              <div className="flex justify-between text-[14px] mb-2">
-                <span className="font-semibold text-[#1c1c1e]">{d.byMember[0].name}</span>
-                <span className="font-bold" style={{ color: COLORS[0] }}>{d.byMember[0].pct}%</span>
-              </div>
-              <div className="h-3 rounded-full" style={{ background: '#f0f2f8' }}>
-                <div
-                  className="h-3 rounded-full"
-                  style={{
-                    width: animBars ? `${d.byMember[0].pct}%` : '0%',
-                    background: COLORS[0],
-                    transition: 'width 1s cubic-bezier(0.34,1.56,0.64,1)',
-                  }}
-                />
-              </div>
-              <button
-                onClick={() => router.push('/invite')}
-                className="mt-4 w-full rounded-xl py-2.5 text-[13px] font-semibold text-center"
-                style={{ background: '#EEF4FF', color: '#007aff' }}
-              >
-                + Inviter mon partenaire
-              </button>
-            </div>
-          ) : (
-            /* Multi-membres */
-            <div className="space-y-3">
-              {d.byMember.slice(0, 3).map((m, i) => (
-                <div key={m.id}>
-                  <div className="flex justify-between items-center text-[14px] mb-1.5">
-                    <span className="font-semibold" style={{ color: m.isMe ? COLORS[i] : '#1c1c1e' }}>
-                      {m.isPhantom && '👻 '}{m.name}
-                      {m.isMe && <span className="text-[11px] text-[#8e8e93] font-normal ml-1">(moi)</span>}
-                    </span>
-                    <span className="font-bold text-[15px]" style={{ color: COLORS[i] }}>{m.pct}%</span>
+              {/* En-tête carte */}
+              {(() => {
+                const totalWeek = weekDays.reduce((s, d) => s + d.count, 0);
+                const overdueWeek = d.overdue.length;
+                const statusOk = overdueWeek === 0;
+                return (
+                  <div className="px-5 pt-5 pb-4 flex items-start justify-between"
+                    style={{ borderBottom: '0.5px solid #f0f2f8' }}>
+                    <div>
+                      <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-1">
+                        Cette semaine
+                      </p>
+                      <p className="text-[16px] font-bold" style={{ color: statusOk ? '#34c759' : '#ff9500' }}>
+                        {statusOk
+                          ? totalWeek === 0 ? '🌿 Rien de planifié' : '✅ Tout est planifié'
+                          : `⚠️ ${overdueWeek} tâche${overdueWeek > 1 ? 's' : ''} en retard`}
+                      </p>
+                    </div>
+                    <Link href="/planning"
+                      className="text-[13px] font-semibold mt-1"
+                      style={{ color: '#007aff' }}>
+                      Tout voir →
+                    </Link>
                   </div>
-                  <div className="h-3 rounded-full" style={{ background: '#f0f2f8' }}>
-                    <div
-                      className="h-3 rounded-full"
-                      style={{
-                        width: animBars ? `${m.pct}%` : '0%',
-                        background: COLORS[i],
-                        transition: `width ${0.8 + i * 0.15}s cubic-bezier(0.34,1.56,0.64,1)`,
-                      }}
-                    />
+                );
+              })()}
+
+              {/* Lignes par jour */}
+              {weekDays.map(({ day, count, load }, i) => {
+                const isToday = isSameDay(day, new Date());
+                const loadLabel = load === 0 ? 'libre' : load < 8 ? 'léger' : load < 20 ? 'normal' : 'chargé';
+                const loadColor = load === 0 ? '#c7c7cc' : load < 8 ? '#34c759' : load < 20 ? '#ff9500' : '#ff3b30';
+                const barPct = Math.min(100, Math.round((load / 28) * 100));
+
+                return (
+                  <Link
+                    key={i}
+                    href={`/planning?date=${format(day, 'yyyy-MM-dd')}`}
+                    className="flex items-center gap-3 px-5 py-3 active:bg-[#f5f7ff] transition-colors"
+                    style={{
+                      borderBottom: i < 6 ? '0.5px solid #f0f2f8' : undefined,
+                      background: isToday ? '#EEF4FF' : undefined,
+                    }}
+                  >
+                    {/* Jour */}
+                    <span className="text-[14px] font-bold w-8 flex-shrink-0 capitalize"
+                      style={{ color: isToday ? '#007aff' : '#1c1c1e' }}>
+                      {format(day, 'EEE', { locale: fr })}
+                    </span>
+
+                    {/* Nombre tâches */}
+                    <span className="text-[12px] w-[68px] flex-shrink-0"
+                      style={{ color: count === 0 ? '#c7c7cc' : '#3c3c43' }}>
+                      {count === 0 ? '—' : `${count} tâche${count > 1 ? 's' : ''}`}
+                    </span>
+
+                    {/* Barre de charge */}
+                    <div className="flex-1 h-[6px] rounded-full" style={{ background: '#f0f2f8' }}>
+                      {barPct > 0 && (
+                        <div className="h-[6px] rounded-full"
+                          style={{ width: `${barPct}%`, background: loadColor, minWidth: 6 }} />
+                      )}
+                    </div>
+
+                    {/* Label */}
+                    <span className="text-[11px] font-semibold w-11 text-right flex-shrink-0"
+                      style={{ color: loadColor }}>
+                      {loadLabel}
+                    </span>
+                  </Link>
+                );
+              })}
+
+              {/* Insight Yova */}
+              {peakDay && peakDay.count > 1 && (() => {
+                const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+                const peakIsToday = isSameDay(peakDay.day, new Date());
+                const peakIsPast = peakDay.day < todayStart && !peakIsToday;
+                if (peakIsPast && d.overdue.length > 0) return null;
+                const verb = peakIsToday
+                  ? ' est ton jour le plus chargé'
+                  : peakIsPast
+                  ? ' était ton jour le plus chargé'
+                  : ' sera ton jour le plus chargé';
+                const label = peakIsToday
+                  ? 'Aujourd\'hui'
+                  : format(peakDay.day, 'EEEE', { locale: fr });
+                return (
+                  <div className="px-5 py-4 flex items-start gap-3"
+                    style={{ borderTop: '0.5px solid #f0f2f8', background: '#fafafe' }}>
+                    <span className="text-[17px] mt-0.5">💡</span>
+                    <p className="text-[13px] leading-relaxed" style={{ color: '#3c3c43' }}>
+                      <span className="font-bold capitalize">{label}</span>
+                      {verb}
+                      {' '}— {peakDay.count} tâche{peakDay.count > 1 ? 's' : ''} prévue{peakDay.count > 1 ? 's' : ''}.
+                    </p>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* ── Aujourd'hui pour toi ── */}
+          <div className="mx-4">
+            <div className="rounded-3xl bg-white overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+              <div className="px-5 pt-4 pb-3" style={{ borderBottom: '0.5px solid #f0f2f8' }}>
+                <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em]">
+                  📌 Aujourd&apos;hui pour toi
+                </p>
+              </div>
+
+              {d.myToday.length === 0 ? (
+                <div className="px-5 py-6 flex items-center gap-3">
+                  <span className="text-[24px]">☀️</span>
+                  <div>
+                    <p className="text-[14px] font-semibold text-[#1c1c1e]">Rien de prévu</p>
+                    <p className="text-[12px] text-[#8e8e93] mt-0.5">Profite de ta journée.</p>
+                  </div>
+                </div>
+              ) : (
+                d.myToday.map((task, i) => (
+                  <Link
+                    key={task.id}
+                    href={`/tasks/${task.id}`}
+                    className="flex items-center gap-3 px-5 py-3.5 active:bg-[#f5f7ff] transition-colors"
+                    style={{ borderBottom: i < d.myToday.length - 1 ? '0.5px solid #f0f2f8' : undefined }}
+                  >
+                    <span className="text-[8px]" style={{ color: '#007aff' }}>›</span>
+                    <span className="text-[14px] font-medium text-[#1c1c1e] flex-1 truncate">{task.name}</span>
+                    <span className="text-[18px] text-[#c7c7cc]">›</span>
+                  </Link>
+                ))
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/*                       VUE SCORE                           */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {homeView === 'score' && (() => {
+        // ── Calcul répartition globale ────────────────────────────
+        const totalLoad = tasks.reduce((s, t) => s + taskLoad(t), 0);
+        const memberScores = allMembers.map((member, idx) => {
+          const mt = tasks.filter((t) =>
+            member.isPhantom ? t.assigned_to_phantom_id === member.id : t.assigned_to === member.id,
+          );
+          const load = mt.reduce((s, t) => s + taskLoad(t), 0);
+          const pct = totalLoad > 0 ? Math.round((load / totalLoad) * 100) : 0;
+          const FILLS = [
+            'linear-gradient(90deg,#ff6b6b,#ff3030)',
+            'linear-gradient(90deg,#4ecdc4,#26b5ab)',
+            'linear-gradient(90deg,#c084fc,#a855f7)',
+          ];
+          return { member, pct, fill: FILLS[idx] ?? FILLS[0] };
+        });
+        const maxPct = Math.max(...memberScores.map((m) => m.pct));
+        const anyAssigned = memberScores.some((m) => m.pct > 0);
+        const isUnbalanced = allMembers.length > 1 && maxPct > 65;
+
+        // ── Insight dynamique ─────────────────────────────────────
+        const CATS_LABEL: Record<string, string> = {
+          meals: 'cuisine', cleaning: 'ménage', tidying: 'rangement',
+          shopping: 'courses', laundry: 'linge', children: 'enfants',
+          admin: 'admin', outdoor: 'extérieur', hygiene: 'hygiène',
+          pets: 'animaux', vehicle: 'voiture',
+        };
+        let insightText = 'Assigne des tâches aux membres pour voir la répartition.';
+        let insightCta: string | null = null;
+        if (memberScores.length >= 2 && totalLoad > 0) {
+          const myMember = memberScores.find((m) => !m.member.isPhantom && m.member.id === profile?.id);
+          if (myMember) {
+            const catKeys = Object.keys(CATS_LABEL);
+            let mostSkewed = { cat: '', myPct: 0 };
+            for (const cat of catKeys) {
+              const catTasks = tasks.filter((t) => t.scoring_category === cat);
+              const catTotal = catTasks.reduce((s, t) => s + taskLoad(t), 0);
+              if (catTotal === 0) continue;
+              const myLoad = catTasks
+                .filter((t) => t.assigned_to === profile?.id)
+                .reduce((s, t) => s + taskLoad(t), 0);
+              const myPct = Math.round((myLoad / catTotal) * 100);
+              if (myPct > mostSkewed.myPct) mostSkewed = { cat, myPct };
+            }
+            if (mostSkewed.myPct > 75) {
+              const partner = memberScores.find((m) => m.member.id !== profile?.id && !m.member.isPhantom)
+                ?? memberScores.find((m) => m.member.id !== profile?.id);
+              const partnerName = partner?.member.display_name ?? 'ton partenaire';
+              insightText = `Tu gères la ${CATS_LABEL[mostSkewed.cat] ?? mostSkewed.cat} à ${mostSkewed.myPct}% — ${partnerName} n'a aucune tâche dans cette catégorie.`;
+              insightCta = 'Rééquilibrer →';
+            } else if (myMember.pct > 65) {
+              insightText = `Tu portes ${myMember.pct}% de la charge du foyer cette semaine.`;
+              insightCta = 'Voir le détail →';
+            } else if (myMember.pct > 0) {
+              insightText = `La répartition est équilibrée — continue comme ça !`;
+            }
+          }
+        }
+
+        // ── Tâches du jour (tous les membres) ────────────────────
+        const todayAllTasks = d.today.slice(0, 5);
+
+        return (
+          <>
+            {/* ── Big card sombre Répartition ── */}
+            <button
+              onClick={() => router.push('/score')}
+              className="mx-4 rounded-[22px] p-5 relative overflow-hidden transition-transform active:scale-[0.98] text-left w-[calc(100%-32px)]"
+              style={{ background: 'linear-gradient(148deg,#16163a 0%,#2b1e72 55%,#163260 100%)' }}
+            >
+              {/* Orbe déco */}
+              <div className="absolute rounded-full pointer-events-none"
+                style={{ width: 160, height: 160, background: 'rgba(255,255,255,0.035)', top: -50, right: -40 }} />
+
+              <p className="text-[10px] font-bold uppercase tracking-[1.5px] mb-4"
+                style={{ color: 'rgba(255,255,255,0.4)' }}>
+                Répartition · Cette semaine
+              </p>
+
+              {memberScores.map((ms) => (
+                <div key={ms.member.id} className="mb-3 last:mb-1">
+                  <div className="flex justify-between mb-1.5">
+                    <span className="text-[13px] font-semibold" style={{ color: 'rgba(255,255,255,0.88)' }}>
+                      {ms.member.display_name}
+                    </span>
+                    <span className="text-[13px] font-black text-white">{ms.pct} %</span>
+                  </div>
+                  <div className="h-[6px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                    <div className="h-full rounded-full"
+                      style={{ width: `${ms.pct}%`, background: ms.fill }} />
                   </div>
                 </div>
               ))}
-            </div>
-          )}
 
-          {/* Badge équilibre */}
-          {d.byMember.length >= 2 && (
-            <div className="mt-4 flex items-center gap-2">
-              {d.isImbalanced ? (
-                <>
-                  <span className="text-[16px]">⚠️</span>
-                  <span className="text-[13px] font-semibold" style={{ color: '#ff9500' }}>Déséquilibré</span>
-                  <button
-                    onClick={() => router.push('/tasks/new')}
-                    className="ml-auto text-[12px] font-semibold px-3 py-1 rounded-full"
-                    style={{ background: '#fff8e6', color: '#ff9500' }}
-                  >
-                    Rééquilibrer →
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span className="text-[16px]">✅</span>
-                  <span className="text-[13px] font-semibold" style={{ color: '#34c759' }}>Équilibré</span>
-                </>
+              {isUnbalanced && (
+                <div className="inline-flex items-center gap-1.5 mt-3 rounded-[9px] px-3 py-1 text-[11px] font-bold"
+                  style={{ background: 'rgba(255,100,100,0.18)', border: '1px solid rgba(255,100,100,0.28)', color: '#ff8c8c' }}>
+                  ⚠️ Déséquilibré
+                </div>
               )}
-            </div>
-          )}
-        </div>
-
-        {/* — Séparateur — */}
-        <div style={{ height: '0.5px', background: 'var(--ios-separator, rgba(60,60,67,0.12))' }} />
-
-        {/* — Urgence du jour — */}
-        {d.urgent ? (
-          <Link href="/tasks" className="px-5 py-4 flex items-center gap-3 active:bg-[#f9f9fb]">
-            <span className="text-[20px] flex-shrink-0">{d.overdueCount > 0 ? '⚠️' : '📌'}</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wide mb-0.5">
-                {d.overdueCount > 0 ? `${d.overdueCount} en retard` : 'Urgent aujourd\'hui'}
-              </p>
-              <p className="text-[14px] font-semibold text-[#1c1c1e] truncate">{d.urgent.name}</p>
-              {d.urgent.assignee && (
-                <p className="text-[12px] text-[#8e8e93]">→ {d.urgent.assignee.display_name}</p>
+              {!isUnbalanced && anyAssigned && (
+                <div className="inline-flex items-center gap-1.5 mt-3 rounded-[9px] px-3 py-1 text-[11px] font-bold"
+                  style={{ background: 'rgba(52,199,89,0.18)', border: '1px solid rgba(52,199,89,0.28)', color: '#34c759' }}>
+                  ✅ Équilibré
+                </div>
               )}
-            </div>
-            <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12">
-              <path d="M1 1l5 5-5 5" />
-            </svg>
-          </Link>
-        ) : (
-          <div className="px-5 py-4 flex items-center gap-3">
-            <span className="text-[20px]">✨</span>
-            <p className="text-[14px] text-[#8e8e93]">Rien d&apos;urgent aujourd&apos;hui. Profite.</p>
-          </div>
-        )}
+            </button>
 
-        {/* — Insight rapide — */}
-        {quickInsight && (
-          <>
-            <div style={{ height: '0.5px', background: 'var(--ios-separator, rgba(60,60,67,0.12))' }} />
-            <div className="px-5 py-4 flex items-start gap-3">
-              <span className="text-[18px] flex-shrink-0 mt-0.5">💡</span>
+            {/* ── Insight Yova ── */}
+            <div className="mx-4 rounded-[16px] bg-white px-[14px] py-[12px] flex gap-[10px]"
+              style={{ boxShadow: '0 1px 0 rgba(0,0,0,0.06)' }}>
+              <span className="text-[20px] flex-shrink-0 pt-0.5">💡</span>
               <div>
-                <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wide mb-0.5">Yova a remarqué</p>
-                <p className="text-[14px] text-[#1c1c1e] leading-snug">{quickInsight}</p>
+                <p className="text-[12px] font-bold text-[#1c1c1e] mb-1">Yova a remarqué</p>
+                <p className="text-[11px] leading-[1.45]" style={{ color: '#8e8e93' }}>{insightText}</p>
+                {insightCta && (
+                  <button onClick={() => router.push('/score')}
+                    className="text-[11px] font-bold mt-1.5 block"
+                    style={{ color: '#007aff' }}>
+                    {insightCta}
+                  </button>
+                )}
               </div>
             </div>
+
+            {/* ── Journal IA ── */}
+            <button
+              onClick={() => router.push('/journal')}
+              className="mx-4 rounded-3xl p-5 text-left transition-transform active:scale-[0.98]"
+              style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 8px 24px rgba(118,75,162,0.22)',
+              }}
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full text-[24px] flex-shrink-0"
+                  style={{ background: 'rgba(255,255,255,0.2)' }}>
+                  🤖
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] uppercase tracking-[0.15em] font-bold text-white/70 mb-0.5">Journal IA</p>
+                  <p className="text-[16px] font-bold text-white leading-tight">
+                    Qu&apos;est-ce que t&apos;as géré aujourd&apos;hui ?
+                  </p>
+                  <p className="text-[12px] text-white/75 mt-0.5">Raconte en une phrase. Yova note tout.</p>
+                </div>
+                <div className="text-white/50 text-[20px]">→</div>
+              </div>
+            </button>
+
+            {/* ── Aujourd'hui ── */}
+            {todayAllTasks.length > 0 && (
+              <div className="mx-4">
+                <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-2 px-1">
+                  Aujourd&apos;hui
+                </p>
+                <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                  {todayAllTasks.map((task, i) => {
+                    const catColor = task.category?.color_hex ?? '#8e8e93';
+                    const assigneeName = task.assignee?.display_name
+                      ?? allMembers.find((m) => m.isPhantom && m.id === task.assigned_to_phantom_id)?.display_name
+                      ?? null;
+                    const isOverdue = task.next_due_at && new Date(task.next_due_at) < new Date(new Date().setHours(0, 0, 0, 0));
+                    const memberIdx = assigneeName
+                      ? allMembers.findIndex((m) => m.display_name === assigneeName)
+                      : -1;
+                    const BADGE_FILLS = [
+                      'linear-gradient(135deg,#5856d6,#007aff)',
+                      'linear-gradient(135deg,#26b5ab,#4ecdc4)',
+                      'linear-gradient(135deg,#a855f7,#c084fc)',
+                    ];
+                    const badgeFill = memberIdx >= 0 ? (BADGE_FILLS[memberIdx] ?? BADGE_FILLS[0]) : 'linear-gradient(135deg,#8e8e93,#636366)';
+
+                    return (
+                      <Link key={task.id} href={`/tasks/${task.id}`}
+                        className="flex items-center gap-3 px-4 py-3 active:bg-[#f5f7ff] transition-colors"
+                        style={{ borderBottom: i < todayAllTasks.length - 1 ? '0.5px solid #f0f0f5' : undefined }}>
+                        <span className="w-[9px] h-[9px] rounded-full flex-shrink-0" style={{ background: catColor }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-semibold text-[#1c1c1e] truncate">{task.name}</p>
+                          <p className="text-[10px] mt-0.5" style={{ color: '#8e8e93' }}>
+                            {task.category?.name ?? ''}
+                            {isOverdue ? ' · En retard' : ' · Aujourd\'hui'}
+                          </p>
+                        </div>
+                        {assigneeName && (
+                          <span className="text-[10px] font-bold px-2 py-1 rounded-[7px] flex-shrink-0 text-white"
+                            style={{ background: badgeFill }}>
+                            {assigneeName}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Récap du soir ── */}
+            <Link
+              href="/tasks/recap"
+              className="mx-4 rounded-2xl px-5 py-4 flex items-center justify-between text-white transition-transform active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg,#1c1c3e,#3a1c71)', boxShadow: '0 4px 16px rgba(28,28,62,0.3)' }}
+            >
+              <div>
+                <p className="text-[17px] font-bold">📋 Comment se passe ta journée ?</p>
+                <p className="text-[13px] text-white/70 mt-0.5">Coche ce que tu as fait, en 15 secondes</p>
+              </div>
+              <svg width="7" height="12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12">
+                <path d="M1 1l5 5-5 5" />
+              </svg>
+            </Link>
           </>
-        )}
-      </div>
-
-      {/* ═══ JOURNAL ═══ */}
-      <button
-        onClick={() => router.push('/journal')}
-        className="mx-4 rounded-3xl p-5 text-left transition-transform active:scale-[0.98]"
-        style={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          boxShadow: '0 8px 24px rgba(118,75,162,0.22)',
-        }}
-      >
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full text-[24px] flex-shrink-0"
-            style={{ background: 'rgba(255,255,255,0.2)' }}>
-            🤖
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.15em] font-bold text-white/70 mb-0.5">Journal IA</p>
-            <p className="text-[16px] font-bold text-white leading-tight">
-              Qu&apos;est-ce que t&apos;as géré aujourd&apos;hui ?
-            </p>
-            <p className="text-[12px] text-white/75 mt-0.5">Raconte en une phrase. Yova note tout.</p>
-          </div>
-          <div className="text-white/50 text-[20px]">→</div>
-        </div>
-      </button>
-
-      {/* ═══ SCORE DÉTAILLÉ (premium teaser) ═══ */}
-      <button
-        onClick={() => router.push('/upgrade?feature=score')}
-        className="mx-4 rounded-2xl bg-white p-4 flex items-center justify-between transition-transform active:scale-[0.98]"
-        style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[20px]"
-            style={{ background: 'linear-gradient(135deg, #f0f2f8, #e0e5f0)' }}>
-            📊
-          </div>
-          <div>
-            <p className="text-[14px] font-semibold text-[#1c1c1e]">Score détaillé par catégorie</p>
-            <p className="text-[12px] text-[#8e8e93]">Cuisine · Ménage · Enfants · Admin…</p>
-          </div>
-        </div>
-        <span className="text-[11px] font-bold px-2.5 py-1 rounded-full flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg,#007aff,#5856d6)', color: 'white' }}>
-          Premium
-        </span>
-      </button>
-
-      {/* ═══ RÉCAP DU SOIR ═══ */}
-      <Link
-        href="/tasks/recap"
-        className="mx-4 rounded-2xl px-5 py-4 flex items-center justify-between text-white transition-transform active:scale-[0.98]"
-        style={{ background: 'linear-gradient(135deg,#1c1c3e,#3a1c71)', boxShadow: '0 4px 16px rgba(28,28,62,0.25)' }}
-      >
-        <div>
-          <p className="text-[15px] font-bold">☀️ Comment se passe ta journée ?</p>
-          <p className="text-[12px] text-white/70 mt-0.5">Coche ce que tu as fait, en 15 secondes</p>
-        </div>
-        <svg width="7" height="12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12">
-          <path d="M1 1l5 5-5 5" />
-        </svg>
-      </Link>
-
+        );
+      })()}
     </div>
   );
 }

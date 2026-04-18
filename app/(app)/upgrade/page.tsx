@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import BackButton from '@/components/BackButton';
 
 type Feature = {
   id: string;
@@ -27,13 +28,7 @@ export default function UpgradePage() {
     <div className="pt-4 pb-16">
       {/* Header */}
       <div className="px-4 mb-4">
-        <button
-          onClick={() => router.back()}
-          className="text-[15px] font-medium"
-          style={{ color: '#007aff' }}
-        >
-          ← Retour
-        </button>
+        <BackButton />
       </div>
 
       {/* Hero gradient violet/bleu */}

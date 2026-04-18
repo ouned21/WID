@@ -2,19 +2,21 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import BackButton from '@/components/BackButton';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { frequencyLabel, FREQUENCY_OPTIONS } from '@/utils/frequency';
 import type { TaskCompletion, Frequency } from '@/types/database';
+import PostponeButton from '@/components/PostponeButton';
 
 export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { profile } = useAuthStore();
   const isPremium = useAuthStore((s) => s.isPremium());
-  const { tasks, completeTask, updateTask, archiveTask, deleteTask, fetchTaskDetail, completing, archiving } = useTaskStore();
+  const { tasks, completeTask, updateTask, deleteTask, fetchTaskDetail, completing } = useTaskStore();
   const { members, allMembers } = useHouseholdStore();
   const task = tasks.find((t) => t.id === id);
 
@@ -41,7 +43,7 @@ export default function TaskDetailPage() {
   if (!task) {
     return (
       <div className="pt-4 px-4">
-        <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
+        <BackButton />
         <div className="mt-8 text-center"><p className="text-[17px] text-[#8e8e93]">Tâche introuvable</p></div>
       </div>
     );
@@ -56,19 +58,13 @@ export default function TaskDetailPage() {
     setCompletions(data);
   };
 
-  const handleArchive = async () => {
-    if (!confirm('Archiver cette tâche ?')) return;
-    await archiveTask(task.id);
-    router.push('/tasks');
-  };
-
   const catColor = task.category?.color_hex ?? '#8e8e93';
 
   return (
     <div className="pt-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between px-4">
-        <button onClick={() => router.back()} className="text-[17px] font-medium" style={{ color: '#007aff' }}>← Retour</button>
+        <BackButton />
         {saveStatus !== 'idle' && (
           <span className="text-[13px] font-medium" style={{
             color: saveStatus === 'saving' ? '#8e8e93' : saveStatus === 'saved' ? '#34c759' : '#ff3b30'
@@ -100,8 +96,8 @@ export default function TaskDetailPage() {
             {task.category?.name}
           </span>
           {isPremium ? (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-[#8e8e93]">Score</span>
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="text-[10px] text-[#8e8e93] uppercase tracking-wide">Charge mentale</span>
               <select
                 defaultValue={task.mental_load_score}
                 onChange={(e) => autoSave('mental_load_score', Number(e.target.value))}
@@ -114,15 +110,13 @@ export default function TaskDetailPage() {
           ) : (
             <button
               onClick={() => router.push('/upgrade?feature=score')}
-              className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-semibold"
-              style={{ background: 'linear-gradient(135deg, #f0f2f8, #e5e5ea)', color: '#8e8e93' }}
-              title="Passe en premium pour modifier le score"
+              className="flex flex-col items-end gap-0.5 rounded-xl px-3 py-1.5"
+              style={{ background: '#f0f2f8' }}
             >
-              <span>🔒</span>
-              <span className="font-bold" style={{ color: task.mental_load_score >= 4 ? '#ff3b30' : task.mental_load_score >= 3 ? '#ff9500' : '#34c759' }}>
+              <span className="text-[10px] text-[#8e8e93] uppercase tracking-wide">Charge mentale 🔒</span>
+              <span className="text-[17px] font-bold" style={{ color: task.mental_load_score >= 4 ? '#ff3b30' : task.mental_load_score >= 3 ? '#ff9500' : '#34c759' }}>
                 {task.mental_load_score * 2}/10
               </span>
-              <span className="text-[10px]">Premium</span>
             </button>
           )}
         </div>
@@ -273,13 +267,9 @@ export default function TaskDetailPage() {
         </div>
       </div>
 
-      {/* Archiver + Supprimer */}
+      {/* Décaler + Supprimer */}
       <div className="mx-4 pb-8 space-y-2">
-        <button onClick={handleArchive} disabled={archiving}
-          className="w-full rounded-xl bg-white py-3 text-[15px] font-medium disabled:opacity-50"
-          style={{ color: '#ff9500', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-          {archiving ? 'Archivage...' : '📁 Archiver (garder en historique)'}
-        </button>
+        <PostponeButton taskId={task.id} variant="full" />
         <button onClick={async () => {
           if (!confirm('Supprimer définitivement cette tâche et tout son historique ? Cette action est irréversible.')) return;
           const result = await deleteTask(task.id);
