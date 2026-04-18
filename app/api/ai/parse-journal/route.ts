@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { checkAndIncrementAiUsage } from '@/utils/aiRateLimit';
 import { getHouseholdPreferences, formatHouseholdPreferencesForPrompt } from '@/utils/userPreferences';
 import { logAiUsage, extractUsageFromResponse } from '@/utils/aiLogger';
+import { computeTaskScore } from '@/utils/taskScoring';
+import { loadTo10 } from '@/utils/designSystem';
+
+function serviceClient() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+}
 
 /**
  * API Route : parse-journal
@@ -144,6 +154,9 @@ export async function POST(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+
+  // Client service role pour les inserts (bypass RLS — fiable)
+  const admin = serviceClient();
 
   const rate = await checkAndIncrementAiUsage(supabase, user.id);
   if (!rate.allowed) {
@@ -359,8 +372,8 @@ Réponds UNIQUEMENT avec ce JSON.`;
     const autoCreateItems = Array.isArray(parsed.auto_create) ? parsed.auto_create : [];
     const unmatched = Array.isArray(parsed.unmatched) ? parsed.unmatched : [];
 
-    // ─── Créer le journal ──────────────────────────────────────────────────
-    const { data: journalRow } = await supabase.from('user_journals').insert({
+    // ─── Créer le journal (service role → bypass RLS) ─────────────────────
+    const { data: journalRow, error: journalError } = await admin.from('user_journals').insert({
       user_id: user.id, household_id: householdId, raw_text: text, input_method: inputMethod,
       parsed_completions: completions, unmatched_items: unmatched,
       ai_response: parsed.ai_response ?? null,
@@ -369,10 +382,14 @@ Réponds UNIQUEMENT avec ce JSON.`;
       mood_tone: parsed.mood_tone ?? null,
     }).select('id').single();
 
+    if (journalError) {
+      console.error('[parse-journal] Journal insert error:', journalError);
+    }
+
     // ─── Insérer les complétions sur tâches existantes ────────────────────
     for (const comp of completions) {
       if (!comp.task_id || comp.confidence < 0.3) continue;
-      await supabase.from('task_completions').insert({
+      await admin.from('task_completions').insert({
         task_id: comp.task_id, household_id: householdId,
         completed_by: comp.completed_by ?? user.id,
         completed_by_phantom_id: comp.completed_by_phantom_id ?? null,
@@ -395,7 +412,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
         // Retrouver la tâche existante et créer la complétion dessus
         const existingTask = tasks.find(t => isSimilarTask(t.name, item.name));
         if (existingTask) {
-          await supabase.from('task_completions').insert({
+          await admin.from('task_completions').insert({
             task_id: existingTask.id, household_id: householdId,
             completed_by: item.completed_by ?? user.id,
             completed_by_phantom_id: item.completed_by_phantom_id ?? null,
@@ -414,12 +431,23 @@ Réponds UNIQUEMENT avec ce JSON.`;
       const daysUntilDue = FREQUENCY_NEXT_DUE[item.frequency] ?? 7;
       const nextDueAt = new Date(Date.now() + daysUntilDue * 86400000).toISOString();
 
-      const { data: newTask } = await supabase.from('household_tasks').insert({
+      // Calcul du score automatique (moteur V2)
+      const scoreBreakdown = computeTaskScore({
+        title: item.name,
+        category: item.category as import('@/utils/taskScoring').TaskCategory,
+        duration: (item.duration ?? 'short') as import('@/utils/taskScoring').DurationEstimate,
+        physical: (item.physical ?? 'light') as import('@/utils/taskScoring').PhysicalEffort,
+        frequency: item.frequency ?? 'weekly',
+      });
+      const autoScore10 = loadTo10(scoreBreakdown.global_score);
+
+      const { data: newTask } = await admin.from('household_tasks').insert({
         household_id: householdId,
         name: item.name,
         category_id: categoryId,
         frequency: item.frequency as never,
-        mental_load_score: 2,
+        mental_load_score: scoreBreakdown.mental_score,
+        user_score: autoScore10,
         scoring_category: item.category,
         duration_estimate: item.duration,
         physical_effort: item.physical ?? 'light',
@@ -434,7 +462,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
       if (!newTask?.id) continue;
 
       // Créer la complétion immédiatement
-      await supabase.from('task_completions').insert({
+      await admin.from('task_completions').insert({
         task_id: newTask.id, household_id: householdId,
         completed_by: item.completed_by ?? user.id,
         completed_by_phantom_id: item.completed_by_phantom_id ?? null,
