@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
-import { taskLoad, loadTo10 } from '@/utils/designSystem';
+import { taskLoad } from '@/utils/designSystem';
 import { addDays, startOfWeek, isSameDay, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -26,19 +26,8 @@ const CATEGORY_EMOJI: Record<string, string> = {
   pets: '🐾', vehicle: '🔧', misc: '📌',
 };
 
-type WeatherState = { icon: string; label: string; sub: string; color: string };
 type HomeView = 'planning' | 'score';
 const HOME_VIEW_KEY = 'yova_home_view';
-
-function getWeather(overdue: number, total: number): WeatherState {
-  if (total === 0) return { icon: '☀️', label: 'Ciel dégagé', sub: 'Ton foyer est serein', color: '#34c759' };
-  const ratio = overdue / total;
-  if (ratio === 0) return { icon: '☀️', label: 'Ciel dégagé', sub: 'Ton foyer est serein', color: '#34c759' };
-  if (ratio < 0.15) return { icon: '🌤', label: 'Quelques nuages', sub: 'Presque tout est à jour', color: '#5ac8fa' };
-  if (ratio < 0.35) return { icon: '☁️', label: 'Nuageux', sub: 'Quelques tâches attendent', color: '#ff9500' };
-  if (ratio < 0.6) return { icon: '🌧', label: 'Pluvieux', sub: 'Du retard s\'accumule', color: '#ff6b00' };
-  return { icon: '⛈', label: 'Orageux', sub: 'Ton foyer a besoin de toi', color: '#ff3b30' };
-}
 
 export default function DashboardFree() {
   const router = useRouter();
@@ -111,54 +100,10 @@ export default function DashboardFree() {
   );
 
   // ── UI helpers ───────────────────────────────────────────────────────────────
-  const score10 = loadTo10(d.myLoad);
-  const weather = getWeather(d.overdue.length, d.totalActive);
   const greeting = (() => {
     const h = new Date().getHours();
     return h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
   })();
-
-  const feedItems = useMemo(() => {
-    const items: { emoji: string; title: string; body: string; href?: string }[] = [];
-
-    if (d.overdue.length > 0) {
-      items.push({
-        emoji: '⚠️',
-        title: `${d.overdue.length} tâche${d.overdue.length > 1 ? 's' : ''} en retard`,
-        body: d.overdue.length === 1 ? d.overdue[0].name : `${d.overdue[0].name} + ${d.overdue.length - 1} autre${d.overdue.length > 2 ? 's' : ''}`,
-        href: '/planning?tab=tasks',
-      });
-    }
-    if (d.today.length > 0) {
-      items.push({
-        emoji: '📅',
-        title: `Aujourd'hui : ${d.today.length} tâche${d.today.length > 1 ? 's' : ''}`,
-        body: d.today.length === 1 ? d.today[0].name : `${d.today[0].name} + ${d.today.length - 1} autre${d.today.length > 2 ? 's' : ''}`,
-        href: '/planning?tab=tasks',
-      });
-    }
-    if (d.tomorrow.length > 0) {
-      items.push({
-        emoji: '🔔',
-        title: `Demain : ${d.tomorrow.length} tâche${d.tomorrow.length > 1 ? 's' : ''}`,
-        body: d.tomorrow.length === 1 ? d.tomorrow[0].name : `${d.tomorrow[0].name} + ${d.tomorrow.length - 1} autre${d.tomorrow.length > 2 ? 's' : ''}`,
-        href: `/planning?date=${new Date(Date.now() + 86400000).toISOString().slice(0, 10)}`,
-      });
-    }
-    if (d.thisWeek.length > 0 && items.length < 4) {
-      items.push({
-        emoji: '🗓',
-        title: `Cette semaine : ${d.thisWeek.length} tâche${d.thisWeek.length > 1 ? 's' : ''}`,
-        body: 'Yova les a planifiées pour toi',
-        href: '/planning',
-      });
-    }
-    if (items.length === 0) {
-      items.push({ emoji: '✨', title: 'Tout est calme', body: 'Aucune tâche ne t\'attend pour le moment. Profite.' });
-    }
-
-    return items;
-  }, [d]);
 
   return (
     <div className="pt-4 pb-8" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -274,23 +219,33 @@ export default function DashboardFree() {
               })}
 
               {/* Insight Yova */}
-              {peakDay && peakDay.count > 1 && (
-                <div className="px-5 py-4 flex items-start gap-3"
-                  style={{ borderTop: '0.5px solid #f0f2f8', background: '#fafafe' }}>
-                  <span className="text-[17px] mt-0.5">💡</span>
-                  <p className="text-[13px] leading-relaxed" style={{ color: '#3c3c43' }}>
-                    <span className="font-bold capitalize">
-                      {isSameDay(peakDay.day, new Date())
-                        ? 'Aujourd\'hui'
-                        : format(peakDay.day, 'EEEE', { locale: fr })}
-                    </span>
-                    {isSameDay(peakDay.day, new Date())
-                      ? ' est ton jour le plus chargé'
-                      : ' sera ton jour le plus chargé'}
-                    {' '}— {peakDay.count} tâche{peakDay.count > 1 ? 's' : ''} prévue{peakDay.count > 1 ? 's' : ''}.
-                  </p>
-                </div>
-              )}
+              {peakDay && peakDay.count > 1 && (() => {
+                const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+                const peakIsToday = isSameDay(peakDay.day, new Date());
+                const peakIsPast = peakDay.day < todayStart && !peakIsToday;
+                // Ne pas afficher l'insight si le jour de pic est passé ET qu'il y a des tâches en retard
+                // (le header "X tâches en retard" suffit)
+                if (peakIsPast && d.overdue.length > 0) return null;
+                const verb = peakIsToday
+                  ? ' est ton jour le plus chargé'
+                  : peakIsPast
+                  ? ' était ton jour le plus chargé'
+                  : ' sera ton jour le plus chargé';
+                const label = peakIsToday
+                  ? 'Aujourd\'hui'
+                  : format(peakDay.day, 'EEEE', { locale: fr });
+                return (
+                  <div className="px-5 py-4 flex items-start gap-3"
+                    style={{ borderTop: '0.5px solid #f0f2f8', background: '#fafafe' }}>
+                    <span className="text-[17px] mt-0.5">💡</span>
+                    <p className="text-[13px] leading-relaxed" style={{ color: '#3c3c43' }}>
+                      <span className="font-bold capitalize">{label}</span>
+                      {verb}
+                      {' '}— {peakDay.count} tâche{peakDay.count > 1 ? 's' : ''} prévue{peakDay.count > 1 ? 's' : ''}.
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
@@ -350,6 +305,7 @@ export default function DashboardFree() {
           return { member, pct, fill: FILLS[idx] ?? FILLS[0] };
         });
         const maxPct = Math.max(...memberScores.map((m) => m.pct));
+        const anyAssigned = memberScores.some((m) => m.pct > 0);
         const isUnbalanced = allMembers.length > 1 && maxPct > 65;
 
         // ── Insight dynamique ─────────────────────────────────────
@@ -433,7 +389,7 @@ export default function DashboardFree() {
                   ⚠️ Déséquilibré
                 </div>
               )}
-              {!isUnbalanced && totalLoad > 0 && (
+              {!isUnbalanced && anyAssigned && (
                 <div className="inline-flex items-center gap-1.5 mt-3 rounded-[9px] px-3 py-1 text-[11px] font-bold"
                   style={{ background: 'rgba(52,199,89,0.18)', border: '1px solid rgba(52,199,89,0.28)', color: '#34c759' }}>
                   ✅ Équilibré
