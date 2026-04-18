@@ -68,8 +68,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setQuickName('');
   }, [quickName]);
 
+  const isOnboarding = pathname.startsWith('/onboarding');
+
   // Ne pas afficher le FAB sur la page de création ni pendant l'onboarding
-  const showFab = !pathname.startsWith('/tasks/new') && !pathname.startsWith('/onboarding');
+  const showFab = !pathname.startsWith('/tasks/new') && !isOnboarding;
 
   useEffect(() => {
     if (!isInitialized) initialize();
@@ -120,15 +122,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col" style={{ background: '#f6f8ff' }}>
-      {/* Avatar flottant (remplace le header complet) */}
-      <Link
-        href="/profile"
-        className="fixed top-3 right-3 z-40 flex h-10 w-10 items-center justify-center rounded-full text-[15px] font-semibold text-white"
-        style={{ background: '#007aff', boxShadow: '0 2px 8px rgba(0,122,255,0.3)' }}
-        aria-label={`Profil de ${profile?.display_name ?? 'utilisateur'}`}
-      >
-        {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
-      </Link>
+      {/* Avatar flottant — masqué pendant l'onboarding */}
+      {!isOnboarding && (
+        <Link
+          href="/profile"
+          className="fixed top-3 right-3 z-40 flex h-10 w-10 items-center justify-center rounded-full text-[15px] font-semibold text-white"
+          style={{ background: '#007aff', boxShadow: '0 2px 8px rgba(0,122,255,0.3)' }}
+          aria-label={`Profil de ${profile?.display_name ?? 'utilisateur'}`}
+        >
+          {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
+        </Link>
+      )}
 
       {/* Contenu */}
       <main className="flex-1 px-4 pt-6 pb-28">
@@ -184,8 +188,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </button>
       )}
 
-      {/* Floating tab bar */}
-      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-32px)] max-w-lg rounded-[22px] bg-white/92 backdrop-blur-xl" style={{
+      {/* Floating tab bar — masquée pendant l'onboarding */}
+      {!isOnboarding && <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-32px)] max-w-lg rounded-[22px] bg-white/92 backdrop-blur-xl" style={{
         boxShadow: '0 8px 32px rgba(15,23,42,0.12), 0 2px 8px rgba(15,23,42,0.06)',
       }}>
         <div className="flex">
@@ -207,7 +211,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             );
           })}
         </div>
-      </nav>
+      </nav>}
     </div>
   );
 }
