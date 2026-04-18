@@ -14,8 +14,10 @@ import {
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import type { TaskListItem } from '@/types/database';
+import TasksTab from '../tasks/page';
 
 type ViewMode = 'week' | 'month';
+type PlanningTab = 'planning' | 'tasks';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   cleaning: '🧹', tidying: '🗂', shopping: '🛒', laundry: '👕',
@@ -727,10 +729,14 @@ export default function PlanningPage() {
 
   const today = new Date();
 
-  // Lire le param ?date=YYYY-MM-DD pour pré-sélectionner une semaine
+  // Lire les params URL (?date=YYYY-MM-DD, ?tab=tasks|planning)
   const searchParams = typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search)
     : null;
+  const tabParam = searchParams?.get('tab') as PlanningTab | null;
+  const [planningTab, setPlanningTab] = useState<PlanningTab>(
+    tabParam === 'tasks' ? 'tasks' : 'planning',
+  );
   const dateParam = searchParams?.get('date');
   const initialDate = dateParam ? new Date(dateParam) : today;
   const initialWeekStart = startOfWeek(initialDate, { weekStartsOn: 1 });
@@ -760,85 +766,115 @@ export default function PlanningPage() {
   return (
     <div className="pb-8" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-      {/* Header */}
-      <div className="px-4 pt-4 flex items-end justify-between">
-        <div>
-          <h2 className="text-[28px] font-bold text-[#1c1c1e]">Planning</h2>
-          <p className="text-[13px] text-[#8e8e93] mt-0.5">
-            {viewMode === 'week'
-              ? `${weekStats.totalTasks} tâche${weekStats.totalTasks > 1 ? 's' : ''} · ${weekStats.totalLoad} pts cette semaine`
-              : format(monthStart, 'MMMM yyyy', { locale: fr })}
-          </p>
-        </div>
-
-        {/* Toggle semaine / mois */}
-        <div className="flex rounded-xl overflow-hidden p-0.5" style={{ background: '#f0f2f8' }}>
-          <button onClick={() => setViewMode('week')}
-            className="px-4 py-1.5 text-[13px] font-semibold rounded-lg transition-all"
-            style={viewMode === 'week'
-              ? { background: 'white', color: '#007aff', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }
+      {/* ─── TABS Planning / Tâches ─── */}
+      <div className="px-4 pt-4">
+        <div className="flex rounded-2xl p-1" style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <button
+            onClick={() => setPlanningTab('planning')}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-semibold transition-all"
+            style={planningTab === 'planning'
+              ? { background: 'linear-gradient(135deg, #007aff, #5856d6)', color: 'white', boxShadow: '0 2px 8px rgba(0,122,255,0.25)' }
               : { color: '#8e8e93' }}>
-            Semaine
+            📅 Planning
           </button>
-          <button onClick={() => setViewMode('month')}
-            className="px-4 py-1.5 text-[13px] font-semibold rounded-lg transition-all"
-            style={viewMode === 'month'
-              ? { background: 'white', color: '#007aff', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }
+          <button
+            onClick={() => setPlanningTab('tasks')}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-semibold transition-all"
+            style={planningTab === 'tasks'
+              ? { background: 'linear-gradient(135deg, #007aff, #5856d6)', color: 'white', boxShadow: '0 2px 8px rgba(0,122,255,0.25)' }
               : { color: '#8e8e93' }}>
-            Mois
+            ✅ Tâches
           </button>
         </div>
       </div>
 
-      {/* Navigation temporelle */}
-      <div className="flex items-center justify-between px-4">
-        <button
-          onClick={() => viewMode === 'week' ? setWeekOffset(weekOffset - 1) : setMonthOffset(monthOffset - 1)}
-          className="flex items-center justify-center rounded-xl w-9 h-9"
-          style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', color: '#007aff' }}>
-          ‹
-        </button>
+      {/* ─── TAB TÂCHES ─── */}
+      {planningTab === 'tasks' && <TasksTab />}
 
-        <button
-          onClick={() => { setWeekOffset(0); setMonthOffset(0); }}
-          className="text-[14px] font-semibold capitalize"
-          style={{ color: (weekOffset === 0 && monthOffset === 0) ? '#8e8e93' : '#007aff' }}>
-          {viewMode === 'week' ? weekLabel : monthLabel}
-        </button>
-
-        <button
-          onClick={() => viewMode === 'week' ? setWeekOffset(weekOffset + 1) : setMonthOffset(monthOffset + 1)}
-          className="flex items-center justify-center rounded-xl w-9 h-9"
-          style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', color: '#007aff' }}>
-          ›
-        </button>
-      </div>
-
-      {/* Contenu */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[#e5e5ea] border-t-[#007aff]" />
-        </div>
-      ) : tasks.length === 0 ? (
-        <div className="mx-4 rounded-3xl bg-white py-16 text-center"
-          style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-          <p className="text-[48px] mb-3">📅</p>
-          <p className="text-[17px] font-bold text-[#1c1c1e]">Aucune tâche planifiée</p>
-          <p className="text-[13px] text-[#8e8e93] mt-1 mb-4">Crée des tâches pour les voir ici</p>
-          <Link href="/tasks/new"
-            className="inline-block rounded-xl px-5 py-2.5 text-[14px] font-bold text-white"
-            style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)' }}>
-            + Créer une tâche
-          </Link>
-        </div>
-      ) : (
+      {/* ─── TAB PLANNING ─── */}
+      {planningTab === 'planning' && (
         <>
-          {viewMode === 'week' ? (
-            <WeekView tasks={tasks} weekStart={weekStart} initialDate={initialDate} />
+          {/* Header */}
+          <div className="px-4 flex items-end justify-between">
+            <div>
+              <h2 className="text-[28px] font-bold text-[#1c1c1e]">Planning</h2>
+              <p className="text-[13px] text-[#8e8e93] mt-0.5">
+                {viewMode === 'week'
+                  ? `${weekStats.totalTasks} tâche${weekStats.totalTasks > 1 ? 's' : ''} · ${weekStats.totalLoad} pts cette semaine`
+                  : format(monthStart, 'MMMM yyyy', { locale: fr })}
+              </p>
+            </div>
+
+            {/* Toggle semaine / mois */}
+            <div className="flex rounded-xl overflow-hidden p-0.5" style={{ background: '#f0f2f8' }}>
+              <button onClick={() => setViewMode('week')}
+                className="px-4 py-1.5 text-[13px] font-semibold rounded-lg transition-all"
+                style={viewMode === 'week'
+                  ? { background: 'white', color: '#007aff', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }
+                  : { color: '#8e8e93' }}>
+                Semaine
+              </button>
+              <button onClick={() => setViewMode('month')}
+                className="px-4 py-1.5 text-[13px] font-semibold rounded-lg transition-all"
+                style={viewMode === 'month'
+                  ? { background: 'white', color: '#007aff', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }
+                  : { color: '#8e8e93' }}>
+                Mois
+              </button>
+            </div>
+          </div>
+
+          {/* Navigation temporelle */}
+          <div className="flex items-center justify-between px-4">
+            <button
+              onClick={() => viewMode === 'week' ? setWeekOffset(weekOffset - 1) : setMonthOffset(monthOffset - 1)}
+              className="flex items-center justify-center rounded-xl w-9 h-9"
+              style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', color: '#007aff' }}>
+              ‹
+            </button>
+
+            <button
+              onClick={() => { setWeekOffset(0); setMonthOffset(0); }}
+              className="text-[14px] font-semibold capitalize"
+              style={{ color: (weekOffset === 0 && monthOffset === 0) ? '#8e8e93' : '#007aff' }}>
+              {viewMode === 'week' ? weekLabel : monthLabel}
+            </button>
+
+            <button
+              onClick={() => viewMode === 'week' ? setWeekOffset(weekOffset + 1) : setMonthOffset(monthOffset + 1)}
+              className="flex items-center justify-center rounded-xl w-9 h-9"
+              style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', color: '#007aff' }}>
+              ›
+            </button>
+          </div>
+
+          {/* Contenu */}
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[#e5e5ea] border-t-[#007aff]" />
+            </div>
+          ) : tasks.length === 0 ? (
+            <div className="mx-4 rounded-3xl bg-white py-16 text-center"
+              style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+              <p className="text-[48px] mb-3">📅</p>
+              <p className="text-[17px] font-bold text-[#1c1c1e]">Aucune tâche planifiée</p>
+              <p className="text-[13px] text-[#8e8e93] mt-1 mb-4">Crée des tâches pour les voir ici</p>
+              <Link href="/tasks/new"
+                className="inline-block rounded-xl px-5 py-2.5 text-[14px] font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)' }}>
+                + Créer une tâche
+              </Link>
+            </div>
           ) : (
-            <MonthView tasks={tasks} monthStart={monthStart} />
+            <>
+              {viewMode === 'week' ? (
+                <WeekView tasks={tasks} weekStart={weekStart} initialDate={initialDate} />
+              ) : (
+                <MonthView tasks={tasks} monthStart={monthStart} />
+              )}
+              <AllTasksSection tasks={tasks} />
+            </>
           )}
-          <AllTasksSection tasks={tasks} />
         </>
       )}
     </div>
