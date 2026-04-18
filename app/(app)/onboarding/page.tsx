@@ -43,8 +43,11 @@ type TaskTemplate = {
 type Step =
   | 'equipment'  // Écran 1 : Sélection équipements
   | 'family'     // Écran 2 : Composition familiale
-  | 'catalog'    // Écran 3 : Sélection tâches catalogue
-  | 'results';   // Écran 4 : Résultats
+  | 'baseline'   // Écran 3 : Baseline émotionnelle (qui fait le plus ?)
+  | 'catalog'    // Écran 4 : Sélection tâches catalogue
+  | 'results';   // Écran 5 : Résultats
+
+type BaselineChoice = 'me' | 'partner' | 'balanced';
 
 // =============================================================================
 // CONSTANTS
@@ -122,6 +125,9 @@ export default function OnboardingPage() {
 
   // ── Famille ──
   const [family, setFamily] = useState<FamilyMember[]>([]);
+
+  // ── Baseline ──
+  const [baselineChoice, setBaselineChoice] = useState<BaselineChoice | null>(null);
 
   // ── Catalogue ──
   const [catalogTemplates, setCatalogTemplates] = useState<TaskTemplate[]>([]);
@@ -432,7 +438,7 @@ export default function OnboardingPage() {
     return (
       <div className="pt-4 pb-28">
         <div className="px-4 mb-6">
-          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 1 / 3</p>
+          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 1 / 4</p>
           <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
             Qu&apos;as-tu dans<br />ton foyer ?
           </h2>
@@ -496,7 +502,7 @@ export default function OnboardingPage() {
     return (
       <div className="pt-4 pb-28">
         <div className="px-4 mb-6">
-          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 2 / 3</p>
+          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 2 / 4</p>
           <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
             Qui vit<br />avec toi ?
           </h2>
@@ -561,10 +567,7 @@ export default function OnboardingPage() {
         <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3"
           style={{ background: 'linear-gradient(transparent, #f6f8ff 30%)' }}>
           <button
-            onClick={() => {
-              setStep('catalog');
-              loadCatalogTemplates();
-            }}
+            onClick={() => setStep('baseline')}
             className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white"
             style={{
               background: 'linear-gradient(135deg, #007aff, #5856d6)',
@@ -578,14 +581,83 @@ export default function OnboardingPage() {
     );
   }
 
-  // ─── Écran 3 : Catalogue ───
+  // ─── Écran 3 : Baseline émotionnelle ───
+  if (step === 'baseline') {
+    const OPTIONS: { value: BaselineChoice; emoji: string; label: string; sub: string; target: number }[] = [
+      { value: 'me',       emoji: '🙋',  label: 'Moi, clairement',         sub: 'Je gère l\'essentiel du foyer',   target: 45 },
+      { value: 'partner',  emoji: '🤷',  label: 'Mon partenaire',           sub: 'Il ou elle fait plus que moi',    target: 55 },
+      { value: 'balanced', emoji: '⚖️',  label: 'C\'est plutôt équilibré',  sub: 'On partage à peu près à égalité', target: 50 },
+    ];
+
+    const handleBaseline = async (choice: BaselineChoice, target: number) => {
+      setBaselineChoice(choice);
+      if (userId) {
+        const supabase = createClient();
+        await supabase.from('profiles').update({ target_share_percent: target }).eq('id', userId);
+      }
+      setStep('catalog');
+      loadCatalogTemplates();
+    };
+
+    return (
+      <div className="min-h-screen flex flex-col" style={{
+        background: 'linear-gradient(180deg, #0a1628 0%, #1a2f52 100%)',
+      }}>
+        <div className="flex-1 flex flex-col justify-center px-6 py-12">
+          {/* Step indicator */}
+          <p className="text-[12px] font-semibold uppercase tracking-[0.2em] mb-8 text-center"
+            style={{ color: 'rgba(255,255,255,0.45)' }}>
+            Étape 3 / 4
+          </p>
+
+          {/* Question */}
+          <div className="text-center mb-10">
+            <div className="text-[52px] mb-5">🏠</div>
+            <h2 className="text-[26px] font-black text-white leading-tight mb-3">
+              En ce moment,<br />qui fait le plus<br />à la maison ?
+            </h2>
+            <p className="text-[14px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              Un tap. Pas de jugement.<br />C&apos;est le point de départ de ton score.
+            </p>
+          </div>
+
+          {/* Options */}
+          <div className="space-y-3">
+            {OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => handleBaseline(opt.value, opt.target)}
+                className="w-full rounded-2xl px-5 py-4 flex items-center gap-4 transition-transform active:scale-[0.97] text-left"
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(10px)',
+                }}
+              >
+                <span className="text-[32px] flex-shrink-0">{opt.emoji}</span>
+                <div className="flex-1">
+                  <p className="text-[16px] font-bold text-white">{opt.label}</p>
+                  <p className="text-[12px] mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>{opt.sub}</p>
+                </div>
+                <svg width="7" height="12" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12">
+                  <path d="M1 1l5 5-5 5" />
+                </svg>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Écran 4 : Catalogue ───
   if (step === 'catalog') {
     const totalSelected = selectedTemplateIds.size + customTaskNames.length;
 
     return (
       <div className="pt-4 pb-32">
         <div className="px-4 mb-5">
-          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 3 / 3</p>
+          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 4 / 4</p>
           <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
             Quelles tâches<br />veux-tu suivre ?
           </h2>
@@ -699,7 +771,7 @@ export default function OnboardingPage() {
     );
   }
 
-  // ─── Écran 4 : Résultats ───
+  // ─── Écran 5 : Résultats ───
   if (step === 'results') {
     const sortedTasks = [...generatedTasks].sort((a, b) => {
       const da = a.next_due_at ? new Date(a.next_due_at).getTime() : Infinity;

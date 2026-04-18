@@ -11,20 +11,13 @@ import { addDays, startOfWeek, isSameDay, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 /**
- * Dashboard pour les utilisateurs GRATUITS.
+ * Dashboard Free — le miroir, pas l'outil.
  *
- * Vue Planning  : semaine en un coup d'œil + insight Yova + tâches du jour
- * Vue Score     : météo du foyer + score paywallé + feed de vie
+ * Vue Score    : répartition membres + insight Yova + journal + tâches du jour
+ * Vue Planning : semaine en un coup d'œil + tâches du jour pour moi
  *
- * Le dernier choix est mémorisé dans localStorage (yova_home_view).
+ * Score est la vue par défaut. Le dernier choix est mémorisé (yova_home_view).
  */
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  cleaning: '🧹', tidying: '🗂', shopping: '🛒', laundry: '👕',
-  meals: '🍳', children: '👶', admin: '📋', transport: '🚗',
-  household_management: '🏠', outdoor: '🌿', hygiene: '🪥',
-  pets: '🐾', vehicle: '🔧', misc: '📌',
-};
 
 type HomeView = 'planning' | 'score';
 const HOME_VIEW_KEY = 'yova_home_view';
@@ -33,10 +26,10 @@ export default function DashboardFree() {
   const router = useRouter();
   const { profile } = useAuthStore();
   const { tasks, fetchTasks } = useTaskStore();
-  const { allMembers } = useHouseholdStore();
+  const { allMembers, fetchHousehold } = useHouseholdStore();
 
-  // Vue mémorisée (planning par défaut)
-  const [homeView, setHomeView] = useState<HomeView>('planning');
+  // Vue mémorisée (score par défaut)
+  const [homeView, setHomeView] = useState<HomeView>('score');
 
   useEffect(() => {
     const saved = localStorage.getItem(HOME_VIEW_KEY) as HomeView | null;
@@ -49,8 +42,11 @@ export default function DashboardFree() {
   };
 
   useEffect(() => {
-    if (profile?.household_id) fetchTasks(profile.household_id);
-  }, [profile?.household_id, fetchTasks]);
+    if (profile?.household_id) {
+      fetchTasks(profile.household_id);
+      fetchHousehold(profile.household_id);
+    }
+  }, [profile?.household_id, fetchTasks, fetchHousehold]);
 
   // ── Calculs temporels ────────────────────────────────────────────────────────
   const d = useMemo(() => {
@@ -105,33 +101,51 @@ export default function DashboardFree() {
     return h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
   })();
 
-  return (
-    <div className="pt-4 pb-8" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+  const firstName = profile?.display_name?.split(' ')[0] ?? '';
 
-      {/* ═══════ GREETING ═══════ */}
+  return (
+    <div className="pt-4 pb-10" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+      {/* ═══ GREETING ═══ */}
       <div className="px-4">
         <p className="text-[14px] text-[#8e8e93]">{greeting}</p>
-        <h2 className="text-[26px] font-bold text-[#1c1c1e] leading-tight">{profile?.display_name?.split(' ')[0]}</h2>
+        <h2 className="text-[26px] font-bold text-[#1c1c1e] leading-tight">{firstName}</h2>
       </div>
 
-      {/* ═══════ TOGGLE VUE ═══════ */}
+      {/* ═══════ TOGGLE VUE — pill sombre avec indicateur glissant ═══════ */}
       <div className="px-4">
-        <div className="flex rounded-2xl p-1" style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-          <button
-            onClick={() => switchView('planning')}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-semibold transition-all"
-            style={homeView === 'planning'
-              ? { background: 'linear-gradient(135deg, #007aff, #5856d6)', color: 'white', boxShadow: '0 2px 8px rgba(0,122,255,0.25)' }
-              : { color: '#8e8e93' }}>
-            📅 Planning
-          </button>
+        <div
+          className="flex p-1 rounded-2xl relative"
+          style={{
+            background: 'rgba(22,22,34,0.92)',
+            backdropFilter: 'blur(12px)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
+          }}
+        >
+          {/* Indicateur glissant */}
+          <div
+            className="absolute top-1 bottom-1 rounded-xl"
+            style={{
+              width: 'calc(50% - 4px)',
+              left: homeView === 'score' ? '4px' : 'calc(50%)',
+              background: 'rgba(255,255,255,0.97)',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
+              transition: 'left 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+            }}
+          />
           <button
             onClick={() => switchView('score')}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-semibold transition-all"
-            style={homeView === 'score'
-              ? { background: 'linear-gradient(135deg, #007aff, #5856d6)', color: 'white', boxShadow: '0 2px 8px rgba(0,122,255,0.25)' }
-              : { color: '#8e8e93' }}>
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-semibold relative z-10"
+            style={{ color: homeView === 'score' ? '#1c1c1e' : 'rgba(255,255,255,0.45)' }}
+          >
             ⚖️ Score
+          </button>
+          <button
+            onClick={() => switchView('planning')}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-semibold relative z-10"
+            style={{ color: homeView === 'planning' ? '#1c1c1e' : 'rgba(255,255,255,0.45)' }}
+          >
+            📅 Planning
           </button>
         </div>
       </div>
@@ -223,8 +237,6 @@ export default function DashboardFree() {
                 const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
                 const peakIsToday = isSameDay(peakDay.day, new Date());
                 const peakIsPast = peakDay.day < todayStart && !peakIsToday;
-                // Ne pas afficher l'insight si le jour de pic est passé ET qu'il y a des tâches en retard
-                // (le header "X tâches en retard" suffit)
                 if (peakIsPast && d.overdue.length > 0) return null;
                 const verb = peakIsToday
                   ? ' est ton jour le plus chargé'
@@ -309,7 +321,6 @@ export default function DashboardFree() {
         const isUnbalanced = allMembers.length > 1 && maxPct > 65;
 
         // ── Insight dynamique ─────────────────────────────────────
-        // Trouver la catégorie la plus déséquilibrée pour le user courant
         const CATS_LABEL: Record<string, string> = {
           meals: 'cuisine', cleaning: 'ménage', tidying: 'rangement',
           shopping: 'courses', laundry: 'linge', children: 'enfants',
@@ -413,6 +424,31 @@ export default function DashboardFree() {
                 )}
               </div>
             </div>
+
+            {/* ── Journal IA ── */}
+            <button
+              onClick={() => router.push('/journal')}
+              className="mx-4 rounded-3xl p-5 text-left transition-transform active:scale-[0.98]"
+              style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 8px 24px rgba(118,75,162,0.22)',
+              }}
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full text-[24px] flex-shrink-0"
+                  style={{ background: 'rgba(255,255,255,0.2)' }}>
+                  🤖
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] uppercase tracking-[0.15em] font-bold text-white/70 mb-0.5">Journal IA</p>
+                  <p className="text-[16px] font-bold text-white leading-tight">
+                    Qu&apos;est-ce que t&apos;as géré aujourd&apos;hui ?
+                  </p>
+                  <p className="text-[12px] text-white/75 mt-0.5">Raconte en une phrase. Yova note tout.</p>
+                </div>
+                <div className="text-white/50 text-[20px]">→</div>
+              </div>
+            </button>
 
             {/* ── Aujourd'hui ── */}
             {todayAllTasks.length > 0 && (
