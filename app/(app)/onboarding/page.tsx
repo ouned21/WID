@@ -135,6 +135,7 @@ export default function OnboardingPage() {
   const [customTaskInput, setCustomTaskInput] = useState('');
   const [customTaskNames, setCustomTaskNames] = useState<string[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [showAllTemplates, setShowAllTemplates] = useState(false);
 
   // ── Résultats ──
   const [generatedTasks, setGeneratedTasks] = useState<{
@@ -673,6 +674,14 @@ export default function OnboardingPage() {
         ) : (
           <>
             {Object.entries(catalogGroups).map(([cat, templates]) => {
+              // En mode compact, ne montrer que les tâches pré-sélectionnées
+              const visible = showAllTemplates
+                ? templates
+                : templates.filter((t) => selectedTemplateIds.has(t.id));
+
+              // Ignorer les catégories sans tâches pertinentes
+              if (visible.length === 0) return null;
+
               const { label, emoji } = SCORING_CAT_DISPLAY[cat] ?? { label: cat, emoji: '📌' };
               return (
                 <div key={cat} className="mb-5">
@@ -680,7 +689,7 @@ export default function OnboardingPage() {
                     {emoji} {label}
                   </p>
                   <div className="flex flex-wrap gap-2 px-4">
-                    {templates.map((t) => {
+                    {visible.map((t) => {
                       const sel = selectedTemplateIds.has(t.id);
                       return (
                         <button
@@ -703,6 +712,19 @@ export default function OnboardingPage() {
                 </div>
               );
             })}
+
+            {/* Lien "voir toutes les tâches" */}
+            {!showAllTemplates && (
+              <div className="px-4 mb-4">
+                <button
+                  onClick={() => setShowAllTemplates(true)}
+                  className="text-[13px] font-semibold"
+                  style={{ color: '#007aff' }}
+                >
+                  + Voir toutes les tâches disponibles ({catalogTemplates.length - selectedTemplateIds.size} autres)
+                </button>
+              </div>
+            )}
 
             {/* Tâche personnalisée */}
             <div className="mx-4 mt-2 mb-4">
