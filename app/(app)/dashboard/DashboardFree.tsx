@@ -333,126 +333,196 @@ export default function DashboardFree() {
       {/* ═══════════════════════════════════════════════════════════ */}
       {/*                       VUE SCORE                           */}
       {/* ═══════════════════════════════════════════════════════════ */}
-      {homeView === 'score' && (
-        <>
-          {/* Météo du foyer */}
-          <div className="mx-4 rounded-3xl p-6 relative overflow-hidden" style={{
-            background: `linear-gradient(135deg, ${weather.color}ee, ${weather.color}99)`,
-            boxShadow: `0 8px 32px ${weather.color}30`,
-          }}>
-            <div className="absolute -right-12 -top-12 w-44 h-44 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }} />
-            <div className="absolute -left-8 -bottom-16 w-36 h-36 rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }} />
-            <div className="relative z-10 flex items-center gap-5">
-              <div className="text-[72px] leading-none">{weather.icon}</div>
-              <div>
-                <p className="text-[11px] text-white/70 uppercase tracking-[0.2em] font-bold mb-1">Ton foyer</p>
-                <p className="text-[24px] font-black text-white leading-tight">{weather.label}</p>
-                <p className="text-[14px] text-white/80 mt-0.5">{weather.sub}</p>
-              </div>
-            </div>
-          </div>
+      {homeView === 'score' && (() => {
+        // ── Calcul répartition globale ────────────────────────────
+        const totalLoad = tasks.reduce((s, t) => s + taskLoad(t), 0);
+        const memberScores = allMembers.map((member, idx) => {
+          const mt = tasks.filter((t) =>
+            member.isPhantom ? t.assigned_to_phantom_id === member.id : t.assigned_to === member.id,
+          );
+          const load = mt.reduce((s, t) => s + taskLoad(t), 0);
+          const pct = totalLoad > 0 ? Math.round((load / totalLoad) * 100) : 0;
+          const FILLS = [
+            'linear-gradient(90deg,#ff6b6b,#ff3030)',
+            'linear-gradient(90deg,#4ecdc4,#26b5ab)',
+            'linear-gradient(90deg,#c084fc,#a855f7)',
+          ];
+          return { member, pct, fill: FILLS[idx] ?? FILLS[0] };
+        });
+        const maxPct = Math.max(...memberScores.map((m) => m.pct));
+        const isUnbalanced = allMembers.length > 1 && maxPct > 65;
 
-          {/* Score → page détaillée */}
-          <button
-            onClick={() => router.push('/score')}
-            className="mx-4 rounded-2xl bg-white p-5 flex items-center justify-between transition-transform active:scale-[0.98] text-left"
-            style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex flex-col items-center justify-center h-16 w-16 rounded-2xl" style={{
-                background: 'linear-gradient(135deg, #f0f2f8, #e0e5f0)',
-              }}>
-                <span className="text-[28px] font-black" style={{ color: '#1c1c1e', filter: 'blur(6px)', userSelect: 'none' }}>
-                  {score10}
-                </span>
-              </div>
-              <div>
-                <p className="text-[15px] font-bold text-[#1c1c1e]">Mon Score</p>
-                <p className="text-[12px] text-[#8e8e93] mt-0.5">Découvre le poids réel de tes tâches</p>
-              </div>
-            </div>
-            <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{
-              background: 'linear-gradient(135deg, #007aff, #5856d6)', color: 'white',
-            }}>
-              Premium
-            </span>
-          </button>
+        // ── Insight dynamique ─────────────────────────────────────
+        // Trouver la catégorie la plus déséquilibrée pour le user courant
+        const CATS_LABEL: Record<string, string> = {
+          meals: 'cuisine', cleaning: 'ménage', tidying: 'rangement',
+          shopping: 'courses', laundry: 'linge', children: 'enfants',
+          admin: 'admin', outdoor: 'extérieur', hygiene: 'hygiène',
+          pets: 'animaux', vehicle: 'voiture',
+        };
+        let insightText = 'Assigne des tâches aux membres pour voir la répartition.';
+        let insightCta: string | null = null;
+        if (memberScores.length >= 2 && totalLoad > 0) {
+          const myMember = memberScores.find((m) => !m.member.isPhantom && m.member.id === profile?.id);
+          if (myMember) {
+            const catKeys = Object.keys(CATS_LABEL);
+            let mostSkewed = { cat: '', myPct: 0 };
+            for (const cat of catKeys) {
+              const catTasks = tasks.filter((t) => t.scoring_category === cat);
+              const catTotal = catTasks.reduce((s, t) => s + taskLoad(t), 0);
+              if (catTotal === 0) continue;
+              const myLoad = catTasks
+                .filter((t) => t.assigned_to === profile?.id)
+                .reduce((s, t) => s + taskLoad(t), 0);
+              const myPct = Math.round((myLoad / catTotal) * 100);
+              if (myPct > mostSkewed.myPct) mostSkewed = { cat, myPct };
+            }
+            if (mostSkewed.myPct > 75) {
+              const partner = memberScores.find((m) => m.member.id !== profile?.id && !m.member.isPhantom)
+                ?? memberScores.find((m) => m.member.id !== profile?.id);
+              const partnerName = partner?.member.display_name ?? 'ton partenaire';
+              insightText = `Tu gères la ${CATS_LABEL[mostSkewed.cat] ?? mostSkewed.cat} à ${mostSkewed.myPct}% — ${partnerName} n'a aucune tâche dans cette catégorie.`;
+              insightCta = 'Rééquilibrer →';
+            } else if (myMember.pct > 65) {
+              insightText = `Tu portes ${myMember.pct}% de la charge du foyer cette semaine.`;
+              insightCta = 'Voir le détail →';
+            } else if (myMember.pct > 0) {
+              insightText = `La répartition est équilibrée — continue comme ça !`;
+            }
+          }
+        }
 
-          {/* Répartition → page détaillée */}
-          {allMembers.length > 1 && (
+        // ── Tâches du jour (tous les membres) ────────────────────
+        const todayAllTasks = d.today.slice(0, 5);
+
+        return (
+          <>
+            {/* ── Big card sombre Répartition ── */}
             <button
               onClick={() => router.push('/score')}
-              className="mx-4 rounded-2xl bg-white p-5 flex items-center justify-between transition-transform active:scale-[0.98] text-left"
-              style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
+              className="mx-4 rounded-[22px] p-5 relative overflow-hidden transition-transform active:scale-[0.98] text-left w-[calc(100%-32px)]"
+              style={{ background: 'linear-gradient(148deg,#16163a 0%,#2b1e72 55%,#163260 100%)' }}
             >
-              <div className="flex items-center gap-4">
-                <div className="flex items-center justify-center h-16 w-16 rounded-2xl text-[28px]" style={{
-                  background: 'linear-gradient(135deg, #f0f2f8, #e0e5f0)',
-                }}>
-                  ⚖️
+              {/* Orbe déco */}
+              <div className="absolute rounded-full pointer-events-none"
+                style={{ width: 160, height: 160, background: 'rgba(255,255,255,0.035)', top: -50, right: -40 }} />
+
+              <p className="text-[10px] font-bold uppercase tracking-[1.5px] mb-4"
+                style={{ color: 'rgba(255,255,255,0.4)' }}>
+                Répartition · Cette semaine
+              </p>
+
+              {memberScores.map((ms) => (
+                <div key={ms.member.id} className="mb-3 last:mb-1">
+                  <div className="flex justify-between mb-1.5">
+                    <span className="text-[13px] font-semibold" style={{ color: 'rgba(255,255,255,0.88)' }}>
+                      {ms.member.display_name}
+                    </span>
+                    <span className="text-[13px] font-black text-white">{ms.pct} %</span>
+                  </div>
+                  <div className="h-[6px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                    <div className="h-full rounded-full"
+                      style={{ width: `${ms.pct}%`, background: ms.fill }} />
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[15px] font-bold text-[#1c1c1e]">Répartition du foyer</p>
-                  <p className="text-[12px] text-[#8e8e93] mt-0.5">Vois qui fait quoi dans ton foyer</p>
+              ))}
+
+              {isUnbalanced && (
+                <div className="inline-flex items-center gap-1.5 mt-3 rounded-[9px] px-3 py-1 text-[11px] font-bold"
+                  style={{ background: 'rgba(255,100,100,0.18)', border: '1px solid rgba(255,100,100,0.28)', color: '#ff8c8c' }}>
+                  ⚠️ Déséquilibré
+                </div>
+              )}
+              {!isUnbalanced && totalLoad > 0 && (
+                <div className="inline-flex items-center gap-1.5 mt-3 rounded-[9px] px-3 py-1 text-[11px] font-bold"
+                  style={{ background: 'rgba(52,199,89,0.18)', border: '1px solid rgba(52,199,89,0.28)', color: '#34c759' }}>
+                  ✅ Équilibré
+                </div>
+              )}
+            </button>
+
+            {/* ── Insight Yova ── */}
+            <div className="mx-4 rounded-[16px] bg-white px-[14px] py-[12px] flex gap-[10px]"
+              style={{ boxShadow: '0 1px 0 rgba(0,0,0,0.06)' }}>
+              <span className="text-[20px] flex-shrink-0 pt-0.5">💡</span>
+              <div>
+                <p className="text-[12px] font-bold text-[#1c1c1e] mb-1">Yova a remarqué</p>
+                <p className="text-[11px] leading-[1.45]" style={{ color: '#8e8e93' }}>{insightText}</p>
+                {insightCta && (
+                  <button onClick={() => router.push('/score')}
+                    className="text-[11px] font-bold mt-1.5 block"
+                    style={{ color: '#007aff' }}>
+                    {insightCta}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* ── Aujourd'hui ── */}
+            {todayAllTasks.length > 0 && (
+              <div className="mx-4">
+                <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-2 px-1">
+                  Aujourd&apos;hui
+                </p>
+                <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                  {todayAllTasks.map((task, i) => {
+                    const catColor = task.category?.color_hex ?? '#8e8e93';
+                    const assigneeName = task.assignee?.display_name
+                      ?? allMembers.find((m) => m.isPhantom && m.id === task.assigned_to_phantom_id)?.display_name
+                      ?? null;
+                    const isOverdue = task.next_due_at && new Date(task.next_due_at) < new Date(new Date().setHours(0, 0, 0, 0));
+                    const memberIdx = assigneeName
+                      ? allMembers.findIndex((m) => m.display_name === assigneeName)
+                      : -1;
+                    const BADGE_FILLS = [
+                      'linear-gradient(135deg,#5856d6,#007aff)',
+                      'linear-gradient(135deg,#26b5ab,#4ecdc4)',
+                      'linear-gradient(135deg,#a855f7,#c084fc)',
+                    ];
+                    const badgeFill = memberIdx >= 0 ? (BADGE_FILLS[memberIdx] ?? BADGE_FILLS[0]) : 'linear-gradient(135deg,#8e8e93,#636366)';
+
+                    return (
+                      <Link key={task.id} href={`/tasks/${task.id}`}
+                        className="flex items-center gap-3 px-4 py-3 active:bg-[#f5f7ff] transition-colors"
+                        style={{ borderBottom: i < todayAllTasks.length - 1 ? '0.5px solid #f0f0f5' : undefined }}>
+                        <span className="w-[9px] h-[9px] rounded-full flex-shrink-0" style={{ background: catColor }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-semibold text-[#1c1c1e] truncate">{task.name}</p>
+                          <p className="text-[10px] mt-0.5" style={{ color: '#8e8e93' }}>
+                            {task.category?.name ?? ''}
+                            {isOverdue ? ' · En retard' : ' · Aujourd\'hui'}
+                          </p>
+                        </div>
+                        {assigneeName && (
+                          <span className="text-[10px] font-bold px-2 py-1 rounded-[7px] flex-shrink-0 text-white"
+                            style={{ background: badgeFill }}>
+                            {assigneeName}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
-              <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{
-                background: 'linear-gradient(135deg, #007aff, #5856d6)', color: 'white',
-              }}>
-                Premium
-              </span>
-            </button>
-          )}
+            )}
 
-          {/* Récap du soir */}
-          <Link
-            href="/tasks/recap"
-            className="mx-4 rounded-2xl px-5 py-4 flex items-center justify-between text-white transition-transform active:scale-[0.98]"
-            style={{ background: 'linear-gradient(135deg, #1c1c3e, #3a1c71)', boxShadow: '0 4px 16px rgba(28,28,62,0.3)' }}
-          >
-            <div>
-              <p className="text-[17px] font-bold">📋 Comment se passe ta journée ?</p>
-              <p className="text-[13px] text-white/70 mt-0.5">Coche ce que tu as fait, en 15 secondes</p>
-            </div>
-            <svg width="7" height="12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12">
-              <path d="M1 1l5 5-5 5" />
-            </svg>
-          </Link>
-
-          {/* Feed de vie du foyer */}
-          <div className="mx-4">
-            <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-2 px-1">
-              Ce qui se passe dans ton foyer
-            </p>
-            <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              {feedItems.map((item, i) => {
-                const inner = (
-                  <>
-                    <span className="text-[22px] flex-shrink-0">{item.emoji}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-semibold text-[#1c1c1e]">{item.title}</p>
-                      <p className="text-[12px] text-[#8e8e93] mt-0.5 leading-relaxed">{item.body}</p>
-                    </div>
-                    {item.href && <span className="text-[18px] text-[#c7c7cc] flex-shrink-0">›</span>}
-                  </>
-                );
-                const style = i < feedItems.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {};
-                return item.href ? (
-                  <Link key={i} href={item.href}
-                    className="px-4 py-4 flex items-center gap-3 active:bg-[#f0f2f8] transition-colors"
-                    style={style}>
-                    {inner}
-                  </Link>
-                ) : (
-                  <div key={i} className="px-4 py-4 flex items-center gap-3" style={style}>
-                    {inner}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </>
-      )}
+            {/* ── Récap du soir ── */}
+            <Link
+              href="/tasks/recap"
+              className="mx-4 rounded-2xl px-5 py-4 flex items-center justify-between text-white transition-transform active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg,#1c1c3e,#3a1c71)', boxShadow: '0 4px 16px rgba(28,28,62,0.3)' }}
+            >
+              <div>
+                <p className="text-[17px] font-bold">📋 Comment se passe ta journée ?</p>
+                <p className="text-[13px] text-white/70 mt-0.5">Coche ce que tu as fait, en 15 secondes</p>
+              </div>
+              <svg width="7" height="12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12">
+                <path d="M1 1l5 5-5 5" />
+              </svg>
+            </Link>
+          </>
+        );
+      })()}
     </div>
   );
 }
