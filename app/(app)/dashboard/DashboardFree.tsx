@@ -352,9 +352,9 @@ export default function DashboardFree() {
             </div>
           </div>
 
-          {/* Score paywallé */}
+          {/* Score → page détaillée */}
           <button
-            onClick={() => router.push('/upgrade?feature=score')}
+            onClick={() => router.push('/score')}
             className="mx-4 rounded-2xl bg-white p-5 flex items-center justify-between transition-transform active:scale-[0.98] text-left"
             style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
           >
@@ -378,10 +378,10 @@ export default function DashboardFree() {
             </span>
           </button>
 
-          {/* Répartition paywallée */}
+          {/* Répartition → page détaillée */}
           {allMembers.length > 1 && (
             <button
-              onClick={() => router.push('/upgrade?feature=repartition')}
+              onClick={() => router.push('/score')}
               className="mx-4 rounded-2xl bg-white p-5 flex items-center justify-between transition-transform active:scale-[0.98] text-left"
               style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
             >
