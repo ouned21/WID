@@ -6,266 +6,376 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
-import { taskLoad, loadTo10 } from '@/utils/designSystem';
+import { taskLoad } from '@/utils/designSystem';
 
 /**
- * Dashboard pour les utilisateurs GRATUITS.
+ * Dashboard Free — le miroir, pas l'outil.
  *
- * - Météo du foyer (état émotionnel visuel, pas de niveau)
- * - Feed de vie (actions Yova + rappels + aujourd'hui)
- * - Score VISIBLE mais PAYWALLÉ (clic → /upgrade?feature=score)
- *
- * Pas de : barres de comparaison, insights, stats détaillées, évolution chiffrée
+ * Priorité 1 : qui fait quoi (barres membres)
+ * Priorité 2 : urgence du jour
+ * Priorité 3 : insight rapide (calculé en local, sans API)
+ * Priorité 4 : accès Journal
  */
 
-type WeatherState = {
-  icon: string;
-  label: string;
-  sub: string;
-  color: string;
+const CATEGORY_LABELS: Record<string, string> = {
+  cleaning: 'ménage', tidying: 'rangement', shopping: 'courses',
+  laundry: 'linge', meals: 'cuisine', children: 'enfants',
+  admin: 'admin', transport: 'transport', household_management: 'gestion',
+  outdoor: 'extérieur', hygiene: 'hygiène', pets: 'animaux',
+  vehicle: 'véhicule', misc: 'divers',
 };
 
-function getWeather(overdue: number, total: number): WeatherState {
-  if (total === 0) return { icon: '☀️', label: 'Ciel dégagé', sub: 'Ton foyer est serein', color: '#34c759' };
-  const ratio = overdue / total;
-  if (ratio === 0) return { icon: '☀️', label: 'Ciel dégagé', sub: 'Ton foyer est serein', color: '#34c759' };
-  if (ratio < 0.15) return { icon: '🌤', label: 'Quelques nuages', sub: 'Presque tout est à jour', color: '#5ac8fa' };
-  if (ratio < 0.35) return { icon: '☁️', label: 'Nuageux', sub: 'Quelques tâches attendent', color: '#ff9500' };
-  if (ratio < 0.6) return { icon: '🌧', label: 'Pluvieux', sub: 'Du retard s\'accumule', color: '#ff6b00' };
-  return { icon: '⛈', label: 'Orageux', sub: 'Ton foyer a besoin de toi', color: '#ff3b30' };
+import type { TaskListItem, HouseholdMember } from '@/types/database';
+
+/** Génère un insight rapide à partir des tâches assignées — pas d'API. */
+function computeQuickInsight(
+  tasks: TaskListItem[],
+  members: HouseholdMember[],
+  myId: string,
+): string | null {
+  if (tasks.length === 0 || members.length < 2) return null;
+
+  // Compter la charge par membre et par catégorie
+  const memberLoad: Record<string, number> = {};
+  const myCatLoad: Record<string, number> = {};
+  const totalCatLoad: Record<string, number> = {};
+
+  for (const t of tasks) {
+    const memberId = t.assigned_to ?? '';
+    const load = taskLoad(t);
+    const cat = t.scoring_category ?? 'misc';
+
+    memberLoad[memberId] = (memberLoad[memberId] ?? 0) + load;
+    totalCatLoad[cat] = (totalCatLoad[cat] ?? 0) + load;
+    if (memberId === myId) {
+      myCatLoad[cat] = (myCatLoad[cat] ?? 0) + load;
+    }
+  }
+
+  const totalLoad = Object.values(memberLoad).reduce((s, v) => s + v, 0);
+  const myLoad = memberLoad[myId] ?? 0;
+  const myPct = totalLoad > 0 ? Math.round((myLoad / totalLoad) * 100) : 0;
+
+  // Si forte asymétrie globale
+  if (myPct >= 70) {
+    return `Tu prends en charge ${myPct}% des tâches du foyer en ce moment.`;
+  }
+  if (myPct <= 30 && totalLoad > 0) {
+    return `Ton partenaire assure ${100 - myPct}% des tâches. Il serait bien de rééquilibrer.`;
+  }
+
+  // Chercher la catégorie où l'utilisateur est le plus dominant
+  let maxDom = 0;
+  let domCat = '';
+  for (const [cat, load] of Object.entries(myCatLoad)) {
+    const total = totalCatLoad[cat] ?? 1;
+    const dom = load / total;
+    if (dom > maxDom && total > 0) {
+      maxDom = dom;
+      domCat = cat;
+    }
+  }
+  if (maxDom >= 0.85 && domCat) {
+    const label = CATEGORY_LABELS[domCat] ?? domCat;
+    return `Tu gères la quasi-totalité des tâches de ${label} dans le foyer.`;
+  }
+
+  // Chercher la catégorie la plus en retard
+  const now = Date.now();
+  const overdueByCat: Record<string, number> = {};
+  for (const t of tasks) {
+    if (t.next_due_at && new Date(t.next_due_at).getTime() < now) {
+      const cat = t.scoring_category ?? 'misc';
+      overdueByCat[cat] = (overdueByCat[cat] ?? 0) + 1;
+    }
+  }
+  const topOverdueCat = Object.entries(overdueByCat).sort((a, b) => b[1] - a[1])[0];
+  if (topOverdueCat && topOverdueCat[1] >= 2) {
+    const label = CATEGORY_LABELS[topOverdueCat[0]] ?? topOverdueCat[0];
+    return `${topOverdueCat[1]} tâches de ${label} attendent depuis quelques jours.`;
+  }
+
+  return null;
 }
 
 export default function DashboardFree() {
   const router = useRouter();
   const { profile } = useAuthStore();
   const { tasks, fetchTasks } = useTaskStore();
-  const { allMembers } = useHouseholdStore();
-  const [loadingAi, setLoadingAi] = useState(false);
+  const { allMembers, fetchHousehold } = useHouseholdStore();
+  const [animBars, setAnimBars] = useState(false);
 
   useEffect(() => {
-    if (profile?.household_id) fetchTasks(profile.household_id);
-  }, [profile?.household_id, fetchTasks]);
+    if (profile?.household_id) {
+      fetchTasks(profile.household_id);
+      fetchHousehold(profile.household_id);
+    }
+  }, [profile?.household_id, fetchTasks, fetchHousehold]);
+
+  // Animer les barres une fois les données chargées
+  useEffect(() => {
+    if (tasks.length > 0) {
+      const t = setTimeout(() => setAnimBars(true), 100);
+      return () => clearTimeout(t);
+    }
+  }, [tasks.length]);
 
   const d = useMemo(() => {
-    const my = tasks.filter((t) => t.assigned_to === profile?.id);
-    const myLoad = my.reduce((s, t) => s + taskLoad(t), 0);
+    // Charge par membre
+    const byMember = allMembers.map((m) => {
+      const mt = tasks.filter((t) => t.assigned_to === m.id || t.assigned_to_phantom_id === m.id);
+      return {
+        id: m.id,
+        name: m.display_name,
+        isMe: m.id === profile?.id,
+        isPhantom: m.isPhantom,
+        load: mt.reduce((s, t) => s + taskLoad(t), 0),
+        count: mt.length,
+      };
+    }).sort((a, b) => b.load - a.load);
 
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrowStart = new Date(todayStart.getTime() + 86400000);
-    const weekEnd = new Date(todayStart.getTime() + 7 * 86400000);
+    const totalLoad = byMember.reduce((s, m) => s + m.load, 0);
+    const withPct = byMember.map((m) => ({
+      ...m,
+      pct: totalLoad > 0 ? Math.round((m.load / totalLoad) * 100) : 0,
+    }));
 
-    const overdue = tasks.filter((t) => t.next_due_at && new Date(t.next_due_at) < todayStart);
-    const today = tasks.filter((t) => {
+    // Vrai déséquilibre si écart > 20 pts entre les deux premiers
+    const isImbalanced = withPct.length >= 2 && Math.abs(withPct[0].pct - withPct[1].pct) > 20;
+
+    // Tâches urgentes
+    const now = Date.now();
+    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+    const overdue = tasks.filter((t) => t.next_due_at && new Date(t.next_due_at).getTime() < now);
+    const todayDue = tasks.filter((t) => {
       if (!t.next_due_at) return false;
-      const x = new Date(t.next_due_at);
-      return x >= todayStart && x < tomorrowStart;
-    });
-    const tomorrow = tasks.filter((t) => {
-      if (!t.next_due_at) return false;
-      const x = new Date(t.next_due_at);
-      return x >= tomorrowStart && x < new Date(tomorrowStart.getTime() + 86400000);
-    });
-    const thisWeek = tasks.filter((t) => {
-      if (!t.next_due_at) return false;
-      const x = new Date(t.next_due_at);
-      return x >= tomorrowStart && x < weekEnd;
+      const d = new Date(t.next_due_at).getTime();
+      return d >= now && d <= todayEnd.getTime();
     });
 
-    return {
-      myLoad,
-      overdue,
-      today,
-      tomorrow,
-      thisWeek,
-      totalActive: tasks.length,
-    };
-  }, [tasks, profile?.id]);
+    const urgent = overdue[0] ?? todayDue[0] ?? null;
 
-  const score10 = loadTo10(d.myLoad);
-  const weather = getWeather(d.overdue.length, d.totalActive);
+    return { byMember: withPct, totalLoad, isImbalanced, urgent, overdueCount: overdue.length };
+  }, [tasks, allMembers, profile?.id]);
+
+  const quickInsight = useMemo(
+    () => computeQuickInsight(tasks, allMembers, profile?.id ?? ''),
+    [tasks, allMembers, profile?.id],
+  );
+
   const greeting = (() => {
     const h = new Date().getHours();
     return h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
   })();
 
-  // Feed : les actions d'Yova
-  const feedItems = useMemo(() => {
-    const items: { emoji: string; title: string; body: string; action?: { label: string; href: string } }[] = [];
+  const firstName = profile?.display_name?.split(' ')[0] ?? '';
 
-    if (d.overdue.length > 0) {
-      items.push({
-        emoji: '⚠️',
-        title: `${d.overdue.length} tâche${d.overdue.length > 1 ? 's' : ''} en retard`,
-        body: d.overdue.slice(0, 3).map((t) => t.name).join(', ') + (d.overdue.length > 3 ? '…' : ''),
-        action: { label: 'Voir', href: '/tasks' },
-      });
-    }
-
-    if (d.today.length > 0) {
-      items.push({
-        emoji: '📅',
-        title: `Aujourd'hui : ${d.today.length} tâche${d.today.length > 1 ? 's' : ''}`,
-        body: d.today.slice(0, 3).map((t) => t.name).join(', ') + (d.today.length > 3 ? '…' : ''),
-        action: { label: 'Voir', href: '/tasks' },
-      });
-    }
-
-    if (d.tomorrow.length > 0) {
-      items.push({
-        emoji: '🔔',
-        title: `Demain : ${d.tomorrow.length} tâche${d.tomorrow.length > 1 ? 's' : ''}`,
-        body: d.tomorrow.slice(0, 2).map((t) => t.name).join(', ') + (d.tomorrow.length > 2 ? '…' : ''),
-      });
-    }
-
-    if (d.thisWeek.length > 0 && items.length < 4) {
-      items.push({
-        emoji: '🗓',
-        title: `Cette semaine : ${d.thisWeek.length} tâche${d.thisWeek.length > 1 ? 's' : ''}`,
-        body: 'Yova les a planifiées pour toi',
-        action: { label: 'Voir le planning', href: '/planning' },
-      });
-    }
-
-    if (items.length === 0) {
-      items.push({
-        emoji: '✨',
-        title: 'Tout est calme',
-        body: 'Aucune tâche ne t\'attend pour le moment. Profite.',
-      });
-    }
-
-    return items;
-  }, [d]);
+  // Couleurs par membre
+  const COLORS = ['#007aff', '#af52de', '#ff9500', '#34c759'];
 
   return (
-    <div className="pt-4 pb-8" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div className="pt-4 pb-10" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-      {/* ═══════ GREETING ═══════ */}
+      {/* ═══ GREETING ═══ */}
       <div className="px-4">
         <p className="text-[14px] text-[#8e8e93]">{greeting}</p>
-        <h2 className="text-[26px] font-bold text-[#1c1c1e] leading-tight">{profile?.display_name?.split(' ')[0]}</h2>
+        <h2 className="text-[26px] font-bold text-[#1c1c1e] leading-tight">{firstName}</h2>
       </div>
 
-      {/* ═══════ MÉTÉO DU FOYER ═══════ */}
-      <div className="mx-4 rounded-3xl p-6 relative overflow-hidden" style={{
-        background: `linear-gradient(135deg, ${weather.color}ee, ${weather.color}99)`,
-        boxShadow: `0 8px 32px ${weather.color}30`,
-      }}>
-        <div className="absolute -right-12 -top-12 w-44 h-44 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }} />
-        <div className="absolute -left-8 -bottom-16 w-36 h-36 rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }} />
+      {/* ═══ CARTE MIROIR PRINCIPALE ═══ */}
+      <div className="mx-4 rounded-3xl bg-white overflow-hidden" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.07)' }}>
 
-        <div className="relative z-10 flex items-center gap-5">
-          <div className="text-[72px] leading-none">{weather.icon}</div>
-          <div>
-            <p className="text-[11px] text-white/70 uppercase tracking-[0.2em] font-bold mb-1">Ton foyer</p>
-            <p className="text-[24px] font-black text-white leading-tight">{weather.label}</p>
-            <p className="text-[14px] text-white/80 mt-0.5">{weather.sub}</p>
-          </div>
+        {/* — Répartition — */}
+        <div className="px-5 pt-5 pb-4">
+          <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-4">
+            Cette semaine
+          </p>
+
+          {d.byMember.length === 0 ? (
+            <p className="text-[14px] text-[#8e8e93] text-center py-3">
+              Aucune tâche assignée pour l&apos;instant.
+            </p>
+          ) : d.byMember.length === 1 ? (
+            /* Solo (pas de partenaire) */
+            <div>
+              <div className="flex justify-between text-[14px] mb-2">
+                <span className="font-semibold text-[#1c1c1e]">{d.byMember[0].name}</span>
+                <span className="font-bold" style={{ color: COLORS[0] }}>{d.byMember[0].pct}%</span>
+              </div>
+              <div className="h-3 rounded-full" style={{ background: '#f0f2f8' }}>
+                <div
+                  className="h-3 rounded-full"
+                  style={{
+                    width: animBars ? `${d.byMember[0].pct}%` : '0%',
+                    background: COLORS[0],
+                    transition: 'width 1s cubic-bezier(0.34,1.56,0.64,1)',
+                  }}
+                />
+              </div>
+              <button
+                onClick={() => router.push('/invite')}
+                className="mt-4 w-full rounded-xl py-2.5 text-[13px] font-semibold text-center"
+                style={{ background: '#EEF4FF', color: '#007aff' }}
+              >
+                + Inviter mon partenaire
+              </button>
+            </div>
+          ) : (
+            /* Multi-membres */
+            <div className="space-y-3">
+              {d.byMember.slice(0, 3).map((m, i) => (
+                <div key={m.id}>
+                  <div className="flex justify-between items-center text-[14px] mb-1.5">
+                    <span className="font-semibold" style={{ color: m.isMe ? COLORS[i] : '#1c1c1e' }}>
+                      {m.isPhantom && '👻 '}{m.name}
+                      {m.isMe && <span className="text-[11px] text-[#8e8e93] font-normal ml-1">(moi)</span>}
+                    </span>
+                    <span className="font-bold text-[15px]" style={{ color: COLORS[i] }}>{m.pct}%</span>
+                  </div>
+                  <div className="h-3 rounded-full" style={{ background: '#f0f2f8' }}>
+                    <div
+                      className="h-3 rounded-full"
+                      style={{
+                        width: animBars ? `${m.pct}%` : '0%',
+                        background: COLORS[i],
+                        transition: `width ${0.8 + i * 0.15}s cubic-bezier(0.34,1.56,0.64,1)`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Badge équilibre */}
+          {d.byMember.length >= 2 && (
+            <div className="mt-4 flex items-center gap-2">
+              {d.isImbalanced ? (
+                <>
+                  <span className="text-[16px]">⚠️</span>
+                  <span className="text-[13px] font-semibold" style={{ color: '#ff9500' }}>Déséquilibré</span>
+                  <button
+                    onClick={() => router.push('/tasks/new')}
+                    className="ml-auto text-[12px] font-semibold px-3 py-1 rounded-full"
+                    style={{ background: '#fff8e6', color: '#ff9500' }}
+                  >
+                    Rééquilibrer →
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-[16px]">✅</span>
+                  <span className="text-[13px] font-semibold" style={{ color: '#34c759' }}>Équilibré</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* — Séparateur — */}
+        <div style={{ height: '0.5px', background: 'var(--ios-separator, rgba(60,60,67,0.12))' }} />
+
+        {/* — Urgence du jour — */}
+        {d.urgent ? (
+          <Link href="/tasks" className="px-5 py-4 flex items-center gap-3 active:bg-[#f9f9fb]">
+            <span className="text-[20px] flex-shrink-0">{d.overdueCount > 0 ? '⚠️' : '📌'}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wide mb-0.5">
+                {d.overdueCount > 0 ? `${d.overdueCount} en retard` : 'Urgent aujourd\'hui'}
+              </p>
+              <p className="text-[14px] font-semibold text-[#1c1c1e] truncate">{d.urgent.name}</p>
+              {d.urgent.assignee && (
+                <p className="text-[12px] text-[#8e8e93]">→ {d.urgent.assignee.display_name}</p>
+              )}
+            </div>
+            <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12">
+              <path d="M1 1l5 5-5 5" />
+            </svg>
+          </Link>
+        ) : (
+          <div className="px-5 py-4 flex items-center gap-3">
+            <span className="text-[20px]">✨</span>
+            <p className="text-[14px] text-[#8e8e93]">Rien d&apos;urgent aujourd&apos;hui. Profite.</p>
+          </div>
+        )}
+
+        {/* — Insight rapide — */}
+        {quickInsight && (
+          <>
+            <div style={{ height: '0.5px', background: 'var(--ios-separator, rgba(60,60,67,0.12))' }} />
+            <div className="px-5 py-4 flex items-start gap-3">
+              <span className="text-[18px] flex-shrink-0 mt-0.5">💡</span>
+              <div>
+                <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wide mb-0.5">Yova a remarqué</p>
+                <p className="text-[14px] text-[#1c1c1e] leading-snug">{quickInsight}</p>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* ═══════ SCORE PAYWALLÉ ═══════ */}
+      {/* ═══ JOURNAL ═══ */}
       <button
-        onClick={() => router.push('/upgrade?feature=score')}
-        className="mx-4 rounded-2xl bg-white p-5 flex items-center justify-between transition-transform active:scale-[0.98] text-left"
-        style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
+        onClick={() => router.push('/journal')}
+        className="mx-4 rounded-3xl p-5 text-left transition-transform active:scale-[0.98]"
+        style={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          boxShadow: '0 8px 24px rgba(118,75,162,0.22)',
+        }}
       >
         <div className="flex items-center gap-4">
-          <div className="flex flex-col items-center justify-center h-16 w-16 rounded-2xl" style={{
-            background: 'linear-gradient(135deg, #f0f2f8, #e0e5f0)',
-          }}>
-            {/* Chiffre flouté */}
-            <span className="text-[28px] font-black" style={{
-              color: '#1c1c1e',
-              filter: 'blur(6px)',
-              userSelect: 'none',
-            }}>
-              {score10}
-            </span>
+          <div className="flex h-12 w-12 items-center justify-center rounded-full text-[24px] flex-shrink-0"
+            style={{ background: 'rgba(255,255,255,0.2)' }}>
+            🤖
           </div>
-          <div>
-            <p className="text-[15px] font-bold text-[#1c1c1e]">Mon Score</p>
-            <p className="text-[12px] text-[#8e8e93] mt-0.5">Découvre le poids réel de tes tâches</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.15em] font-bold text-white/70 mb-0.5">Journal IA</p>
+            <p className="text-[16px] font-bold text-white leading-tight">
+              Qu&apos;est-ce que t&apos;as géré aujourd&apos;hui ?
+            </p>
+            <p className="text-[12px] text-white/75 mt-0.5">Raconte en une phrase. Yova note tout.</p>
           </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{
-            background: 'linear-gradient(135deg, #007aff, #5856d6)',
-            color: 'white',
-          }}>
-            Premium
-          </span>
+          <div className="text-white/50 text-[20px]">→</div>
         </div>
       </button>
 
-      {/* ═══════ RÉPARTITION PAYWALLÉE ═══════ */}
-      {allMembers.length > 1 && (
-        <button
-          onClick={() => router.push('/upgrade?feature=repartition')}
-          className="mx-4 rounded-2xl bg-white p-5 flex items-center justify-between transition-transform active:scale-[0.98] text-left"
-          style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
-        >
-          <div className="flex items-center gap-4">
-            <div className="flex items-center justify-center h-16 w-16 rounded-2xl text-[28px]" style={{
-              background: 'linear-gradient(135deg, #f0f2f8, #e0e5f0)',
-            }}>
-              ⚖️
-            </div>
-            <div>
-              <p className="text-[15px] font-bold text-[#1c1c1e]">Répartition du foyer</p>
-              <p className="text-[12px] text-[#8e8e93] mt-0.5">Vois qui fait quoi dans ton foyer</p>
-            </div>
+      {/* ═══ SCORE DÉTAILLÉ (premium teaser) ═══ */}
+      <button
+        onClick={() => router.push('/upgrade?feature=score')}
+        className="mx-4 rounded-2xl bg-white p-4 flex items-center justify-between transition-transform active:scale-[0.98]"
+        style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[20px]"
+            style={{ background: 'linear-gradient(135deg, #f0f2f8, #e0e5f0)' }}>
+            📊
           </div>
-          <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{
-            background: 'linear-gradient(135deg, #007aff, #5856d6)',
-            color: 'white',
-          }}>
-            Premium
-          </span>
-        </button>
-      )}
-
-      {/* ═══════ RÉCAP DU SOIR ═══════ */}
-      <Link href="/tasks/recap" className="mx-4 rounded-2xl px-5 py-4 flex items-center justify-between text-white transition-transform active:scale-[0.98]"
-        style={{ background: 'linear-gradient(135deg, #1c1c3e, #3a1c71)', boxShadow: '0 4px 16px rgba(28,28,62,0.3)' }}>
-        <div>
-          <p className="text-[17px] font-bold">☀️ Comment se passe ta journée ?</p>
-          <p className="text-[13px] text-white/70 mt-0.5">Coche ce que tu as fait, en 15 secondes</p>
+          <div>
+            <p className="text-[14px] font-semibold text-[#1c1c1e]">Score détaillé par catégorie</p>
+            <p className="text-[12px] text-[#8e8e93]">Cuisine · Ménage · Enfants · Admin…</p>
+          </div>
         </div>
-        <svg width="7" height="12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
+        <span className="text-[11px] font-bold px-2.5 py-1 rounded-full flex-shrink-0"
+          style={{ background: 'linear-gradient(135deg,#007aff,#5856d6)', color: 'white' }}>
+          Premium
+        </span>
+      </button>
+
+      {/* ═══ RÉCAP DU SOIR ═══ */}
+      <Link
+        href="/tasks/recap"
+        className="mx-4 rounded-2xl px-5 py-4 flex items-center justify-between text-white transition-transform active:scale-[0.98]"
+        style={{ background: 'linear-gradient(135deg,#1c1c3e,#3a1c71)', boxShadow: '0 4px 16px rgba(28,28,62,0.25)' }}
+      >
+        <div>
+          <p className="text-[15px] font-bold">☀️ Comment se passe ta journée ?</p>
+          <p className="text-[12px] text-white/70 mt-0.5">Coche ce que tu as fait, en 15 secondes</p>
+        </div>
+        <svg width="7" height="12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12">
+          <path d="M1 1l5 5-5 5" />
+        </svg>
       </Link>
 
-      {/* ═══════ FEED DE VIE DU FOYER ═══════ */}
-      <div className="mx-4">
-        <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-2 px-1">
-          Ce qui se passe dans ton foyer
-        </p>
-        <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-          {feedItems.map((item, i) => (
-            <div
-              key={i}
-              className="px-4 py-4 flex items-start gap-3"
-              style={i < feedItems.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}
-            >
-              <span className="text-[22px] flex-shrink-0">{item.emoji}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-semibold text-[#1c1c1e]">{item.title}</p>
-                <p className="text-[12px] text-[#8e8e93] mt-0.5 leading-relaxed">{item.body}</p>
-                {item.action && (
-                  <Link href={item.action.href} className="inline-block mt-2 text-[12px] font-semibold" style={{ color: '#007aff' }}>
-                    {item.action.label} →
-                  </Link>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-
-      {loadingAi && null}
     </div>
   );
 }
