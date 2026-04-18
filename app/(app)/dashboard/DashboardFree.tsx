@@ -327,7 +327,7 @@ export default function DashboardFree() {
           admin: 'admin', outdoor: 'extérieur', hygiene: 'hygiène',
           pets: 'animaux', vehicle: 'voiture',
         };
-        let insightText = 'Assigne des tâches aux membres pour voir la répartition.';
+        let insightText = 'Ajoute tes premières tâches — Yova analysera qui fait quoi dans ton foyer.';
         let insightCta: string | null = null;
         if (memberScores.length >= 2 && totalLoad > 0) {
           const myMember = memberScores.find((m) => !m.member.isPhantom && m.member.id === profile?.id);

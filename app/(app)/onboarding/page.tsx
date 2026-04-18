@@ -256,165 +256,115 @@ export default function OnboardingPage() {
     setFamily((prev) => prev.filter((m) => m.id !== id));
   }, []);
 
-  // ── Créer les tâches depuis le catalogue (sans IA) ──
+  // ── Créer les tâches depuis le catalogue via API route (service role, bypass RLS) ──
   const createFromCatalog = useCallback(async () => {
-    if (!householdId || !userId) return;
+    if (!householdId || !userId) {
+      setError('Foyer introuvable. Recharge la page.');
+      return;
+    }
     setIsCreating(true);
     setError(null);
 
     try {
       const supabase = createClient();
 
+      // Lire les catégories (lecture publique, pas de RLS)
       const { data: categories } = await supabase.from('task_categories').select('*').order('sort_order');
       const catMap = new Map<string, { id: string; name: string; icon: string; color_hex: string }>();
       for (const cat of (categories ?? [])) catMap.set(cat.id, cat);
-      const defaultCatId = categories?.[0]?.id ?? '';
+      const defaultCatId = categories?.[0]?.id ?? '11111111-1111-1111-1111-111111111111';
 
-      // Éviter les doublons
+      // Éviter les doublons avec les tâches existantes
       const { data: existingTasks } = await supabase
-        .from('household_tasks')
-        .select('name')
-        .eq('household_id', householdId)
-        .eq('is_active', true);
+        .from('household_tasks').select('name').eq('household_id', householdId).eq('is_active', true);
       const seen = new Set<string>((existingTasks ?? []).map((t: { name: string }) => t.name.toLowerCase()));
 
       type TaskRow = {
-        household_id: string; name: string; category_id: string; frequency: string;
-        mental_load_score: number; scoring_category: string; duration_estimate: string;
-        physical_effort: string; is_active: boolean; is_fixed_assignment: boolean;
-        notifications_enabled: boolean; created_by: string; assigned_to: null; next_due_at: string;
+        name: string; category_id: string; frequency: string; mental_load_score: number;
+        scoring_category: string; duration_estimate: string; physical_effort: string;
+        is_active: boolean; is_fixed_assignment: boolean; notifications_enabled: boolean;
+        assigned_to: null; next_due_at: string;
       };
-      type CreatedMeta = {
-        catId: string;
-        cat: { id: string; name: string; icon: string; color_hex: string } | undefined;
-        nextDueIso: string;
-      };
+      type CreatedMeta = { catId: string; cat: { id: string; name: string; icon: string; color_hex: string } | undefined; nextDueIso: string };
 
       const rowsToInsert: TaskRow[] = [];
       const metaByName: Record<string, CreatedMeta> = {};
 
-      // Templates sélectionnés
-      const selectedTemplates = catalogTemplates.filter((t) => selectedTemplateIds.has(t.id));
-
-      for (const t of selectedTemplates) {
+      for (const t of catalogTemplates.filter((t) => selectedTemplateIds.has(t.id))) {
         const key = t.name.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
-
         const catId = SCORING_TO_CAT_ID[t.scoring_category ?? ''] || defaultCatId;
         const freq = t.default_frequency || 'weekly';
-        const freqDays = FREQ_WINDOW[freq] ?? 30;
-        const dayOffset = freq === 'daily' ? 0 : Math.floor(Math.random() * freqDays);
+        const dayOffset = freq === 'daily' ? 0 : Math.floor(Math.random() * (FREQ_WINDOW[freq] ?? 30));
         const nextDue = new Date(Date.now() + dayOffset * 86400000);
         nextDue.setHours(9, 0, 0, 0);
         const nextDueIso = nextDue.toISOString();
-
         rowsToInsert.push({
-          household_id: householdId,
-          name: t.name,
-          category_id: catId,
-          frequency: freq,
+          name: t.name, category_id: catId, frequency: freq,
           mental_load_score: t.default_mental_load_score ?? 3,
           scoring_category: t.scoring_category ?? 'cleaning',
           duration_estimate: t.default_duration ?? 'short',
           physical_effort: t.default_physical ?? 'medium',
-          is_active: true,
-          is_fixed_assignment: false,
-          notifications_enabled: true,
-          created_by: userId,
-          assigned_to: null,
-          next_due_at: nextDueIso,
+          is_active: true, is_fixed_assignment: false, notifications_enabled: true,
+          assigned_to: null, next_due_at: nextDueIso,
         });
         metaByName[t.name] = { catId, cat: catMap.get(catId), nextDueIso };
       }
 
-      // Tâches personnalisées
       for (const name of customTaskNames) {
         const key = name.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
-
-        const catId = defaultCatId;
         const nextDue = new Date(Date.now() + 7 * 86400000);
         nextDue.setHours(9, 0, 0, 0);
         const nextDueIso = nextDue.toISOString();
-
         rowsToInsert.push({
-          household_id: householdId,
-          name,
-          category_id: catId,
-          frequency: 'weekly',
-          mental_load_score: 3,
-          scoring_category: 'cleaning',
-          duration_estimate: 'short',
-          physical_effort: 'medium',
-          is_active: true,
-          is_fixed_assignment: false,
-          notifications_enabled: true,
-          created_by: userId,
-          assigned_to: null,
-          next_due_at: nextDueIso,
+          name, category_id: defaultCatId, frequency: 'weekly', mental_load_score: 3,
+          scoring_category: 'cleaning', duration_estimate: 'short', physical_effort: 'medium',
+          is_active: true, is_fixed_assignment: false, notifications_enabled: true,
+          assigned_to: null, next_due_at: nextDueIso,
         });
-        metaByName[name] = { catId, cat: catMap.get(catId), nextDueIso };
+        metaByName[name] = { catId: defaultCatId, cat: catMap.get(defaultCatId), nextDueIso };
       }
 
-      const created: typeof generatedTasks = [];
+      // Appel API route (service role, contourne RLS)
+      const phantomMembers = family
+        .filter((m) => m.type !== 'pet' && m.name.trim())
+        .map((m) => ({ display_name: m.name.trim() }));
 
-      if (rowsToInsert.length > 0) {
-        const { data: insertedTasks } = await supabase
-          .from('household_tasks')
-          .insert(rowsToInsert)
-          .select('id, name');
+      const res = await fetch('/api/onboarding/create-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskRows: rowsToInsert, phantomMembers, customSuggestions: customTaskNames }),
+      });
 
-        for (const t of (insertedTasks ?? [])) {
-          const meta = metaByName[t.name];
-          if (meta) {
-            created.push({
-              id: t.id,
-              name: t.name,
-              category_id: meta.catId,
-              category_name: meta.cat?.name,
-              category_icon: meta.cat?.icon,
-              category_color: meta.cat?.color_hex,
-              next_due_at: meta.nextDueIso,
-            });
-          }
-        }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? `Erreur ${res.status}`);
       }
 
-      // Collecter silencieusement les tâches personnalisées
-      if (customTaskNames.length > 0) {
-        await supabase.from('custom_task_suggestions').insert(
-          customTaskNames.map((name) => ({ name, household_id: householdId, source: 'onboarding' }))
-        );
-      }
+      const { tasks: insertedTasks } = await res.json() as { tasks: { id: string; name: string }[] };
+
+      const created = (insertedTasks ?? []).map((t) => {
+        const meta = metaByName[t.name];
+        return {
+          id: t.id, name: t.name,
+          category_id: meta?.catId ?? defaultCatId,
+          category_name: meta?.cat?.name,
+          category_icon: meta?.cat?.icon,
+          category_color: meta?.cat?.color_hex,
+          next_due_at: meta?.nextDueIso,
+        };
+      });
 
       setGeneratedTasks(created);
-
-      // Créer les membres fantômes
-      const { data: existingPhantoms } = await supabase
-        .from('phantom_members')
-        .select('display_name')
-        .eq('household_id', householdId);
-      const existingNames = new Set((existingPhantoms ?? []).map((p: { display_name: string }) => p.display_name.toLowerCase()));
-
-      for (const member of family) {
-        if (member.type === 'pet') continue;
-        const name = member.name.trim();
-        if (!name || existingNames.has(name.toLowerCase())) continue;
-        await supabase.from('phantom_members').insert({
-          household_id: householdId,
-          display_name: name,
-          created_by: userId,
-        });
-      }
-
       await fetchHousehold(householdId);
       if (householdId) await fetchTasks(householdId);
       setStep('results');
     } catch (err) {
       console.error('[onboarding] Erreur:', err);
-      setError('Une erreur est survenue. Réessaie.');
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue. Réessaie.');
     } finally {
       setIsCreating(false);
     }
