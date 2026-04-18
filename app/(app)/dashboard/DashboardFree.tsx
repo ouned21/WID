@@ -196,106 +196,137 @@ export default function DashboardFree() {
       {/* ═══════════════════════════════════════════════════════════ */}
       {homeView === 'planning' && (
         <>
-          {/* Semaine en un coup d'œil */}
+          {/* ── Carte semaine complète ── */}
           <div className="mx-4">
-            <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-2 px-1">
-              Cette semaine
-            </p>
-            <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div className="flex p-3 gap-1">
-                {weekDays.map(({ day, count, load }, i) => {
-                  const isToday = isSameDay(day, new Date());
-                  const isHeavy = load > 20;
-                  const isMedium = load > 8;
-                  const dotColor = count === 0 ? '#e5e5ea' : isHeavy ? '#ff3b30' : isMedium ? '#ff9500' : '#34c759';
-                  return (
-                    <Link
-                      key={i}
-                      href={`/planning?date=${format(day, 'yyyy-MM-dd')}`}
-                      className="flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl transition-all active:scale-95"
-                      style={{ background: isToday ? '#EEF4FF' : 'transparent' }}
-                    >
-                      <span className="text-[9px] font-bold uppercase" style={{ color: isToday ? '#007aff' : '#8e8e93' }}>
-                        {format(day, 'EEE', { locale: fr })}
-                      </span>
-                      <span className="text-[16px] font-bold" style={{ color: isToday ? '#007aff' : '#1c1c1e' }}>
-                        {format(day, 'd')}
-                      </span>
-                      <span className="h-2 w-2 rounded-full" style={{ background: dotColor }} />
-                      {count > 0 && (
-                        <span className="text-[9px] font-bold" style={{ color: dotColor }}>{count}</span>
-                      )}
+            <div className="rounded-3xl bg-white overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+
+              {/* En-tête carte */}
+              {(() => {
+                const totalWeek = weekDays.reduce((s, d) => s + d.count, 0);
+                const overdueWeek = d.overdue.length;
+                const statusOk = overdueWeek === 0;
+                return (
+                  <div className="px-5 pt-5 pb-4 flex items-start justify-between"
+                    style={{ borderBottom: '0.5px solid #f0f2f8' }}>
+                    <div>
+                      <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-1">
+                        Cette semaine
+                      </p>
+                      <p className="text-[16px] font-bold" style={{ color: statusOk ? '#34c759' : '#ff9500' }}>
+                        {statusOk
+                          ? totalWeek === 0 ? '🌿 Rien de planifié' : '✅ Tout est planifié'
+                          : `⚠️ ${overdueWeek} tâche${overdueWeek > 1 ? 's' : ''} en retard`}
+                      </p>
+                    </div>
+                    <Link href="/planning"
+                      className="text-[13px] font-semibold mt-1"
+                      style={{ color: '#007aff' }}>
+                      Tout voir →
                     </Link>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })()}
+
+              {/* Lignes par jour */}
+              {weekDays.map(({ day, count, load }, i) => {
+                const isToday = isSameDay(day, new Date());
+                const loadLabel = load === 0 ? 'libre' : load < 8 ? 'léger' : load < 20 ? 'normal' : 'chargé';
+                const loadColor = load === 0 ? '#c7c7cc' : load < 8 ? '#34c759' : load < 20 ? '#ff9500' : '#ff3b30';
+                const barPct = Math.min(100, Math.round((load / 28) * 100));
+
+                return (
+                  <Link
+                    key={i}
+                    href={`/planning?date=${format(day, 'yyyy-MM-dd')}`}
+                    className="flex items-center gap-3 px-5 py-3 active:bg-[#f5f7ff] transition-colors"
+                    style={{
+                      borderBottom: i < 6 ? '0.5px solid #f0f2f8' : undefined,
+                      background: isToday ? '#EEF4FF' : undefined,
+                    }}
+                  >
+                    {/* Jour */}
+                    <span className="text-[14px] font-bold w-8 flex-shrink-0 capitalize"
+                      style={{ color: isToday ? '#007aff' : '#1c1c1e' }}>
+                      {format(day, 'EEE', { locale: fr })}
+                    </span>
+
+                    {/* Nombre tâches */}
+                    <span className="text-[12px] w-[68px] flex-shrink-0"
+                      style={{ color: count === 0 ? '#c7c7cc' : '#3c3c43' }}>
+                      {count === 0 ? '—' : `${count} tâche${count > 1 ? 's' : ''}`}
+                    </span>
+
+                    {/* Barre de charge */}
+                    <div className="flex-1 h-[6px] rounded-full" style={{ background: '#f0f2f8' }}>
+                      {barPct > 0 && (
+                        <div className="h-[6px] rounded-full"
+                          style={{ width: `${barPct}%`, background: loadColor, minWidth: 6 }} />
+                      )}
+                    </div>
+
+                    {/* Label */}
+                    <span className="text-[11px] font-semibold w-11 text-right flex-shrink-0"
+                      style={{ color: loadColor }}>
+                      {loadLabel}
+                    </span>
+                  </Link>
+                );
+              })}
+
+              {/* Insight Yova */}
+              {peakDay && peakDay.count > 1 && (
+                <div className="px-5 py-4 flex items-start gap-3"
+                  style={{ borderTop: '0.5px solid #f0f2f8', background: '#fafafe' }}>
+                  <span className="text-[17px] mt-0.5">💡</span>
+                  <p className="text-[13px] leading-relaxed" style={{ color: '#3c3c43' }}>
+                    <span className="font-bold capitalize">
+                      {isSameDay(peakDay.day, new Date())
+                        ? 'Aujourd\'hui'
+                        : format(peakDay.day, 'EEEE', { locale: fr })}
+                    </span>
+                    {isSameDay(peakDay.day, new Date())
+                      ? ' est ton jour le plus chargé'
+                      : ' sera ton jour le plus chargé'}
+                    {' '}— {peakDay.count} tâche{peakDay.count > 1 ? 's' : ''} prévue{peakDay.count > 1 ? 's' : ''}.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Insight Yova */}
-          {peakDay && peakDay.count > 0 && (
-            <div className="mx-4 rounded-2xl p-4" style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)', boxShadow: '0 4px 16px rgba(102,126,234,0.25)' }}>
-              <div className="flex items-start gap-3">
-                <span className="text-[24px]">🧠</span>
-                <div>
-                  <p className="text-[13px] font-bold text-white capitalize">
-                    {isSameDay(peakDay.day, new Date())
-                      ? 'Aujourd\'hui est ton jour le plus chargé'
-                      : `${format(peakDay.day, 'EEEE', { locale: fr })} sera ton jour le plus chargé`}
-                  </p>
-                  <p className="text-[12px] text-white/70 mt-0.5 capitalize">
-                    {peakDay.count} tâche{peakDay.count > 1 ? 's' : ''} · {format(peakDay.day, 'EEEE d MMMM', { locale: fr })}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Mes tâches aujourd'hui */}
+          {/* ── Aujourd'hui pour toi ── */}
           <div className="mx-4">
-            <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-2 px-1">
-              Mes tâches aujourd&apos;hui
-            </p>
-            {d.myToday.length === 0 ? (
-              <div className="rounded-2xl bg-white py-8 text-center" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                <p className="text-[28px] mb-2">☀️</p>
-                <p className="text-[14px] font-semibold text-[#1c1c1e]">Rien aujourd&apos;hui !</p>
-                <p className="text-[12px] text-[#8e8e93] mt-0.5">Tu es libre.</p>
+            <div className="rounded-3xl bg-white overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+              <div className="px-5 pt-4 pb-3" style={{ borderBottom: '0.5px solid #f0f2f8' }}>
+                <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em]">
+                  📌 Aujourd&apos;hui pour toi
+                </p>
               </div>
-            ) : (
-              <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                {d.myToday.map((task, i) => (
+
+              {d.myToday.length === 0 ? (
+                <div className="px-5 py-6 flex items-center gap-3">
+                  <span className="text-[24px]">☀️</span>
+                  <div>
+                    <p className="text-[14px] font-semibold text-[#1c1c1e]">Rien de prévu</p>
+                    <p className="text-[12px] text-[#8e8e93] mt-0.5">Profite de ta journée.</p>
+                  </div>
+                </div>
+              ) : (
+                d.myToday.map((task, i) => (
                   <Link
                     key={task.id}
                     href={`/tasks/${task.id}`}
-                    className="flex items-center gap-3 px-4 py-3.5 active:bg-[#f0f2f8] transition-colors"
-                    style={{ borderBottom: i < d.myToday.length - 1 ? '0.5px solid var(--ios-separator)' : undefined }}
+                    className="flex items-center gap-3 px-5 py-3.5 active:bg-[#f5f7ff] transition-colors"
+                    style={{ borderBottom: i < d.myToday.length - 1 ? '0.5px solid #f0f2f8' : undefined }}
                   >
-                    <span className="text-[20px]">{CATEGORY_EMOJI[task.scoring_category ?? ''] ?? '📌'}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-semibold text-[#1c1c1e] truncate">{task.name}</p>
-                    </div>
+                    <span className="text-[8px]" style={{ color: '#007aff' }}>›</span>
+                    <span className="text-[14px] font-medium text-[#1c1c1e] flex-1 truncate">{task.name}</span>
                     <span className="text-[18px] text-[#c7c7cc]">›</span>
                   </Link>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Accès planning complet */}
-          <Link
-            href="/planning"
-            className="mx-4 rounded-2xl bg-white px-5 py-4 flex items-center justify-between active:scale-[0.98] transition-transform"
-            style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
-          >
-            <div>
-              <p className="text-[15px] font-bold text-[#1c1c1e]">Planning complet</p>
-              <p className="text-[12px] text-[#8e8e93] mt-0.5">Semaine, mois et toutes les tâches</p>
+                ))
+              )}
             </div>
-            <svg width="7" height="12" fill="none" stroke="#007aff" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12">
-              <path d="M1 1l5 5-5 5" />
-            </svg>
-          </Link>
+          </div>
         </>
       )}
 
