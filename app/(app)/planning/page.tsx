@@ -8,6 +8,7 @@ import { useHouseholdStore } from '@/stores/householdStore';
 import PostponeButton from '@/components/PostponeButton';
 import DeleteButton from '@/components/DeleteButton';
 import { taskScoreDisplay, scoreColor10, taskScoreCompare } from '@/utils/designSystem';
+import { useSearchParams } from 'next/navigation';
 import {
   addDays, addWeeks, addMonths, format, isSameDay,
   startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, getDay,
@@ -237,9 +238,11 @@ function WeekView({ tasks, weekStart, initialDate }: { tasks: TaskListItem[]; we
     ?? days[0];
   const [selectedDay, setSelectedDay] = useState<Date>(defaultDay);
 
-  // Mettre à jour selectedDay si weekStart change
+  // Mettre à jour selectedDay si weekStart change — respecte initialDate si dans la semaine
   useEffect(() => {
-    const newDefault = days.find((d) => isSameDay(d, today)) ?? days[0];
+    const newDefault = (initialDate && days.find((d) => isSameDay(d, initialDate)))
+      ?? days.find((d) => isSameDay(d, today))
+      ?? days[0];
     setSelectedDay(newDefault);
   }, [weekStart.toISOString()]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -729,20 +732,28 @@ export default function PlanningPage() {
 
   const today = new Date();
 
-  // Lire les params URL (?date=YYYY-MM-DD, ?tab=tasks|planning)
-  const searchParams = typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search)
-    : null;
-  const tabParam = searchParams?.get('tab') as PlanningTab | null;
+  // Lire les params URL (?date=YYYY-MM-DD, ?tab=tasks|planning) via Next.js
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab') as PlanningTab | null;
   const [planningTab, setPlanningTab] = useState<PlanningTab>(
     tabParam === 'tasks' ? 'tasks' : 'planning',
   );
-  const dateParam = searchParams?.get('date');
+  const dateParam = searchParams.get('date');
   const initialDate = dateParam ? new Date(dateParam) : today;
   const initialWeekStart = startOfWeek(initialDate, { weekStartsOn: 1 });
   const initialOffset = Math.round((initialWeekStart.getTime() - startOfWeek(today, { weekStartsOn: 1 }).getTime()) / (7 * 86400000));
 
   const [weekOffset, setWeekOffset] = useState(initialOffset);
+
+  // Synchroniser weekOffset et selectedDay quand le param ?date change
+  useEffect(() => {
+    const param = searchParams.get('date');
+    if (!param) return;
+    const target = new Date(param);
+    const targetWeekStart = startOfWeek(target, { weekStartsOn: 1 });
+    const offset = Math.round((targetWeekStart.getTime() - startOfWeek(today, { weekStartsOn: 1 }).getTime()) / (7 * 86400000));
+    setWeekOffset(offset);
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
   const weekStart = startOfWeek(addWeeks(today, weekOffset), { weekStartsOn: 1 });
   const monthStart = startOfMonth(addMonths(today, monthOffset));
 
