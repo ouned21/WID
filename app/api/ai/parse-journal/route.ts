@@ -267,11 +267,15 @@ ${sanitizedText}
 1. Pour chaque action → essaie de matcher une tâche existante (sémantique, pas juste mots-clés).
 2. Si une action ne correspond à AUCUNE tâche existante ET que c'est une vraie tâche récurrente du foyer (pas "j'ai regardé un film", "j'ai dormi", "je me suis levé") → mets-la dans "auto_create".
 3. Dans "unmatched", mets UNIQUEMENT les choses qui ne sont PAS des tâches ménagères (émotions, événements ponctuels, activités de loisir).
-4. Identifie QUI a fait chaque tâche (par défaut = ${userName}).
+4. **Attribution stricte — RÈGLE CRITIQUE** :
+   - "j'ai fait X" → completed_by = UUID de ${userName} uniquement
+   - "[Prénom] a fait X" / "[Prénom] faisait X" → completed_by = UUID de ce membre, PAS de ${userName}
+   - "on a fait X ensemble" / "avec [Prénom]" / "on a X ensemble" → crée UNE entrée par personne impliquée (même task_id, completed_by différent)
+   - Si la personne n'est pas dans la liste des membres → completed_by = null
 5. Extrait les durées si mentionnées.
 6. Confidence : 1.0 = certain, 0.5 = probable, 0.3 = incertain.
 7. Détecte le mood : happy | tired | overwhelmed | satisfied | frustrated | neutral.
-8. Réponse empathique 1-2 phrases. Si des tâches ont été créées automatiquement, mentionne-le.
+8. Réponse empathique 1-2 phrases. Si des tâches ont été créées automatiquement, mentionne-le. Si des tâches ont été faites à plusieurs, valorise la collaboration.
 
 ## Format JSON STRICT
 
@@ -283,6 +287,15 @@ ${sanitizedText}
       "task_name": "Nom lisible",
       "completed_by": "UUID-membre-ou-null",
       "completed_by_phantom_id": "UUID-phantom-ou-null",
+      "duration_minutes": 30,
+      "note": null,
+      "confidence": 0.9
+    },
+    {
+      "task_id": "MÊME-UUID-si-fait-ensemble",
+      "task_name": "Nom lisible",
+      "completed_by": "UUID-autre-membre",
+      "completed_by_phantom_id": null,
       "duration_minutes": 30,
       "note": null,
       "confidence": 0.9
