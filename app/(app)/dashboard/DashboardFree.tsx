@@ -9,6 +9,7 @@ import { useHouseholdStore } from '@/stores/householdStore';
 import { taskLoad } from '@/utils/designSystem';
 import { addDays, startOfWeek, isSameDay, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import SuggestionCard, { type Suggestion } from '@/components/SuggestionCard';
 
 /**
  * Dashboard Free — le miroir, pas l'outil.
@@ -31,6 +32,8 @@ export default function DashboardFree() {
   // Vue mémorisée (score par défaut)
   const [homeView, setHomeView] = useState<HomeView>('score');
 
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+
   useEffect(() => {
     const saved = localStorage.getItem(HOME_VIEW_KEY) as HomeView | null;
     if (saved === 'score' || saved === 'planning') setHomeView(saved);
@@ -47,6 +50,15 @@ export default function DashboardFree() {
       fetchHousehold(profile.household_id);
     }
   }, [profile?.household_id, fetchTasks, fetchHousehold]);
+
+  useEffect(() => {
+    fetch('/api/suggestions/next')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.suggestion) setSuggestion(data.suggestion as Suggestion);
+      })
+      .catch(() => {});
+  }, []);
 
   // ── Calculs temporels ────────────────────────────────────────────────────────
   const d = useMemo(() => {
@@ -424,6 +436,15 @@ export default function DashboardFree() {
                 )}
               </div>
             </div>
+
+            {/* ── Yova suggère ── */}
+            {suggestion && (
+              <SuggestionCard
+                suggestion={suggestion}
+                onAccept={() => setSuggestion(null)}
+                onDismiss={() => setSuggestion(null)}
+              />
+            )}
 
             {/* ── Journal IA ── */}
             <button
