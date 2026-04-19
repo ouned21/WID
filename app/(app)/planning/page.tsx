@@ -186,40 +186,74 @@ function TaskActionSheet({ task, onClose }: { task: TaskListItem; onClose: () =>
 // ── Carte de tâche (vue jour) ─────────────────────────────────────────────────
 
 function TaskCard({ task }: { task: TaskListItem }) {
+  const { completeTask } = useTaskStore();
   const score = taskScoreDisplay(task);
   const color = scoreColor10(score);
   const catColor = task.category?.color_hex ?? '#8e8e93';
   const emoji = CATEGORY_EMOJI[task.scoring_category ?? ''] ?? '📌';
   const assignee = task.assignee?.display_name ?? null;
   const [showSheet, setShowSheet] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const handleQuickComplete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCompleting(true);
+    await completeTask(task.id);
+    setDone(true);
+  };
+
+  if (done) return null;
 
   return (
     <>
-      <button
-        onClick={() => setShowSheet(true)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-[#f6f8ff] text-left transition-colors"
+      <div
+        className="flex items-center gap-3 px-4 py-3.5 transition-colors"
         style={{ borderBottom: '0.5px solid var(--ios-separator)' }}
       >
-        <div className="flex items-center justify-center rounded-xl flex-shrink-0 text-[20px]"
-          style={{ width: 44, height: 44, background: `${catColor}15` }}>
-          {emoji}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-semibold text-[#1c1c1e] truncate">{task.name}</p>
-          <div className="flex items-center gap-2 mt-0.5">
-            {assignee && <span className="text-[12px] text-[#8e8e93]">👤 {assignee}</span>}
-            {task.duration_estimate && (
-              <span className="text-[12px] text-[#8e8e93]">
-                ⏱ {task.duration_estimate === 'very_short' ? '5 min' : task.duration_estimate === 'short' ? '15 min' : task.duration_estimate === 'medium' ? '30 min' : task.duration_estimate === 'long' ? '1h' : '2h+'}
-              </span>
-            )}
+        {/* Zone principale → ouvre le bottom sheet */}
+        <button
+          onClick={() => setShowSheet(true)}
+          className="flex items-center gap-3 flex-1 min-w-0 text-left active:opacity-70"
+        >
+          <div className="flex items-center justify-center rounded-xl flex-shrink-0 text-[20px]"
+            style={{ width: 44, height: 44, background: `${catColor}15` }}>
+            {emoji}
           </div>
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className="text-[13px] font-bold" style={{ color }}>{score}/10</span>
-          <div className="w-2 h-2 rounded-full" style={{ background: catColor }} />
-        </div>
-      </button>
+          <div className="flex-1 min-w-0">
+            <p className="text-[15px] font-semibold text-[#1c1c1e] truncate">{task.name}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              {assignee && <span className="text-[12px] text-[#8e8e93]">👤 {assignee}</span>}
+              {task.duration_estimate && (
+                <span className="text-[12px] text-[#8e8e93]">
+                  ⏱ {task.duration_estimate === 'very_short' ? '5 min' : task.duration_estimate === 'short' ? '15 min' : task.duration_estimate === 'medium' ? '30 min' : task.duration_estimate === 'long' ? '1h' : '2h+'}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-1 mr-2">
+            <span className="text-[13px] font-bold" style={{ color }}>{score}/10</span>
+            <div className="w-2 h-2 rounded-full" style={{ background: catColor }} />
+          </div>
+        </button>
+
+        {/* Bouton ✓ inline */}
+        <button
+          onClick={handleQuickComplete}
+          disabled={completing}
+          className="flex-shrink-0 flex items-center justify-center rounded-full transition-all active:scale-90"
+          style={{
+            width: 36, height: 36,
+            background: completing ? '#34c75940' : '#34c75918',
+            color: '#34c759',
+            fontSize: 18,
+            fontWeight: 700,
+          }}
+          aria-label="Marquer comme fait"
+        >
+          {completing ? '…' : '✓'}
+        </button>
+      </div>
 
       {showSheet && <TaskActionSheet task={task} onClose={() => setShowSheet(false)} />}
     </>

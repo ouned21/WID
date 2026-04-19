@@ -419,6 +419,7 @@ export default function DashboardFree() {
               const partnerName = partner?.member.display_name ?? 'ton partenaire';
               insightText = `Tu gères la ${CATS_LABEL[mostSkewed.cat] ?? mostSkewed.cat} à ${mostSkewed.myPct}% — ${partnerName} n'a aucune tâche dans cette catégorie.`;
               insightCta = 'Rééquilibrer →';
+              // insightCta route → /tasks/rebalance
             } else if (myMember.pct > 65) {
               insightText = `Tu portes ${myMember.pct}% de la charge du foyer cette semaine.`;
               insightCta = 'Voir le détail →';
@@ -431,8 +432,32 @@ export default function DashboardFree() {
         // ── Tâches du jour (tous les membres) ────────────────────
         const todayAllTasks = d.today.slice(0, 5);
 
+        // ── Bannière assignation < 80% ────────────────────────────
+        const assignedCount = tasks.filter((t) => t.assigned_to || t.assigned_to_phantom_id).length;
+        const assignRate = tasks.length > 0 ? assignedCount / tasks.length : 1;
+        const showAssignBanner = tasks.length > 0 && assignRate < 0.8;
+
         return (
           <>
+            {/* ── Bannière assignation persistante ── */}
+            {showAssignBanner && (
+              <button
+                onClick={() => router.push('/tasks/assign')}
+                className="mx-4 rounded-2xl px-4 py-3 flex items-center gap-3 transition-all active:scale-[0.98] text-left"
+                style={{ background: 'linear-gradient(135deg, #ff9500, #ff6b00)', boxShadow: '0 4px 16px rgba(255,149,0,0.3)' }}
+              >
+                <span className="text-[22px] flex-shrink-0">⚠️</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-bold text-white leading-tight">
+                    {tasks.length - assignedCount} tâche{tasks.length - assignedCount > 1 ? 's' : ''} sans responsable — score non fiable
+                  </p>
+                  <p className="text-[11px] text-white/75 mt-0.5">
+                    {Math.round(assignRate * 100)}% assignées · Tap pour assigner →
+                  </p>
+                </div>
+              </button>
+            )}
+
             {/* ── Big card sombre Répartition ── */}
             <button
               onClick={() => router.push(hasUnassigned ? '/tasks/assign' : '/score')}
@@ -602,7 +627,12 @@ export default function DashboardFree() {
                 <p className="text-[12px] font-bold text-[#1c1c1e] mb-1">Yova a remarqué</p>
                 <p className="text-[11px] leading-[1.45]" style={{ color: '#8e8e93' }}>{insightText}</p>
                 {insightCta && (
-                  <button onClick={() => router.push(hasUnassigned ? '/tasks/assign' : '/score')}
+                  <button
+                    onClick={() => {
+                      if (insightCta === 'Rééquilibrer →') router.push('/tasks/rebalance');
+                      else if (hasUnassigned) router.push('/tasks/assign');
+                      else router.push('/score');
+                    }}
                     className="text-[11px] font-bold mt-1.5 block"
                     style={{ color: '#007aff' }}>
                     {insightCta}

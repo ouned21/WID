@@ -51,8 +51,8 @@ export function sendNotification(title: string, body: string, url?: string): voi
 }
 
 /**
- * Programme la notification du récap du soir.
- * Utilise setTimeout pour la déclencher à 21h.
+ * Programme la notification du récap du soir (21h).
+ * Pointe vers le journal IA — c'est l'action principale du soir.
  * Doit être appelé au chargement de l'app.
  */
 export function scheduleEveningRecap(): void {
@@ -71,9 +71,9 @@ export function scheduleEveningRecap(): void {
 
   setTimeout(() => {
     sendNotification(
-      '🌙 Comment s\'est passée ta journée ?',
-      'Coche en rafale ce que tu as fait aujourd\'hui.',
-      '/tasks/recap',
+      '🤖 Qu\'est-ce que t\'as géré aujourd\'hui ?',
+      'Dis-le à Yova en une phrase — ça compte dans ton score.',
+      '/journal',
     );
 
     // Reprogrammer pour le lendemain
