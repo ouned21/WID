@@ -818,16 +818,18 @@ export default function ProfilePage() {
           {/* Suppression du compte */}
           <button
             onClick={async () => {
-              if (!confirm('Es-tu sûr ? Cette action est irréversible après 30 jours de délai de rétractation.')) return;
+              if (!confirm('Supprimer définitivement ton compte et toutes tes données ? Cette action est irréversible.')) return;
+              if (!confirm('Dernière confirmation — toutes tes tâches, complétions et données seront effacées.')) return;
 
               try {
-                const res = await fetch('/api/account/request-deletion', { method: 'POST' });
+                const res = await fetch('/api/account/delete', { method: 'POST' });
                 if (!res.ok) {
                   const data = await res.json().catch(() => ({}));
-                  alert(`Erreur lors de la demande : ${data.message ?? data.error ?? 'inconnue'}`);
+                  alert(`Erreur : ${data.message ?? data.error ?? 'inconnue'}`);
                   return;
                 }
-                alert('Email de confirmation envoyé. Tu as 30 jours pour annuler.');
+                // Compte supprimé — rediriger vers login
+                window.location.href = '/login';
               } catch (err) {
                 alert(`Erreur réseau : ${err instanceof Error ? err.message : 'inconnue'}`);
               }
