@@ -59,7 +59,7 @@ export default function JournalPage() {
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<ParseResponse | null>(null);
   const [history, setHistory] = useState<PastJournal[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showHistory] = useState(true);
 
   // ── Consentement RGPD ──
   // null = pas encore chargé, false = refusé/pas de consentement, true = consentement donné
@@ -228,9 +228,7 @@ export default function JournalPage() {
       <div className="px-4 flex items-center justify-between">
         <BackButton />
         <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Journal</h2>
-        <button onClick={() => setShowHistory(!showHistory)} className="text-[13px] font-medium" style={{ color: '#007aff' }}>
-          {showHistory ? 'Masquer' : 'Historique'}
-        </button>
+        <div className="w-16" />
       </div>
 
       {/* Bloc principal : saisie */}
