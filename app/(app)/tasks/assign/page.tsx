@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { createClient } from '@/lib/supabase';
+import DeleteButton from '@/components/DeleteButton';
 
 type Assignment =
   | { userId: string; phantomId?: never }
@@ -20,6 +21,8 @@ export default function AssignTasksPage() {
 
   // Assignments locaux (optimistic)
   const [assignments, setAssignments] = useState<Record<string, Assignment>>({});
+  // Suppressions locales (optimistic)
+  const [deleted, setDeleted] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (profile?.household_id) {
@@ -28,7 +31,14 @@ export default function AssignTasksPage() {
     }
   }, [profile?.household_id, fetchTasks, fetchHousehold]);
 
-  const unassigned = tasks.filter((t) => !t.assigned_to && !t.assigned_to_phantom_id);
+  const deleteTask = useCallback(async (taskId: string) => {
+    setDeleted((prev) => new Set([...prev, taskId]));
+    const supabase = createClient();
+    await supabase.from('household_tasks').delete().eq('id', taskId);
+    if (profile?.household_id) fetchTasks(profile.household_id);
+  }, [profile?.household_id, fetchTasks]);
+
+  const unassigned = tasks.filter((t) => !t.assigned_to && !t.assigned_to_phantom_id && !deleted.has(t.id));
 
   const assignTargets = [
     ...(profile?.id
@@ -110,7 +120,7 @@ export default function AssignTasksPage() {
                   className="px-4 py-3"
                   style={i < unassigned.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}
                 >
-                  {/* Ligne 1 : nom + catégorie */}
+                  {/* Ligne 1 : nom + catégorie + supprimer */}
                   <div className="flex items-center gap-3">
                     <div
                       className="w-2 h-2 rounded-full flex-shrink-0"
@@ -129,6 +139,7 @@ export default function AssignTasksPage() {
                         ✓
                       </span>
                     )}
+                    <DeleteButton onDelete={() => deleteTask(t.id)} />
                   </div>
 
                   {/* Ligne 2 : chips d'assignation */}
