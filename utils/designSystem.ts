@@ -73,6 +73,49 @@ export function loadTo10(score36: number): number {
   return Math.min(10, Math.round((score36 / 36) * 10));
 }
 
+// ─── Temps réel (minutes par semaine) ────────────────────────────────────────
+
+/** Durée estimée → minutes pour une occurrence */
+const DURATION_MINUTES: Record<string, number> = {
+  very_short: 5,
+  short: 20,
+  medium: 45,
+  long: 90,
+  very_long: 180,
+};
+
+/** Fréquence → coefficient hebdomadaire (occurrences par semaine) */
+const FREQUENCY_WEEKLY_COEFF: Record<string, number> = {
+  daily: 7,
+  weekly: 1,
+  biweekly: 0.5,
+  monthly: 0.25,
+  quarterly: 0.083,
+  semiannual: 0.042,
+  yearly: 0.019,
+  once: 0,
+};
+
+/**
+ * Calcule le nombre de minutes par semaine pour une tâche.
+ * Basé sur duration_estimate × fréquence hebdomadaire.
+ */
+export function weeklyMinutes(task: { duration_estimate?: string | null; frequency?: string | null }): number {
+  const duration = DURATION_MINUTES[task.duration_estimate ?? 'short'] ?? 20;
+  const coeff = FREQUENCY_WEEKLY_COEFF[task.frequency ?? 'weekly'] ?? 1;
+  return Math.round(duration * coeff);
+}
+
+/**
+ * Formate des minutes en chaîne lisible : "45min", "2h", "2h30"
+ */
+export function formatWeeklyTime(minutes: number): string {
+  if (minutes < 60) return `${minutes}min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${h}h`;
+}
+
 /** Couleur cohérente base 10 : 0-3 vert, 4-5 orange, 6-7 orange foncé, 8-10 rouge */
 export function scoreColor10(score10: number): string {
   if (score10 <= 3) return '#34c759';

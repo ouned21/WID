@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
-import { taskLoad } from '@/utils/designSystem';
+import { taskLoad, weeklyMinutes, formatWeeklyTime } from '@/utils/designSystem';
 import { addDays, isSameDay, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import SuggestionCard, { type Suggestion } from '@/components/SuggestionCard';
@@ -315,18 +315,27 @@ export default function DashboardFree() {
       {homeView === 'score' && (() => {
         // ── Calcul répartition globale ────────────────────────────
         const totalLoad = tasks.reduce((s, t) => s + taskLoad(t), 0);
+        const totalMinutes = tasks.reduce((s, t) => s + weeklyMinutes(t), 0);
+
         const memberScores = allMembers.map((member, idx) => {
           const mt = tasks.filter((t) =>
             member.isPhantom ? t.assigned_to_phantom_id === member.id : t.assigned_to === member.id,
           );
           const load = mt.reduce((s, t) => s + taskLoad(t), 0);
+          const mins = mt.reduce((s, t) => s + weeklyMinutes(t), 0);
           const pct = totalLoad > 0 ? Math.round((load / totalLoad) * 100) : 0;
+          const timePct = totalMinutes > 0 ? Math.round((mins / totalMinutes) * 100) : 0;
           const FILLS = [
             'linear-gradient(90deg,#ff6b6b,#ff3030)',
             'linear-gradient(90deg,#4ecdc4,#26b5ab)',
             'linear-gradient(90deg,#c084fc,#a855f7)',
           ];
-          return { member, pct, fill: FILLS[idx] ?? FILLS[0] };
+          const TIME_FILLS = [
+            'linear-gradient(90deg,#ff9a9e,#ff6b6b)',
+            'linear-gradient(90deg,#a8edea,#4ecdc4)',
+            'linear-gradient(90deg,#e0c3fc,#c084fc)',
+          ];
+          return { member, pct, mins, timePct, fill: FILLS[idx] ?? FILLS[0], timeFill: TIME_FILLS[idx] ?? TIME_FILLS[0] };
         });
         const maxPct = Math.max(...memberScores.map((m) => m.pct));
         const anyAssigned = memberScores.some((m) => m.pct > 0);
@@ -398,22 +407,63 @@ export default function DashboardFree() {
               <div className="absolute rounded-full pointer-events-none"
                 style={{ width: 160, height: 160, background: 'rgba(255,255,255,0.035)', top: -50, right: -40 }} />
 
-              <p className="text-[10px] font-bold uppercase tracking-[1.5px] mb-4"
-                style={{ color: 'rgba(255,255,255,0.4)' }}>
-                Répartition · Cette semaine
-              </p>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[10px] font-bold uppercase tracking-[1.5px]"
+                  style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  Répartition · Cette semaine
+                </p>
+                {totalMinutes > 0 && (
+                  <p className="text-[10px] font-semibold"
+                    style={{ color: 'rgba(255,255,255,0.3)' }}>
+                    ~{formatWeeklyTime(totalMinutes)} au total
+                  </p>
+                )}
+              </div>
 
               {memberScores.map((ms) => (
-                <div key={ms.member.id} className="mb-3">
-                  <div className="flex justify-between mb-1.5">
+                <div key={ms.member.id} className="mb-4">
+                  {/* Nom + totaux */}
+                  <div className="flex justify-between items-baseline mb-2">
                     <span className="text-[13px] font-semibold" style={{ color: 'rgba(255,255,255,0.88)' }}>
                       {ms.member.display_name}
                     </span>
-                    <span className="text-[13px] font-black text-white">{ms.pct} %</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                        {formatWeeklyTime(ms.mins)}/sem
+                      </span>
+                      <span className="text-[13px] font-black text-white">{ms.pct}%</span>
+                    </div>
                   </div>
-                  <div className="h-[6px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                    <div className="h-full rounded-full"
-                      style={{ width: `${ms.pct}%`, background: ms.fill }} />
+
+                  {/* Barre charge mentale */}
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[9px] font-bold uppercase tracking-[0.08em] w-[58px] flex-shrink-0"
+                      style={{ color: 'rgba(255,255,255,0.35)' }}>
+                      Mental
+                    </span>
+                    <div className="flex-1 h-[5px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                      <div className="h-full rounded-full"
+                        style={{ width: `${ms.pct}%`, background: ms.fill }} />
+                    </div>
+                    <span className="text-[10px] font-bold w-[28px] text-right flex-shrink-0 text-white">
+                      {ms.pct}%
+                    </span>
+                  </div>
+
+                  {/* Barre temps réel */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-bold uppercase tracking-[0.08em] w-[58px] flex-shrink-0"
+                      style={{ color: 'rgba(255,255,255,0.35)' }}>
+                      Temps
+                    </span>
+                    <div className="flex-1 h-[5px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                      <div className="h-full rounded-full"
+                        style={{ width: `${ms.timePct}%`, background: ms.timeFill }} />
+                    </div>
+                    <span className="text-[10px] font-bold w-[28px] text-right flex-shrink-0"
+                      style={{ color: 'rgba(255,255,255,0.6)' }}>
+                      {ms.timePct}%
+                    </span>
                   </div>
                 </div>
               ))}
