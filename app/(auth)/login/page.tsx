@@ -26,7 +26,10 @@ export default function LoginPage() {
     const result = await signIn(email, password);
     if (result.ok) {
       setFailCount(0);
-      router.push('/dashboard');
+      // Récupérer le profil frais pour savoir où rediriger
+      await useAuthStore.getState().refreshProfile();
+      const profile = useAuthStore.getState().profile;
+      router.push(profile?.household_id ? '/dashboard' : '/onboarding');
     } else {
       const newCount = failCount + 1;
       setFailCount(newCount);
