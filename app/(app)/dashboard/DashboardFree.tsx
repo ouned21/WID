@@ -51,13 +51,16 @@ export default function DashboardFree() {
     }
   }, [profile?.household_id, fetchTasks, fetchHousehold]);
 
-  useEffect(() => {
+  const fetchNextSuggestion = () => {
     fetch('/api/suggestions/next')
       .then((r) => r.json())
-      .then((data) => {
-        if (data?.suggestion) setSuggestion(data.suggestion as Suggestion);
-      })
+      .then((data) => { setSuggestion(data?.suggestion ?? null); })
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchNextSuggestion();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Calculs temporels ────────────────────────────────────────────────────────
@@ -612,8 +615,8 @@ export default function DashboardFree() {
             {suggestion && (
               <SuggestionCard
                 suggestion={suggestion}
-                onAccept={() => setSuggestion(null)}
-                onDismiss={() => setSuggestion(null)}
+                onAccept={() => { setSuggestion(null); setTimeout(fetchNextSuggestion, 400); }}
+                onDismiss={() => { setSuggestion(null); setTimeout(fetchNextSuggestion, 400); }}
               />
             )}
 
