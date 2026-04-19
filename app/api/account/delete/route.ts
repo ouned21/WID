@@ -63,14 +63,9 @@ export async function POST() {
       // Non fatal — on continue pour supprimer l'auth user
     }
 
-    // 3. Si SERVICE_ROLE_KEY disponible : hard delete auth
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // 3. Hard delete auth (adminClient déjà créé avec service role)
     if (serviceRoleKey) {
-      const admin = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        serviceRoleKey,
-      );
-      await admin.auth.admin.deleteUser(userId);
+      await adminClient.auth.admin.deleteUser(userId);
     }
 
     // 4. Se déconnecter
