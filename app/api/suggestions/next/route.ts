@@ -194,14 +194,25 @@ export async function GET(_req: NextRequest) {
       }
     }
 
-    // 10. Retourner la suggestion (depuis l'upsert ou reconstituée)
-    const suggestion = upserted ?? {
-      id: null,
-      name: template.name,
-      reason,
-      scoring_category: template.scoring_category,
-      template_id: template.id,
-    };
+    // 10. Retourner la suggestion (depuis l'upsert ou depuis la row existante)
+    // Si upserted est null (conflit ignoré), on fetch la row existante pour obtenir le vrai id.
+    // Sans id, la carte ne peut pas appeler le dismiss → la même tâche réapparaît indéfiniment.
+    let suggestion = upserted;
+
+    if (!suggestion) {
+      const { data: existing } = await admin
+        .from('task_suggestions')
+        .select('id, name, reason, scoring_category, template_id')
+        .eq('household_id', householdId)
+        .eq('template_id', template.id)
+        .single();
+
+      suggestion = existing ?? null;
+    }
+
+    if (!suggestion) {
+      return NextResponse.json({ suggestion: null });
+    }
 
     return NextResponse.json({ suggestion });
 
