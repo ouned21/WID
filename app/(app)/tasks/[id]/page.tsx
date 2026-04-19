@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import BackButton from '@/components/BackButton';
-import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
@@ -224,22 +223,22 @@ export default function TaskDetailPage() {
         )}
       </div>
 
-      {/* Bouton échange */}
-      {task.assigned_to && (
-        <div className="mx-4">
-          <Link href={`/exchanges?offer=${task.id}`}
-            className="flex items-center justify-center gap-2 w-full rounded-xl bg-white py-3 text-[15px] font-medium"
-            style={{ color: '#007aff', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-              <path d="M7 16l-4-4m0 0l4-4m-4 4h18M17 8l4 4m0 0l-4 4m4-4H3" />
-            </svg>
-            Proposer un échange
-          </Link>
-        </div>
-      )}
+      {/* Décaler + Supprimer */}
+      <div className="mx-4 space-y-2">
+        <PostponeButton taskId={task.id} variant="full" />
+        <button onClick={async () => {
+          if (!confirm('Supprimer définitivement cette tâche et tout son historique ? Cette action est irréversible.')) return;
+          const result = await deleteTask(task.id);
+          if (result.ok) router.push('/tasks');
+        }}
+          className="w-full rounded-xl bg-white py-3 text-[15px] font-medium"
+          style={{ color: '#ff3b30', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+          🗑️ Supprimer définitivement
+        </button>
+      </div>
 
       {/* Historique */}
-      <div className="mx-4">
+      <div className="mx-4 pb-8">
         <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Historique</p>
         <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
           {loadingHistory ? (
@@ -265,20 +264,6 @@ export default function TaskDetailPage() {
             ))
           )}
         </div>
-      </div>
-
-      {/* Décaler + Supprimer */}
-      <div className="mx-4 pb-8 space-y-2">
-        <PostponeButton taskId={task.id} variant="full" />
-        <button onClick={async () => {
-          if (!confirm('Supprimer définitivement cette tâche et tout son historique ? Cette action est irréversible.')) return;
-          const result = await deleteTask(task.id);
-          if (result.ok) router.push('/tasks');
-        }}
-          className="w-full rounded-xl bg-white py-3 text-[15px] font-medium"
-          style={{ color: '#ff3b30', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-          🗑️ Supprimer définitivement
-        </button>
       </div>
     </div>
   );

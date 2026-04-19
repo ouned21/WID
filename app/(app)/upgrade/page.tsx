@@ -17,7 +17,7 @@ const FEATURES: Feature[] = [
   { id: 'stats', emoji: '📊', title: 'Statistiques avancées', description: 'Évolution, répartition, tendances — données complètes sur 12 mois' },
   { id: 'repartition', emoji: '⚖️', title: 'Répartition du foyer', description: 'Vois qui fait quoi et dans quelle proportion, en temps réel' },
   { id: 'summary', emoji: '📝', title: 'Résumé hebdo IA', description: 'Un résumé personnalisé de ta semaine envoyé chaque dimanche' },
-  { id: 'exchanges', emoji: '🔄', title: 'Échanges de tâches', description: 'Propose un rééquilibrage concret à ton conjoint en un tap' },
+  { id: 'rebalance', emoji: '⚖️', title: 'Rééquilibrage IA', description: 'Yova analyse les scores et suggère en un tap quelles tâches déplacer pour rééquilibrer' },
   { id: 'members', emoji: '👨‍👩‍👧‍👦', title: 'Membres illimités', description: 'Ajoute toute ta famille (gratuit limité à 2)' },
 ];
 
