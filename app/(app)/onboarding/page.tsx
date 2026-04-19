@@ -113,7 +113,7 @@ const FREQ_WINDOW: Record<string, number> = {
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { profile, refreshProfile } = useAuthStore();
+  const { profile, refreshProfile, isPremium } = useAuthStore();
   const { fetchTasks } = useTaskStore();
   const { fetchHousehold, allMembers } = useHouseholdStore();
 
@@ -521,6 +521,23 @@ export default function OnboardingPage() {
   // ─── Écran 2 : Famille ───
   if (step === 'family') {
     const needsBirthdate = (type: FamilyMember['type']) => type === 'baby' || type === 'child' || type === 'teen';
+    const premium = isPremium();
+
+    // Membres humains (pas animaux) — ceux qui deviennent des fantômes
+    const humanMembers = family.filter((m) => m.type !== 'pet');
+    const petMembers = family.filter((m) => m.type === 'pet');
+
+    // Validation : tous les membres humains ont un prénom
+    const hasUnnamedHuman = humanMembers.some((m) => !m.name.trim());
+
+    // Limite freemium : 1 membre humain max (le partenaire)
+    const FREE_LIMIT = 1;
+    const humanCount = humanMembers.length;
+    const atFreeLimit = !premium && humanCount >= FREE_LIMIT;
+
+    // Compte les membres valides pour le bouton
+    const validHumans = humanMembers.filter((m) => m.name.trim()).length;
+    const canContinue = !hasUnnamedHuman; // peut continuer avec 0 membres aussi (foyer solo)
 
     return (
       <div className="pt-4 pb-28">
@@ -534,70 +551,136 @@ export default function OnboardingPage() {
           </p>
         </div>
 
+        {/* Chips type de membre */}
         <div className="mx-4 mb-4">
           <div className="flex gap-2 overflow-x-auto pb-2">
-            {FAMILY_TYPES.map((ft) => (
-              <button
-                key={ft.type}
-                onClick={() => addFamilyMember(ft.type, ft.emoji)}
-                className="flex-shrink-0 flex flex-col items-center gap-1 rounded-2xl px-4 py-3 bg-white"
-                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
-              >
-                <span className="text-[32px]">{ft.emoji}</span>
-                <span className="text-[11px] font-semibold text-[#1c1c1e]">{ft.label}</span>
-              </button>
-            ))}
+            {FAMILY_TYPES.map((ft) => {
+              const isPet = ft.type === 'pet';
+              // Bloquer l'ajout d'humains si limite free atteinte
+              const blocked = !isPet && atFreeLimit;
+              return (
+                <button
+                  key={ft.type}
+                  onClick={() => !blocked && addFamilyMember(ft.type, ft.emoji)}
+                  className="flex-shrink-0 flex flex-col items-center gap-1 rounded-2xl px-4 py-3 bg-white relative"
+                  style={{
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                    opacity: blocked ? 0.45 : 1,
+                  }}
+                >
+                  <span className="text-[32px]">{ft.emoji}</span>
+                  <span className="text-[11px] font-semibold text-[#1c1c1e]">{ft.label}</span>
+                  {blocked && (
+                    <span className="absolute -top-1 -right-1 text-[10px] bg-[#ff9500] text-white rounded-full w-4 h-4 flex items-center justify-center font-bold">🔒</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
+
+          {/* Message upsell si limite free atteinte */}
+          {atFreeLimit && (
+            <div className="mt-2 rounded-xl px-3 py-2.5 flex items-center gap-2"
+              style={{ background: '#fff8e6', border: '1px solid #ffcc00' }}>
+              <span className="text-[16px]">🔒</span>
+              <div>
+                <p className="text-[12px] font-bold" style={{ color: '#b8860b' }}>
+                  Plan Free — 1 membre maximum
+                </p>
+                <p className="text-[11px]" style={{ color: '#b8860b' }}>
+                  Passe au plan Foyer pour ajouter enfants et autres adultes.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
+        {/* Liste des membres */}
         {family.length > 0 && (
           <div className="mx-4 rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            {family.map((m, i) => (
-              <div
-                key={m.id}
-                className="px-4 py-3 flex items-center gap-3"
-                style={i < family.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}
-              >
-                <span className="text-[28px]">{m.emoji}</span>
-                <div className="flex-1 space-y-1">
-                  <input
-                    type="text"
-                    value={m.name}
-                    onChange={(e) => updateFamilyMember(m.id, 'name', e.target.value)}
-                    placeholder="Prénom"
-                    className="w-full text-[15px] font-semibold text-[#1c1c1e] bg-transparent outline-none"
-                  />
-                  {needsBirthdate(m.type) && (
-                    <input
-                      type="date"
-                      value={m.birthdate ?? ''}
-                      onChange={(e) => updateFamilyMember(m.id, 'birthdate', e.target.value)}
-                      className="text-[12px] text-[#8e8e93] bg-transparent outline-none"
-                    />
-                  )}
-                </div>
-                <button
-                  onClick={() => removeFamilyMember(m.id)}
-                  className="text-[13px] text-[#ff3b30] font-medium"
+            {family.map((m, i) => {
+              const isPet = m.type === 'pet';
+              const isEmpty = !m.name.trim();
+              return (
+                <div
+                  key={m.id}
+                  className="px-4 py-3 flex items-center gap-3"
+                  style={i < family.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}
                 >
-                  Retirer
-                </button>
-              </div>
-            ))}
+                  <span className="text-[28px]">{m.emoji}</span>
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={m.name}
+                        onChange={(e) => updateFamilyMember(m.id, 'name', e.target.value)}
+                        placeholder={isPet ? 'Nom (optionnel)' : 'Prénom *'}
+                        className="flex-1 text-[15px] font-semibold text-[#1c1c1e] bg-transparent outline-none"
+                      />
+                      {/* Indicateur erreur prénom manquant */}
+                      {!isPet && isEmpty && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
+                          style={{ background: '#fff2f2', color: '#ff3b30' }}>
+                          requis
+                        </span>
+                      )}
+                    </div>
+                    {needsBirthdate(m.type) && (
+                      <input
+                        type="date"
+                        value={m.birthdate ?? ''}
+                        onChange={(e) => updateFamilyMember(m.id, 'birthdate', e.target.value)}
+                        className="text-[12px] text-[#8e8e93] bg-transparent outline-none"
+                      />
+                    )}
+                    {/* Note animal */}
+                    {isPet && (
+                      <p className="text-[10px]" style={{ color: '#8e8e93' }}>
+                        🐾 Utilisé pour les tâches animaux — pas un compte membre
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => removeFamilyMember(m.id)}
+                    className="text-[13px] text-[#ff3b30] font-medium flex-shrink-0"
+                  >
+                    Retirer
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Note si aucun membre ajouté */}
+        {family.length === 0 && (
+          <div className="mx-4 rounded-xl px-4 py-3 text-center"
+            style={{ background: '#f8f8ff', border: '1px dashed #e0e0f0' }}>
+            <p className="text-[13px]" style={{ color: '#8e8e93' }}>
+              Tu vis seul·e ? Continue sans ajouter de membre.
+            </p>
           </div>
         )}
 
         <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3"
           style={{ background: 'linear-gradient(transparent, #f6f8ff 30%)' }}>
+          {hasUnnamedHuman && (
+            <p className="text-center text-[12px] font-semibold mb-2" style={{ color: '#ff3b30' }}>
+              Renseigne le prénom de chaque membre avant de continuer
+            </p>
+          )}
           <button
             onClick={() => setStep('baseline')}
-            className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white"
+            disabled={hasUnnamedHuman}
+            className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white disabled:opacity-40"
             style={{
               background: 'linear-gradient(135deg, #007aff, #5856d6)',
               boxShadow: '0 8px 24px rgba(0,122,255,0.3)',
             }}
           >
-            Continuer →
+            {validHumans > 0
+              ? `Continuer (${validHumans} membre${validHumans > 1 ? 's' : ''}) →`
+              : 'Continuer sans membres →'}
           </button>
         </div>
       </div>
