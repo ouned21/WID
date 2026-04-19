@@ -183,14 +183,22 @@ export default function OnboardingPage() {
       if (!data) return;
       setCatalogTemplates(data as TaskTemplate[]);
 
-      // Pré-sélection : templates universels (aucun tag) OU correspondant aux équipements
+      // Pré-sélection : max 3 tâches par catégorie parmi celles qui matchent les équipements
+      // → démarre avec ~20-30 tâches essentielles, l'utilisateur peut en ajouter
       const equipIds = [...selectedEquipment];
+      const MAX_PER_CATEGORY = 3;
+      const countByCategory: Record<string, number> = {};
       const preSelected = new Set<string>();
+      // Les templates sont déjà triés par sort_order → on prend les premiers par catégorie
       for (const t of data as TaskTemplate[]) {
         const tags = t.equipment_tags ?? [];
         const isUniversal = tags.length === 0;
         const matchesEquipment = tags.some((tag) => equipIds.includes(tag));
-        if (isUniversal || matchesEquipment) preSelected.add(t.id);
+        if (!isUniversal && !matchesEquipment) continue;
+        const cat = t.scoring_category ?? 'other';
+        if ((countByCategory[cat] ?? 0) >= MAX_PER_CATEGORY) continue;
+        countByCategory[cat] = (countByCategory[cat] ?? 0) + 1;
+        preSelected.add(t.id);
       }
       setSelectedTemplateIds(preSelected);
     } finally {
