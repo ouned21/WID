@@ -332,6 +332,14 @@ export default function DashboardFree() {
         const anyAssigned = memberScores.some((m) => m.pct > 0);
         const isUnbalanced = allMembers.length > 1 && maxPct > 65;
 
+        // ── Tâches non assignées ──────────────────────────────────
+        const unassignedTasks = tasks.filter(
+          (t) => !t.assigned_to && !t.assigned_to_phantom_id,
+        );
+        const unassignedLoad = unassignedTasks.reduce((s, t) => s + taskLoad(t), 0);
+        const unassignedPct = totalLoad > 0 ? Math.round((unassignedLoad / totalLoad) * 100) : 0;
+        const hasUnassigned = unassignedTasks.length > 0;
+
         // ── Insight dynamique ─────────────────────────────────────
         const CATS_LABEL: Record<string, string> = {
           meals: 'cuisine', cleaning: 'ménage', tidying: 'rangement',
@@ -341,7 +349,11 @@ export default function DashboardFree() {
         };
         let insightText = 'Ajoute tes premières tâches — Yova analysera qui fait quoi dans ton foyer.';
         let insightCta: string | null = null;
-        if (memberScores.length >= 2 && totalLoad > 0) {
+        // Priorité : tâches non assignées > déséquilibre > équilibré
+        if (hasUnassigned && totalLoad > 0) {
+          insightText = `${unassignedTasks.length} tâche${unassignedTasks.length > 1 ? 's' : ''} sans responsable (${unassignedPct}% de la charge). Assigne-les pour que chacun sache ce qu'il doit faire.`;
+          insightCta = 'Assigner les tâches →';
+        } else if (memberScores.length >= 2 && totalLoad > 0) {
           const myMember = memberScores.find((m) => !m.member.isPhantom && m.member.id === profile?.id);
           if (myMember) {
             const catKeys = Object.keys(CATS_LABEL);
@@ -392,7 +404,7 @@ export default function DashboardFree() {
               </p>
 
               {memberScores.map((ms) => (
-                <div key={ms.member.id} className="mb-3 last:mb-1">
+                <div key={ms.member.id} className="mb-3">
                   <div className="flex justify-between mb-1.5">
                     <span className="text-[13px] font-semibold" style={{ color: 'rgba(255,255,255,0.88)' }}>
                       {ms.member.display_name}
@@ -406,18 +418,47 @@ export default function DashboardFree() {
                 </div>
               ))}
 
-              {isUnbalanced && (
-                <div className="inline-flex items-center gap-1.5 mt-3 rounded-[9px] px-3 py-1 text-[11px] font-bold"
-                  style={{ background: 'rgba(255,100,100,0.18)', border: '1px solid rgba(255,100,100,0.28)', color: '#ff8c8c' }}>
-                  ⚠️ Déséquilibré
+              {/* Ligne tâches non assignées */}
+              {hasUnassigned && (
+                <div className="mb-1">
+                  <div className="flex justify-between mb-1.5">
+                    <span className="text-[13px] font-semibold" style={{ color: 'rgba(255,165,0,0.9)' }}>
+                      ⚠️ Non assignées
+                    </span>
+                    <span className="text-[13px] font-black" style={{ color: 'rgba(255,165,0,0.9)' }}>
+                      {unassignedPct} %
+                    </span>
+                  </div>
+                  <div className="h-[6px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                    <div className="h-full rounded-full"
+                      style={{ width: `${unassignedPct}%`, background: 'linear-gradient(90deg,#ff9500,#ffcc00)' }} />
+                  </div>
+                  <p className="text-[10px] mt-1.5" style={{ color: 'rgba(255,165,0,0.7)' }}>
+                    {unassignedTasks.length} tâche{unassignedTasks.length > 1 ? 's' : ''} sans responsable — assigne-les pour un meilleur suivi
+                  </p>
                 </div>
               )}
-              {!isUnbalanced && anyAssigned && (
-                <div className="inline-flex items-center gap-1.5 mt-3 rounded-[9px] px-3 py-1 text-[11px] font-bold"
-                  style={{ background: 'rgba(52,199,89,0.18)', border: '1px solid rgba(52,199,89,0.28)', color: '#34c759' }}>
-                  ✅ Équilibré
-                </div>
-              )}
+
+              <div className="flex flex-wrap gap-2 mt-3">
+                {isUnbalanced && (
+                  <div className="inline-flex items-center gap-1.5 rounded-[9px] px-3 py-1 text-[11px] font-bold"
+                    style={{ background: 'rgba(255,100,100,0.18)', border: '1px solid rgba(255,100,100,0.28)', color: '#ff8c8c' }}>
+                    ⚠️ Déséquilibré
+                  </div>
+                )}
+                {!isUnbalanced && anyAssigned && !hasUnassigned && (
+                  <div className="inline-flex items-center gap-1.5 rounded-[9px] px-3 py-1 text-[11px] font-bold"
+                    style={{ background: 'rgba(52,199,89,0.18)', border: '1px solid rgba(52,199,89,0.28)', color: '#34c759' }}>
+                    ✅ Tout assigné
+                  </div>
+                )}
+                {hasUnassigned && (
+                  <div className="inline-flex items-center gap-1.5 rounded-[9px] px-3 py-1 text-[11px] font-bold"
+                    style={{ background: 'rgba(255,149,0,0.18)', border: '1px solid rgba(255,149,0,0.3)', color: '#ff9500' }}>
+                    📋 Assigner →
+                  </div>
+                )}
+              </div>
             </button>
 
             {/* ── Insight Yova ── */}
@@ -428,7 +469,7 @@ export default function DashboardFree() {
                 <p className="text-[12px] font-bold text-[#1c1c1e] mb-1">Yova a remarqué</p>
                 <p className="text-[11px] leading-[1.45]" style={{ color: '#8e8e93' }}>{insightText}</p>
                 {insightCta && (
-                  <button onClick={() => router.push('/score')}
+                  <button onClick={() => router.push(hasUnassigned ? '/planning' : '/score')}
                     className="text-[11px] font-bold mt-1.5 block"
                     style={{ color: '#007aff' }}>
                     {insightCta}
