@@ -671,11 +671,11 @@ export default function ProfilePage() {
         <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
           <div className="px-4 py-3 flex items-center justify-between">
             <div>
-              <p className="text-[15px] text-[#1c1c1e]">🌙 Rappel journal du soir</p>
+              <p className="text-[15px] text-[#1c1c1e]">🔔 Rappels Yova</p>
               <p className="text-[13px] text-[#8e8e93] mt-0.5">
                 {typeof window !== 'undefined' && 'Notification' in window
                   ? Notification.permission === 'granted'
-                    ? 'Activé — notification à 21h'
+                    ? 'Activé — journal 21h · bilan dimanche 9h'
                     : Notification.permission === 'denied'
                     ? 'Bloqué dans les réglages du navigateur'
                     : 'Tap pour activer'
@@ -685,9 +685,9 @@ export default function ProfilePage() {
             {typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'denied' && (
               <button
                 onClick={async () => {
-                  const { requestNotificationPermission, scheduleEveningRecap } = await import('@/utils/pushNotifications');
+                  const { requestNotificationPermission, scheduleEveningRecap, scheduleWeeklyRecap } = await import('@/utils/pushNotifications');
                   const granted = await requestNotificationPermission();
-                  if (granted) scheduleEveningRecap();
+                  if (granted) { scheduleEveningRecap(); scheduleWeeklyRecap(); }
                 }}
                 className="rounded-full px-4 py-1.5 text-[13px] font-semibold text-white"
                 style={{ background: Notification.permission === 'granted' ? '#34c759' : '#007aff' }}

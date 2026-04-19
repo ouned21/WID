@@ -61,6 +61,68 @@ export default function JournalPage() {
   const [history, setHistory] = useState<PastJournal[]>([]);
   const [showHistory, setShowHistory] = useState(true);
 
+  type WeeklyRecap = {
+    memberScores: Array<{ name: string; pct: number; completions: number }>;
+    totalCompletions: number;
+    message: string;
+  };
+  const [weeklyRecap, setWeeklyRecap] = useState<WeeklyRecap | null>(null);
+
+  // ── Récap dimanche ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const today = new Date();
+    if (today.getDay() !== 0) return; // Dimanche seulement
+    if (!profile?.household_id) return;
+
+    // Clé unique par semaine (lundi de la semaine courante)
+    const mon = new Date(today);
+    mon.setDate(today.getDate() - 6);
+    const weekKey = `yova_weekly_recap_${mon.toISOString().split('T')[0]}`;
+    if (localStorage.getItem(weekKey)) return;
+
+    (async () => {
+      const supabase = createClient();
+      const from = new Date(today); from.setDate(from.getDate() - 7);
+
+      const [{ data: completions }, { data: taskData }, { data: members }] = await Promise.all([
+        supabase.from('task_completions').select('completed_by, household_task_id').gte('completed_at', from.toISOString()),
+        supabase.from('household_tasks').select('id, mental_load_score').eq('household_id', profile.household_id),
+        supabase.from('profiles').select('id, display_name').eq('household_id', profile.household_id),
+      ]);
+
+      if (!completions || !members) return;
+
+      const loadMap: Record<string, number> = {};
+      for (const t of taskData ?? []) loadMap[t.id] = t.mental_load_score ?? 2;
+
+      const totalLoad = completions.reduce((s, c) => s + (loadMap[c.household_task_id] ?? 2), 0);
+      const memberScores = (members ?? []).map(m => {
+        const mc = completions.filter(c => c.completed_by === m.id);
+        const ml = mc.reduce((s, c) => s + (loadMap[c.household_task_id] ?? 2), 0);
+        return { name: m.display_name ?? '?', pct: totalLoad > 0 ? Math.round((ml / totalLoad) * 100) : 0, completions: mc.length };
+      }).sort((a, b) => b.pct - a.pct);
+
+      const total = completions.length;
+      let message = '';
+      if (total === 0) {
+        message = 'Semaine calme — aucune tâche enregistrée. Raconte ce que tu as géré !';
+      } else if (memberScores.length >= 2) {
+        const [a, b] = memberScores;
+        const gap = a.pct - b.pct;
+        message = gap > 20
+          ? `${a.name} a porté la semaine à ${a.pct}% — l'écart avec ${b.name} (${b.pct}%) mérite attention.`
+          : `Belle semaine — ${total} tâche${total > 1 ? 's' : ''} accomplies. ${a.name} ${a.pct}%, ${b.name} ${b.pct}%. Répartition correcte.`;
+      } else {
+        const m = memberScores[0];
+        message = `${m?.name ?? 'Tu'} a géré ${total} tâche${total > 1 ? 's' : ''} cette semaine. Continue !`;
+      }
+
+      setWeeklyRecap({ memberScores, totalCompletions: total, message });
+      localStorage.setItem(weekKey, '1');
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.household_id]);
+
   // ── Consentement RGPD ──
   // null = pas encore chargé, false = refusé/pas de consentement, true = consentement donné
   const [consentGiven, setConsentGiven] = useState<boolean | null>(null);
@@ -232,6 +294,36 @@ export default function JournalPage() {
           {showHistory ? 'Masquer' : 'Historique'}
         </button>
       </div>
+
+      {/* ── Récap dimanche ── */}
+      {weeklyRecap && (
+        <div className="mx-4 rounded-3xl p-5"
+          style={{ background: 'linear-gradient(148deg,#16163a 0%,#2b1e72 55%,#163260 100%)', boxShadow: '0 8px 24px rgba(28,28,62,0.3)' }}>
+          <div className="flex items-start gap-3 mb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full text-[20px] flex-shrink-0"
+              style={{ background: 'rgba(255,255,255,0.15)' }}>📊</div>
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.2em] font-bold mb-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                Bilan de la semaine
+              </p>
+              <p className="text-[14px] text-white leading-snug">{weeklyRecap.message}</p>
+            </div>
+          </div>
+          {weeklyRecap.memberScores.map((ms, i) => (
+            <div key={i} className="flex items-center gap-3 mb-2">
+              <span className="text-[12px] font-semibold w-20 flex-shrink-0 truncate" style={{ color: 'rgba(255,255,255,0.7)' }}>{ms.name}</span>
+              <div className="flex-1 h-[5px] rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                <div className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${ms.pct}%`, background: i === 0 ? 'linear-gradient(90deg,#ff6b6b,#ff3030)' : 'linear-gradient(90deg,#4ecdc4,#26b5ab)' }} />
+              </div>
+              <span className="text-[12px] font-black text-white w-9 text-right flex-shrink-0">{ms.pct}%</span>
+            </div>
+          ))}
+          <p className="text-[11px] mt-3" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            {weeklyRecap.totalCompletions} tâche{weeklyRecap.totalCompletions > 1 ? 's' : ''} complétée{weeklyRecap.totalCompletions > 1 ? 's' : ''} cette semaine
+          </p>
+        </div>
+      )}
 
       {/* Bloc principal : saisie */}
       <div className="mx-4">

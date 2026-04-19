@@ -14,7 +14,6 @@ export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { profile } = useAuthStore();
-  const isPremium = useAuthStore((s) => s.isPremium());
   const { tasks, completeTask, updateTask, deleteTask, fetchTaskDetail, completing } = useTaskStore();
   const { members, allMembers } = useHouseholdStore();
   const task = tasks.find((t) => t.id === id);
@@ -94,30 +93,17 @@ export default function TaskDetailPage() {
           <span className="rounded-full px-2.5 py-0.5 text-[12px] font-semibold text-white" style={{ background: catColor }}>
             {task.category?.name}
           </span>
-          {isPremium ? (
-            <div className="flex flex-col items-end gap-0.5">
-              <span className="text-[10px] text-[#8e8e93] uppercase tracking-wide">Charge mentale</span>
-              <select
-                defaultValue={task.mental_load_score}
-                onChange={(e) => autoSave('mental_load_score', Number(e.target.value))}
-                className="text-[17px] font-bold bg-transparent outline-none"
-                style={{ color: task.mental_load_score >= 4 ? '#ff3b30' : task.mental_load_score >= 3 ? '#ff9500' : '#34c759' }}
-              >
-                {[0,1,2,3,4,5].map((v) => <option key={v} value={v}>{v * 2}/10</option>)}
-              </select>
-            </div>
-          ) : (
-            <button
-              onClick={() => router.push('/upgrade?feature=score')}
-              className="flex flex-col items-end gap-0.5 rounded-xl px-3 py-1.5"
-              style={{ background: '#f0f2f8' }}
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="text-[10px] text-[#8e8e93] uppercase tracking-wide">Charge mentale</span>
+            <select
+              defaultValue={task.mental_load_score}
+              onChange={(e) => autoSave('mental_load_score', Number(e.target.value))}
+              className="text-[17px] font-bold bg-transparent outline-none"
+              style={{ color: task.mental_load_score >= 4 ? '#ff3b30' : task.mental_load_score >= 3 ? '#ff9500' : '#34c759' }}
             >
-              <span className="text-[10px] text-[#8e8e93] uppercase tracking-wide">Charge mentale 🔒</span>
-              <span className="text-[17px] font-bold" style={{ color: task.mental_load_score >= 4 ? '#ff3b30' : task.mental_load_score >= 3 ? '#ff9500' : '#34c759' }}>
-                {task.mental_load_score * 2}/10
-              </span>
-            </button>
-          )}
+              {[0,1,2,3,4,5].map((v) => <option key={v} value={v}>{v * 2}/10</option>)}
+            </select>
+          </div>
         </div>
 
         {/* Fréquence — select direct */}

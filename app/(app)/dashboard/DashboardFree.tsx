@@ -743,8 +743,6 @@ export default function DashboardFree() {
                         pct: cat.total > 0 ? Math.round(((cat.memberLoads[m.id] ?? 0) / cat.total) * 100) : 0,
                         color: MEMBER_COLORS[mi] ?? MEMBER_COLORS[0],
                       })).filter(b => b.pct > 0);
-                      const maxPct = Math.max(...bars.map(b => b.pct), 0);
-                      const status = bars.length === 0 ? '⬜' : bars.length === 1 ? '⚠️' : maxPct > 80 ? '🔴' : maxPct > 60 ? '⚠️' : '✅';
                       return (
                         <div key={cat.name} className="flex items-center gap-3 px-4 py-3"
                           style={{ borderBottom: i < cats.length - 1 ? '0.5px solid #f0f0f5' : undefined }}>
@@ -763,7 +761,6 @@ export default function DashboardFree() {
                               ))}
                             </div>
                           </div>
-                          <span className="text-[16px] flex-shrink-0">{status}</span>
                         </div>
                       );
                     })}

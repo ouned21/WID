@@ -99,6 +99,34 @@ export function checkDraftReminder(): void {
 }
 
 /**
+ * Programme la notification du bilan hebdo le dimanche à 9h.
+ * Pointe vers le journal — le récap s'affiche là-bas automatiquement.
+ */
+export function scheduleWeeklyRecap(): void {
+  if (!canNotify()) return;
+
+  const now = new Date();
+  const target = new Date();
+
+  // Prochain dimanche à 9h
+  const daysUntilSunday = ((7 - now.getDay()) % 7) || 7;
+  target.setDate(now.getDate() + daysUntilSunday);
+  target.setHours(9, 0, 0, 0);
+
+  const delay = target.getTime() - now.getTime();
+
+  setTimeout(() => {
+    sendNotification(
+      '📊 Bilan de la semaine',
+      'Yova a analysé votre semaine — ouvrez le journal pour voir votre bilan.',
+      '/journal',
+    );
+    // Reprogrammer pour la semaine suivante
+    scheduleWeeklyRecap();
+  }, delay);
+}
+
+/**
  * Programme les rappels de brouillon aux moments stratégiques.
  */
 export function scheduleDraftReminders(): void {
