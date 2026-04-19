@@ -115,7 +115,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { profile, refreshProfile } = useAuthStore();
   const { fetchTasks } = useTaskStore();
-  const { fetchHousehold } = useHouseholdStore();
+  const { fetchHousehold, allMembers } = useHouseholdStore();
 
   const [step, setStep] = useState<Step>('equipment');
 
@@ -148,6 +148,21 @@ export default function OnboardingPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [householdCreating, setHouseholdCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Assignments inline (écran résultats) ──
+  // { taskId → { userId } | { phantomId } | null }
+  type Assignment = { userId: string; phantomId?: never } | { phantomId: string; userId?: never } | null;
+  const [assignments, setAssignments] = useState<Record<string, Assignment>>({});
+
+  const assignTask = useCallback(async (taskId: string, assign: Assignment) => {
+    // Mise à jour optimiste immédiate
+    setAssignments((prev) => ({ ...prev, [taskId]: assign }));
+    const supabase = createClient();
+    await supabase.from('household_tasks').update({
+      assigned_to: assign && 'userId' in assign ? assign.userId : null,
+      assigned_to_phantom_id: assign && 'phantomId' in assign ? assign.phantomId : null,
+    }).eq('id', taskId);
+  }, []);
 
   const householdId = profile?.household_id;
   const userId = profile?.id;
@@ -811,6 +826,23 @@ export default function OnboardingPage() {
       return da - db;
     });
 
+    // Construire les cibles d'assignation : moi + membres fantômes
+    const assignTargets: { id: string; name: string; isPhantom: boolean }[] = [];
+    if (profile?.id) {
+      assignTargets.push({
+        id: profile.id,
+        name: profile.display_name?.split(' ')[0] ?? 'Moi',
+        isPhantom: false,
+      });
+    }
+    for (const m of allMembers) {
+      if (m.isPhantom) {
+        assignTargets.push({ id: m.id, name: m.display_name, isPhantom: true });
+      }
+    }
+
+    const assignedCount = Object.values(assignments).filter(Boolean).length;
+
     return (
       <div className="pt-4 pb-32">
         <div className="px-4 mb-6 text-center">
@@ -819,28 +851,76 @@ export default function OnboardingPage() {
             Yova a créé<br />{generatedTasks.length} tâche{generatedTasks.length !== 1 ? 's' : ''} pour ton foyer
           </h2>
           <p className="text-[13px] text-[#8e8e93] mt-2">
-            Appuie sur la poubelle pour retirer une tâche.
+            {assignTargets.length > 1
+              ? 'Tape un prénom pour assigner — ou continue sans.'
+              : 'Appuie sur la poubelle pour retirer une tâche.'}
           </p>
         </div>
 
         <div className="px-4">
           <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            {sortedTasks.map((t, i) => (
-              <div
-                key={t.id}
-                className="flex items-center gap-3 px-4 py-3"
-                style={i < sortedTasks.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}
-              >
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: t.category_color ?? '#8e8e93' }} />
-                <p className="flex-1 text-[14px] text-[#1c1c1e]">{t.name}</p>
-                {t.next_due_at && (
-                  <p className="text-[11px] text-[#8e8e93] flex-shrink-0">
-                    {new Date(t.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                  </p>
-                )}
-                <DeleteButton onDelete={() => deleteTask(t.id)} />
-              </div>
-            ))}
+            {sortedTasks.map((t, i) => {
+              const current = assignments[t.id] ?? null;
+              return (
+                <div
+                  key={t.id}
+                  className="px-4 py-3"
+                  style={i < sortedTasks.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}
+                >
+                  {/* Ligne 1 : nom + date + poubelle */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0 mt-0.5" style={{ background: t.category_color ?? '#8e8e93' }} />
+                    <p className="flex-1 text-[14px] font-medium text-[#1c1c1e] truncate">{t.name}</p>
+                    {t.next_due_at && (
+                      <p className="text-[11px] text-[#c7c7cc] flex-shrink-0">
+                        {new Date(t.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                      </p>
+                    )}
+                    <DeleteButton onDelete={() => deleteTask(t.id)} />
+                  </div>
+
+                  {/* Ligne 2 : chips d'assignation (si membres disponibles) */}
+                  {assignTargets.length > 0 && (
+                    <div className="flex gap-1.5 mt-2 ml-5 flex-wrap">
+                      {assignTargets.map((target) => {
+                        const isSelected = current
+                          ? target.isPhantom
+                            ? 'phantomId' in current && current.phantomId === target.id
+                            : 'userId' in current && current.userId === target.id
+                          : false;
+                        return (
+                          <button
+                            key={target.id}
+                            onClick={() => assignTask(t.id, isSelected ? null : target.isPhantom
+                              ? { phantomId: target.id }
+                              : { userId: target.id }
+                            )}
+                            className="rounded-full px-2.5 py-1 text-[11px] font-bold transition-all active:scale-95"
+                            style={{
+                              background: isSelected ? '#007aff' : '#f0f2f8',
+                              color: isSelected ? 'white' : '#8e8e93',
+                              boxShadow: isSelected ? '0 2px 8px rgba(0,122,255,0.25)' : 'none',
+                            }}
+                          >
+                            {target.name.length > 9 ? target.name.slice(0, 8) + '…' : target.name}
+                          </button>
+                        );
+                      })}
+                      {/* Chip "Non assigné" affiché seulement si une assignation existe */}
+                      {current && (
+                        <button
+                          onClick={() => assignTask(t.id, null)}
+                          className="rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all"
+                          style={{ background: 'transparent', color: '#c7c7cc', border: '1px solid #e5e5ea' }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {generatedTasks.length === 0 && (
@@ -852,6 +932,16 @@ export default function OnboardingPage() {
 
         <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3"
           style={{ background: 'linear-gradient(transparent, #f6f8ff 30%)' }}>
+          {assignedCount > 0 && assignedCount < generatedTasks.length && (
+            <p className="text-center text-[12px] text-[#8e8e93] mb-2">
+              {assignedCount} / {generatedTasks.length} tâches assignées
+            </p>
+          )}
+          {assignedCount === generatedTasks.length && generatedTasks.length > 0 && (
+            <p className="text-center text-[12px] font-semibold mb-2" style={{ color: '#34c759' }}>
+              ✅ Toutes les tâches sont assignées !
+            </p>
+          )}
           <button
             onClick={handleFinish}
             className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white"
@@ -860,7 +950,7 @@ export default function OnboardingPage() {
               boxShadow: '0 8px 24px rgba(0,122,255,0.3)',
             }}
           >
-            Voir mon planning →
+            {assignedCount === 0 ? 'Voir mon planning →' : 'Voir mon planning →'}
           </button>
         </div>
       </div>
