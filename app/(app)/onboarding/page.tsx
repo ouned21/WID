@@ -962,15 +962,27 @@ export default function OnboardingPage() {
                     <DeleteButton onDelete={() => deleteTask(t.id)} />
                   </div>
 
-                  {/* Ligne 2 : chips d'assignation (si membres disponibles) */}
+                  {/* Ligne 2 : assignation */}
                   {assignTargets.length > 0 && (
-                    <div className="flex gap-1.5 mt-2 ml-5 flex-wrap">
+                    <div className="flex items-center gap-1.5 mt-2 ml-5 flex-wrap">
+                      {/* Label contextuel */}
+                      {!current ? (
+                        <span className="text-[11px] font-semibold mr-0.5" style={{ color: '#c7c7cc' }}>
+                          Assigner à →
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-semibold mr-0.5" style={{ color: '#34c759' }}>
+                          ✓
+                        </span>
+                      )}
+
                       {assignTargets.map((target) => {
                         const isSelected = current
                           ? target.isPhantom
                             ? 'phantomId' in current && current.phantomId === target.id
                             : 'userId' in current && current.userId === target.id
                           : false;
+                        const shortName = target.name.length > 9 ? target.name.slice(0, 8) + '…' : target.name;
                         return (
                           <button
                             key={target.id}
@@ -978,23 +990,28 @@ export default function OnboardingPage() {
                               ? { phantomId: target.id }
                               : { userId: target.id }
                             )}
-                            className="rounded-full px-2.5 py-1 text-[11px] font-bold transition-all active:scale-95"
-                            style={{
-                              background: isSelected ? '#007aff' : '#f0f2f8',
-                              color: isSelected ? 'white' : '#8e8e93',
-                              boxShadow: isSelected ? '0 2px 8px rgba(0,122,255,0.25)' : 'none',
+                            className="rounded-full px-3 py-1 text-[12px] font-bold transition-all active:scale-95"
+                            style={isSelected ? {
+                              background: '#007aff',
+                              color: 'white',
+                              boxShadow: '0 2px 8px rgba(0,122,255,0.3)',
+                            } : {
+                              background: 'white',
+                              color: '#007aff',
+                              border: '1.5px solid #007aff',
                             }}
                           >
-                            {target.name.length > 9 ? target.name.slice(0, 8) + '…' : target.name}
+                            {isSelected ? `✓ ${shortName}` : shortName}
                           </button>
                         );
                       })}
-                      {/* Chip "Non assigné" affiché seulement si une assignation existe */}
+
+                      {/* Bouton désassigner */}
                       {current && (
                         <button
                           onClick={() => assignTask(t.id, null)}
-                          className="rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all"
-                          style={{ background: 'transparent', color: '#c7c7cc', border: '1px solid #e5e5ea' }}
+                          className="rounded-full px-2 py-1 text-[11px] transition-all"
+                          style={{ color: '#c7c7cc', border: '1px solid #e5e5ea', background: 'white' }}
                         >
                           ✕
                         </button>
