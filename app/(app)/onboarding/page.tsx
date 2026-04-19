@@ -938,6 +938,14 @@ export default function OnboardingPage() {
               ? 'Tape un prénom pour assigner — ou continue sans.'
               : 'Appuie sur la poubelle pour retirer une tâche.'}
           </p>
+          {assignTargets.length > 1 && (
+            <div className="mt-3 mx-auto max-w-[280px] rounded-xl px-3 py-2.5"
+              style={{ background: '#f0f6ff', border: '1px solid #d0e4ff' }}>
+              <p className="text-[12px] leading-relaxed" style={{ color: '#3a6fcc' }}>
+                💡 <span className="font-semibold">Assigner ≠ faire seul·e.</span> Qui y penserait en premier si l&apos;autre n&apos;était pas là ?
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="px-4">

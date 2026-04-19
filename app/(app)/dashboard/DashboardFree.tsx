@@ -167,6 +167,40 @@ export default function DashboardFree() {
       {/* ═══════════════════════════════════════════════════════════ */}
       {homeView === 'planning' && (
         <>
+          {/* ── Aujourd'hui pour toi ── */}
+          <div className="mx-4">
+            <div className="rounded-3xl bg-white overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+              <div className="px-5 pt-4 pb-3" style={{ borderBottom: '0.5px solid #f0f2f8' }}>
+                <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em]">
+                  📌 Aujourd&apos;hui pour toi
+                </p>
+              </div>
+
+              {d.myToday.length === 0 ? (
+                <div className="px-5 py-6 flex items-center gap-3">
+                  <span className="text-[24px]">☀️</span>
+                  <div>
+                    <p className="text-[14px] font-semibold text-[#1c1c1e]">Rien de prévu</p>
+                    <p className="text-[12px] text-[#8e8e93] mt-0.5">Profite de ta journée.</p>
+                  </div>
+                </div>
+              ) : (
+                d.myToday.map((task, i) => (
+                  <Link
+                    key={task.id}
+                    href={`/tasks/${task.id}`}
+                    className="flex items-center gap-3 px-5 py-3.5 active:bg-[#f5f7ff] transition-colors"
+                    style={{ borderBottom: i < d.myToday.length - 1 ? '0.5px solid #f0f2f8' : undefined }}
+                  >
+                    <span className="text-[8px]" style={{ color: '#007aff' }}>›</span>
+                    <span className="text-[14px] font-medium text-[#1c1c1e] flex-1 truncate">{task.name}</span>
+                    <span className="text-[18px] text-[#c7c7cc]">›</span>
+                  </Link>
+                ))
+              )}
+            </div>
+          </div>
+
           {/* ── Carte semaine complète ── */}
           <div className="mx-4">
             <div className="rounded-3xl bg-white overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
@@ -272,40 +306,6 @@ export default function DashboardFree() {
               })()}
             </div>
           </div>
-
-          {/* ── Aujourd'hui pour toi ── */}
-          <div className="mx-4">
-            <div className="rounded-3xl bg-white overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-              <div className="px-5 pt-4 pb-3" style={{ borderBottom: '0.5px solid #f0f2f8' }}>
-                <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em]">
-                  📌 Aujourd&apos;hui pour toi
-                </p>
-              </div>
-
-              {d.myToday.length === 0 ? (
-                <div className="px-5 py-6 flex items-center gap-3">
-                  <span className="text-[24px]">☀️</span>
-                  <div>
-                    <p className="text-[14px] font-semibold text-[#1c1c1e]">Rien de prévu</p>
-                    <p className="text-[12px] text-[#8e8e93] mt-0.5">Profite de ta journée.</p>
-                  </div>
-                </div>
-              ) : (
-                d.myToday.map((task, i) => (
-                  <Link
-                    key={task.id}
-                    href={`/tasks/${task.id}`}
-                    className="flex items-center gap-3 px-5 py-3.5 active:bg-[#f5f7ff] transition-colors"
-                    style={{ borderBottom: i < d.myToday.length - 1 ? '0.5px solid #f0f2f8' : undefined }}
-                  >
-                    <span className="text-[8px]" style={{ color: '#007aff' }}>›</span>
-                    <span className="text-[14px] font-medium text-[#1c1c1e] flex-1 truncate">{task.name}</span>
-                    <span className="text-[18px] text-[#c7c7cc]">›</span>
-                  </Link>
-                ))
-              )}
-            </div>
-          </div>
         </>
       )}
 
@@ -335,7 +335,8 @@ export default function DashboardFree() {
             'linear-gradient(90deg,#a8edea,#4ecdc4)',
             'linear-gradient(90deg,#e0c3fc,#c084fc)',
           ];
-          return { member, pct, mins, timePct, fill: FILLS[idx] ?? FILLS[0], timeFill: TIME_FILLS[idx] ?? TIME_FILLS[0] };
+          const scoreFinal = Math.round((pct + timePct) / 2);
+          return { member, pct, timePct, scoreFinal, mins, fill: FILLS[idx] ?? FILLS[0], timeFill: TIME_FILLS[idx] ?? TIME_FILLS[0] };
         });
         const maxPct = Math.max(...memberScores.map((m) => m.pct));
         const anyAssigned = memberScores.some((m) => m.pct > 0);
@@ -346,7 +347,9 @@ export default function DashboardFree() {
           (t) => !t.assigned_to && !t.assigned_to_phantom_id,
         );
         const unassignedLoad = unassignedTasks.reduce((s, t) => s + taskLoad(t), 0);
+        const unassignedMins = unassignedTasks.reduce((s, t) => s + weeklyMinutes(t), 0);
         const unassignedPct = totalLoad > 0 ? Math.round((unassignedLoad / totalLoad) * 100) : 0;
+        const unassignedTimePct = totalMinutes > 0 ? Math.round((unassignedMins / totalMinutes) * 100) : 0;
         const hasUnassigned = unassignedTasks.length > 0;
 
         // ── Insight dynamique ─────────────────────────────────────
@@ -362,7 +365,6 @@ export default function DashboardFree() {
         // Priorité : non assignées > divergence mental/temps > déséquilibre > catégorie > équilibré
         if (hasUnassigned && totalLoad > 0) {
           // L'insight ajoute la dimension temps — pas visible dans la carte
-          const unassignedMins = unassignedTasks.reduce((s, t) => s + weeklyMinutes(t), 0);
           const timeStr = unassignedMins > 0 ? ` soit ~${formatWeeklyTime(unassignedMins)}/sem` : '';
           insightText = `${unassignedTasks.length} tâche${unassignedTasks.length > 1 ? 's' : ''} sans responsable${timeStr} qui flottent dans le vide. Assigne-les — même temporairement — pour que chacun sache ce qu'il doit faire.`;
           insightCta = 'Assigner les tâches →';
@@ -373,7 +375,7 @@ export default function DashboardFree() {
           // Si la différence entre timePct et pct dépasse 20 points, c'est un signal fort.
           const divergentMember = memberScores
             .filter((m) => m.pct > 0 || m.timePct > 0)
-            .find((m) => Math.abs(m.timePct - m.pct) >= 20);
+            .find((m) => Math.abs(m.timePct - m.pct) >= 15);
 
           if (divergentMember) {
             const isMe = divergentMember.member.id === profile?.id;
@@ -458,7 +460,7 @@ export default function DashboardFree() {
                           <span className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.45)' }}>
                             {formatWeeklyTime(ms.mins)}/sem
                           </span>
-                          <span className="text-[13px] font-black text-white">{ms.pct}%</span>
+                          <span className="text-[13px] font-black text-white">{ms.scoreFinal}%</span>
                         </div>
                       ) : (
                         <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.25)' }}>
@@ -511,17 +513,48 @@ export default function DashboardFree() {
               {/* Ligne tâches non assignées */}
               {hasUnassigned && (
                 <div className="mb-1">
-                  <div className="flex justify-between mb-1.5">
+                  <div className="flex justify-between items-baseline mb-2">
                     <span className="text-[13px] font-semibold" style={{ color: 'rgba(255,165,0,0.9)' }}>
                       ⚠️ Non assignées
                     </span>
-                    <span className="text-[13px] font-black" style={{ color: 'rgba(255,165,0,0.9)' }}>
-                      {unassignedPct} %
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                        {formatWeeklyTime(unassignedMins)}/sem
+                      </span>
+                      <span className="text-[13px] font-black" style={{ color: 'rgba(255,165,0,0.9)' }}>
+                        {Math.round((unassignedPct + unassignedTimePct) / 2)}%
+                      </span>
+                    </div>
+                  </div>
+                  {/* Barre charge mentale */}
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[9px] font-bold uppercase tracking-[0.08em] w-[58px] flex-shrink-0"
+                      style={{ color: 'rgba(255,255,255,0.35)' }}>
+                      Mental
+                    </span>
+                    <div className="flex-1 h-[5px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                      <div className="h-full rounded-full"
+                        style={{ width: `${unassignedPct}%`, background: 'linear-gradient(90deg,#ff9500,#ffcc00)' }} />
+                    </div>
+                    <span className="text-[10px] font-bold w-[28px] text-right flex-shrink-0"
+                      style={{ color: 'rgba(255,165,0,0.9)' }}>
+                      {unassignedPct}%
                     </span>
                   </div>
-                  <div className="h-[6px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                    <div className="h-full rounded-full"
-                      style={{ width: `${unassignedPct}%`, background: 'linear-gradient(90deg,#ff9500,#ffcc00)' }} />
+                  {/* Barre temps */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-bold uppercase tracking-[0.08em] w-[58px] flex-shrink-0"
+                      style={{ color: 'rgba(255,255,255,0.35)' }}>
+                      Temps
+                    </span>
+                    <div className="flex-1 h-[5px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                      <div className="h-full rounded-full"
+                        style={{ width: `${unassignedTimePct}%`, background: 'linear-gradient(90deg,#ffcc00,#ffe566)' }} />
+                    </div>
+                    <span className="text-[10px] font-bold w-[28px] text-right flex-shrink-0"
+                      style={{ color: 'rgba(255,165,0,0.7)' }}>
+                      {unassignedTimePct}%
+                    </span>
                   </div>
                   <p className="text-[10px] mt-1.5" style={{ color: 'rgba(255,165,0,0.7)' }}>
                     {unassignedTasks.length} tâche{unassignedTasks.length > 1 ? 's' : ''} sans responsable — assigne-les pour un meilleur suivi
