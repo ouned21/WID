@@ -7,7 +7,8 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 
-export const FREE_AI_MONTHLY_LIMIT = 5;
+// TODO: réactiver à 5 pour le lancement commercial
+export const FREE_AI_MONTHLY_LIMIT = 9999;
 
 export type RateLimitResult = {
   allowed: boolean;
@@ -113,25 +114,13 @@ export async function checkAndIncrementAiUsage(
  * Ne consomme pas le rate limit.
  */
 export async function requirePremium(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   supabase: SupabaseClient,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userId: string,
 ): Promise<{ isPremium: boolean; reason?: string }> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_premium, premium_until')
-    .eq('id', userId)
-    .single();
-
-  if (!profile) return { isPremium: false, reason: 'not_found' };
-
-  const isPremiumValid =
-    profile.is_premium === true &&
-    (!profile.premium_until || new Date(profile.premium_until) > new Date());
-
-  return {
-    isPremium: isPremiumValid,
-    reason: isPremiumValid ? undefined : 'not_premium',
-  };
+  // TODO: réactiver la vérification premium au lancement commercial
+  return { isPremium: true };
 }
 
 /**

@@ -521,8 +521,6 @@ export default function OnboardingPage() {
   // ─── Écran 2 : Famille ───
   if (step === 'family') {
     const needsBirthdate = (type: FamilyMember['type']) => type === 'baby' || type === 'child' || type === 'teen';
-    const premium = isPremium();
-
     // Membres humains (pas animaux) — ceux qui deviennent des fantômes
     const humanMembers = family.filter((m) => m.type !== 'pet');
     const petMembers = family.filter((m) => m.type === 'pet');
@@ -530,10 +528,8 @@ export default function OnboardingPage() {
     // Validation : tous les membres humains ont un prénom
     const hasUnnamedHuman = humanMembers.some((m) => !m.name.trim());
 
-    // Limite freemium : 1 membre humain max (le partenaire)
-    const FREE_LIMIT = 1;
-    const humanCount = humanMembers.length;
-    const atFreeLimit = !premium && humanCount >= FREE_LIMIT;
+    // TODO: réactiver la limite freemium (1 membre) au lancement commercial
+    const atFreeLimit = false;
 
     // Compte les membres valides pour le bouton
     const validHumans = humanMembers.filter((m) => m.name.trim()).length;
