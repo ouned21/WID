@@ -132,6 +132,8 @@ export default function OnboardingPage() {
   // ── Catalogue ──
   const [catalogTemplates, setCatalogTemplates] = useState<TaskTemplate[]>([]);
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(new Set());
+  // Templates "vus" = pré-sélectionnés au départ. Ils restent visibles même si décochés.
+  const [shownTemplateIds, setShownTemplateIds] = useState<Set<string>>(new Set());
   const [customTaskInput, setCustomTaskInput] = useState('');
   const [customTaskNames, setCustomTaskNames] = useState<string[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -201,6 +203,8 @@ export default function OnboardingPage() {
         preSelected.add(t.id);
       }
       setSelectedTemplateIds(preSelected);
+      // Mémoriser les templates pré-sélectionnés — ils restent visibles même si décochés
+      setShownTemplateIds(new Set(preSelected));
     } finally {
       setCatalogLoading(false);
     }
@@ -632,10 +636,11 @@ export default function OnboardingPage() {
         ) : (
           <>
             {Object.entries(catalogGroups).map(([cat, templates]) => {
-              // En mode compact, ne montrer que les tâches pré-sélectionnées
+              // En mode compact : montrer les tâches pré-sélectionnées + celles décochées
+              // (elles restent visibles pour pouvoir les re-cocher)
               const visible = showAllTemplates
                 ? templates
-                : templates.filter((t) => selectedTemplateIds.has(t.id));
+                : templates.filter((t) => shownTemplateIds.has(t.id));
 
               // Ignorer les catégories sans tâches pertinentes
               if (visible.length === 0) return null;
