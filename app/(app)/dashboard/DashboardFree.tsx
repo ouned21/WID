@@ -33,6 +33,7 @@ export default function DashboardFree() {
   const [homeView, setHomeView] = useState<HomeView>('score');
 
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const [trendWeeks, setTrendWeeks] = useState<Array<{ label: string; pct: Record<string, number>; hasData: boolean }>>([]);
 
   useEffect(() => {
     const saved = localStorage.getItem(HOME_VIEW_KEY) as HomeView | null;
@@ -62,6 +63,43 @@ export default function DashboardFree() {
     fetchNextSuggestion();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Trend 4 semaines ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!profile?.household_id || allMembers.length === 0) return;
+    (async () => {
+      const { createClient } = await import('@/lib/supabase');
+      const supabase = createClient();
+      const now = new Date();
+      const from = new Date(now);
+      from.setDate(from.getDate() - 28);
+
+      const [{ data: completions }, { data: taskData }] = await Promise.all([
+        supabase.from('task_completions').select('completed_at, completed_by, household_task_id').gte('completed_at', from.toISOString()),
+        supabase.from('household_tasks').select('id, mental_load_score').eq('household_id', profile.household_id),
+      ]);
+
+      const loadMap: Record<string, number> = {};
+      for (const t of taskData ?? []) loadMap[t.id] = t.mental_load_score ?? 2;
+
+      const LABELS = ['3 sem.', '2 sem.', '1 sem.', 'Cette sem.'];
+      const weeks = Array.from({ length: 4 }, (_, i) => {
+        const wEnd = new Date(now); wEnd.setDate(wEnd.getDate() - i * 7);
+        const wStart = new Date(wEnd); wStart.setDate(wStart.getDate() - 7);
+        const wData = (completions ?? []).filter(c => { const d = new Date(c.completed_at); return d >= wStart && d <= wEnd; });
+        const total = wData.reduce((s, c) => s + (loadMap[c.household_task_id] ?? 2), 0);
+        const pct: Record<string, number> = {};
+        for (const m of allMembers) {
+          const mLoad = m.isPhantom ? 0 : wData.filter(c => c.completed_by === m.id).reduce((s, c) => s + (loadMap[c.household_task_id] ?? 2), 0);
+          pct[m.id] = total > 0 ? Math.round((mLoad / total) * 100) : 0;
+        }
+        return { label: LABELS[3 - i], pct, hasData: total > 0 };
+      }).reverse();
+
+      setTrendWeeks(weeks);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.household_id, allMembers.length]);
 
   // ── Calculs temporels ────────────────────────────────────────────────────────
   const d = useMemo(() => {
@@ -429,9 +467,6 @@ export default function DashboardFree() {
           }
         }
 
-        // ── Tâches du jour (tous les membres) ────────────────────
-        const todayAllTasks = d.today.slice(0, 5);
-
         // ── Bannière assignation < 80% ────────────────────────────
         const assignedCount = tasks.filter((t) => t.assigned_to || t.assigned_to_phantom_id).length;
         const assignRate = tasks.length > 0 ? assignedCount / tasks.length : 1;
@@ -675,58 +710,113 @@ export default function DashboardFree() {
               </div>
             </button>
 
-            {/* ── Aujourd'hui ── */}
-            {todayAllTasks.length > 0 && (
-              <div className="mx-4">
-                <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-2 px-1">
-                  Aujourd&apos;hui
-                </p>
-                <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                  {todayAllTasks.map((task, i) => {
-                    const catColor = task.category?.color_hex ?? '#8e8e93';
-                    const assigneeName = task.assignee?.display_name
-                      ?? allMembers.find((m) => m.isPhantom && m.id === task.assigned_to_phantom_id)?.display_name
-                      ?? null;
-                    const isOverdue = task.next_due_at && new Date(task.next_due_at) < new Date(new Date().setHours(0, 0, 0, 0));
-                    const memberIdx = assigneeName
-                      ? allMembers.findIndex((m) => m.display_name === assigneeName)
-                      : -1;
-                    const BADGE_FILLS = [
-                      'linear-gradient(135deg,#5856d6,#007aff)',
-                      'linear-gradient(135deg,#26b5ab,#4ecdc4)',
-                      'linear-gradient(135deg,#a855f7,#c084fc)',
-                    ];
-                    const badgeFill = memberIdx >= 0 ? (BADGE_FILLS[memberIdx] ?? BADGE_FILLS[0]) : 'linear-gradient(135deg,#8e8e93,#636366)';
+            {/* ── Répartition par catégorie ── */}
+            {anyAssigned && (() => {
+              const CAT_EMOJIS: Record<string, string> = {
+                meals: '🍳', cleaning: '🧹', tidying: '📦', shopping: '🛒',
+                laundry: '👕', children: '🧒', admin: '📋', outdoor: '🌿',
+                hygiene: '🚿', pets: '🐾', vehicle: '🚗',
+              };
+              const MEMBER_COLORS = ['#ff4444', '#26b5ab', '#a855f7'];
 
-                    return (
-                      <Link key={task.id} href={`/tasks/${task.id}`}
-                        className="flex items-center gap-3 px-4 py-3 active:bg-[#f5f7ff] transition-colors"
-                        style={{ borderBottom: i < todayAllTasks.length - 1 ? '0.5px solid #f0f0f5' : undefined }}>
-                        <span className="w-[9px] h-[9px] rounded-full flex-shrink-0" style={{ background: catColor }} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-semibold text-[#1c1c1e] truncate">{task.name}</p>
-                          <p className="text-[10px] mt-0.5" style={{ color: '#8e8e93' }}>
-                            {task.category?.name ?? ''}
-                            {isOverdue ? ' · En retard' : ' · Aujourd\'hui'}
-                          </p>
+              // Group by scoring_category
+              const catMap: Record<string, { name: string; emoji: string; memberLoads: Record<string, number>; total: number }> = {};
+              for (const task of tasks) {
+                const key = task.scoring_category ?? 'other';
+                if (!catMap[key]) catMap[key] = { name: task.category?.name ?? key, emoji: CAT_EMOJIS[key] ?? '📋', memberLoads: {}, total: 0 };
+                const load = taskLoad(task);
+                catMap[key].total += load;
+                const mid = task.assigned_to ?? task.assigned_to_phantom_id;
+                if (mid) catMap[key].memberLoads[mid] = (catMap[key].memberLoads[mid] ?? 0) + load;
+              }
+
+              const cats = Object.values(catMap).filter(c => c.total > 0).sort((a, b) => b.total - a.total).slice(0, 7);
+              if (cats.length === 0) return null;
+
+              return (
+                <div className="mx-4">
+                  <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-2 px-1">Par catégorie</p>
+                  <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                    {cats.map((cat, i) => {
+                      const bars = allMembers.map((m, mi) => ({
+                        name: m.display_name,
+                        pct: cat.total > 0 ? Math.round(((cat.memberLoads[m.id] ?? 0) / cat.total) * 100) : 0,
+                        color: MEMBER_COLORS[mi] ?? MEMBER_COLORS[0],
+                      })).filter(b => b.pct > 0);
+                      const maxPct = Math.max(...bars.map(b => b.pct), 0);
+                      const status = bars.length === 0 ? '⬜' : bars.length === 1 ? '⚠️' : maxPct > 80 ? '🔴' : maxPct > 60 ? '⚠️' : '✅';
+                      return (
+                        <div key={cat.name} className="flex items-center gap-3 px-4 py-3"
+                          style={{ borderBottom: i < cats.length - 1 ? '0.5px solid #f0f0f5' : undefined }}>
+                          <span className="text-[18px] w-7 text-center flex-shrink-0">{cat.emoji}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-bold text-[#1c1c1e] mb-1.5">{cat.name}</p>
+                            <div className="flex flex-col gap-1">
+                              {bars.map(b => (
+                                <div key={b.name} className="flex items-center gap-2">
+                                  <span className="text-[9px] font-bold w-10 flex-shrink-0 truncate" style={{ color: b.color }}>{b.name}</span>
+                                  <div className="flex-1 h-[4px] rounded-full" style={{ background: '#f0f2f8' }}>
+                                    <div className="h-full rounded-full" style={{ width: `${b.pct}%`, background: b.color }} />
+                                  </div>
+                                  <span className="text-[10px] font-bold w-7 text-right flex-shrink-0" style={{ color: b.color }}>{b.pct}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <span className="text-[16px] flex-shrink-0">{status}</span>
                         </div>
-                        {assigneeName ? (
-                          <span className="text-[10px] font-bold px-2 py-1 rounded-[7px] flex-shrink-0 text-white"
-                            style={{ background: badgeFill }}>
-                            {assigneeName}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-semibold px-2 py-1 rounded-[7px] flex-shrink-0"
-                            style={{ background: '#f0f2f8', color: '#8e8e93' }}>
-                            Non assigné
-                          </span>
-                        )}
-                      </Link>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
+
+            {/* ── Tendance 4 semaines ── */}
+            {trendWeeks.some(w => w.hasData) && (() => {
+              const MEMBER_STYLES: [string, string][] = [
+                ['rgba(255,68,68,0.22)', '#ff4444'],
+                ['rgba(38,181,171,0.22)', '#26b5ab'],
+                ['rgba(168,85,247,0.22)', '#a855f7'],
+              ];
+              return (
+                <div className="mx-4">
+                  <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-2 px-1">Tendance — 4 semaines</p>
+                  <div className="rounded-2xl bg-white px-4 py-3 space-y-4" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                    {allMembers.filter(m => !m.isPhantom).map((m, mi) => {
+                      const [faded, solid] = MEMBER_STYLES[mi] ?? MEMBER_STYLES[0];
+                      const values = trendWeeks.map(w => w.pct[m.id] ?? 0);
+                      const maxVal = Math.max(...values, 1);
+                      const last = values[3] ?? 0;
+                      const prev = values[2] ?? 0;
+                      const arrow = last > prev + 5 ? '↗' : last < prev - 5 ? '↘' : '→';
+                      const arrowColor = arrow === '↗' ? '#ff3b30' : arrow === '↘' ? '#34c759' : '#8e8e93';
+                      return (
+                        <div key={m.id}>
+                          <div className="flex items-baseline justify-between mb-2">
+                            <p className="text-[12px] font-bold text-[#1c1c1e]">{m.display_name}</p>
+                            <span className="text-[11px] font-bold" style={{ color: arrowColor }}>{arrow} {last}% cette sem.</span>
+                          </div>
+                          <div className="flex items-end gap-2 h-[44px]">
+                            {trendWeeks.map((w, wi) => {
+                              const pct = w.pct[m.id] ?? 0;
+                              const h = w.hasData ? Math.max(4, Math.round((pct / maxVal) * 44)) : 4;
+                              const isLast = wi === 3;
+                              return (
+                                <div key={wi} className="flex flex-col items-center gap-1 flex-1">
+                                  <div className="w-full rounded-t-[3px]" style={{ height: h, background: isLast ? solid : faded }} />
+                                  <span className="text-[8px] text-[#8e8e93] whitespace-nowrap">{w.label}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* ── Récap du soir ── */}
             <Link
