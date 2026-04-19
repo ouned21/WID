@@ -40,19 +40,31 @@ export default function SuggestionCard({ suggestion, onAccept, onDismiss }: Sugg
 
   const handleAccept = async () => {
     setLoading(true);
-    // Cache la carte immédiatement — UX fire-and-forget
-    onAccept();
+    onAccept(); // Masque la carte immédiatement (optimistic)
     if (suggestion.id) {
-      await fetch(`/api/suggestions/${suggestion.id}/accept`, { method: 'PATCH' }).catch(() => {});
+      fetch(`/api/suggestions/${suggestion.id}/accept`, { method: 'PATCH' })
+        .then(async (r) => {
+          if (!r.ok) {
+            const body = await r.json().catch(() => ({}));
+            console.error('[SuggestionCard] accept failed:', body.error ?? r.status);
+          }
+        })
+        .catch((e) => console.error('[SuggestionCard] accept network error:', e));
     }
   };
 
   const handleDismiss = async () => {
     setLoading(true);
-    // Cache la carte immédiatement
-    onDismiss();
+    onDismiss(); // Masque la carte immédiatement (optimistic)
     if (suggestion.id) {
-      await fetch(`/api/suggestions/${suggestion.id}/dismiss`, { method: 'PATCH' }).catch(() => {});
+      fetch(`/api/suggestions/${suggestion.id}/dismiss`, { method: 'PATCH' })
+        .then(async (r) => {
+          if (!r.ok) {
+            const body = await r.json().catch(() => ({}));
+            console.error('[SuggestionCard] dismiss failed:', body.error ?? r.status);
+          }
+        })
+        .catch((e) => console.error('[SuggestionCard] dismiss network error:', e));
     }
   };
 

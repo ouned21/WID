@@ -29,26 +29,39 @@ export async function POST() {
   const userId = user.id;
 
   try {
-    // 1. Supprimer les données personnelles en cascade
-    // Les tables avec ON DELETE CASCADE (profiles → user_journals, ai_token_usage,
-    // feature_usage_events, user_patterns, user_preferences, task_completions via FK)
-    // seront nettoyées automatiquement lors de la suppression du profil.
-    // On efface manuellement ce qui n'est pas en CASCADE strict :
-    await supabase.from('task_completions').delete().eq('completed_by', userId);
-    await supabase.from('task_exchanges').delete().eq('proposed_by', userId);
-    await supabase.from('task_exchanges').delete().eq('proposed_to', userId);
-    await supabase.from('phantom_members').delete().eq('created_by', userId);
-    await supabase.from('household_tasks').delete().eq('created_by', userId);
+    // Utiliser le service role pour bypass RLS sur toutes les tables
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const adminClient = serviceRoleKey
+      ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey)
+      : supabase; // fallback anon (peut échouer sur tables RLS-strictes)
 
-    // 2. Supprimer les données IA personnelles
-    await supabase.from('user_journals').delete().eq('user_id', userId);
-    await supabase.from('ai_token_usage').delete().eq('user_id', userId);
-    await supabase.from('feature_usage_events').delete().eq('user_id', userId);
-    await supabase.from('user_patterns').delete().eq('user_id', userId);
-    await supabase.from('user_preferences').delete().eq('user_id', userId);
+    // 1. Supprimer les données personnelles (erreurs non-fatales : table peut ne pas exister)
+    const deleteOps = [
+      adminClient.from('task_completions').delete().eq('completed_by', userId),
+      adminClient.from('task_exchanges').delete().eq('proposed_by', userId),
+      adminClient.from('task_exchanges').delete().eq('proposed_to', userId),
+      adminClient.from('phantom_members').delete().eq('created_by', userId),
+      adminClient.from('household_tasks').delete().eq('created_by', userId),
+      adminClient.from('user_journals').delete().eq('user_id', userId),
+      adminClient.from('ai_token_usage').delete().eq('user_id', userId),
+      adminClient.from('feature_usage_events').delete().eq('user_id', userId),
+      adminClient.from('user_patterns').delete().eq('user_id', userId),
+      adminClient.from('user_preferences').delete().eq('user_id', userId),
+    ];
 
-    // 3. Supprimer son profil (ON DELETE CASCADE nettoiera le reste)
-    await supabase.from('profiles').delete().eq('id', userId);
+    const results = await Promise.allSettled(deleteOps);
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        console.error(`[account/delete] op[${i}] rejected:`, r.reason);
+      }
+    });
+
+    // 2. Supprimer le profil en dernier (ON DELETE CASCADE sur les FKs restantes)
+    const { error: profileDeleteError } = await adminClient.from('profiles').delete().eq('id', userId);
+    if (profileDeleteError) {
+      console.error('[account/delete] profile delete error:', profileDeleteError.message);
+      // Non fatal — on continue pour supprimer l'auth user
+    }
 
     // 3. Si SERVICE_ROLE_KEY disponible : hard delete auth
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

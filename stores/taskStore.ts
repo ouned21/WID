@@ -103,6 +103,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     try {
       const supabase = createClient();
 
+      // Note: on charge les 10 dernières complétions par tâche max pour limiter la data transfer.
+      // fetchTaskDetail() charge les 10 dernières pour la page de détail.
       const { data, error } = await supabase
         .from('household_tasks')
         .select(`
@@ -113,7 +115,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         `)
         .eq('household_id', householdId)
         .eq('is_active', true)
-        .order('next_due_at', { ascending: true, nullsFirst: false });
+        .order('next_due_at', { ascending: true, nullsFirst: false })
+        .order('completed_at', { ascending: false, referencedTable: 'task_completions' });
 
       if (error) {
         set({ loading: false, error: error.message });
@@ -132,7 +135,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       const { task_completions: _, ...rest } = row;
       return {
         ...rest,
-        last_completion: lastCompletion ? { ...lastCompletion, completed_by_profile: null } : null,
+        last_completion: lastCompletion ?? null,
       } as TaskListItem;
     });
 

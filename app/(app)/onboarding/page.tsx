@@ -161,12 +161,16 @@ export default function OnboardingPage() {
       .then((r) => r.json())
       .then(async (data) => {
         if (data.ok) {
-          await refreshProfile(); // met à jour householdId dans le store
+          await refreshProfile();
         } else {
           console.error('[onboarding] create-household failed:', data.error);
+          setError(data.error ?? 'Impossible de créer le foyer. Recharge la page.');
         }
       })
-      .catch((e) => console.error('[onboarding] create-household error:', e))
+      .catch((e) => {
+        console.error('[onboarding] create-household error:', e);
+        setError('Erreur réseau. Vérifie ta connexion et recharge la page.');
+      })
       .finally(() => setHouseholdCreating(false));
   }, [userId, householdId, refreshProfile]);
 
@@ -236,7 +240,7 @@ export default function OnboardingPage() {
     } finally {
       setCatalogLoading(false);
     }
-  }, [selectedEquipment]);
+  }, [selectedEquipment, family]);
 
   // ── Grouper le catalogue par catégorie ──
   const catalogGroups = useMemo(() => {
@@ -423,10 +427,14 @@ export default function OnboardingPage() {
     router.push('/planning');
   }, [router]);
 
-  const deleteTask = useCallback((taskId: string) => {
+  const deleteTask = useCallback(async (taskId: string) => {
     setGeneratedTasks((prev) => prev.filter((t) => t.id !== taskId));
     const supabase = createClient();
-    supabase.from('household_tasks').delete().eq('id', taskId);
+    const { error } = await supabase.from('household_tasks').delete().eq('id', taskId);
+    if (error) {
+      console.error('[onboarding] deleteTask failed:', error.message);
+      // Restaurer la tâche en cas d'erreur (recharger depuis le store serait idéal, ici on log)
+    }
   }, []);
 
   // =============================================================================

@@ -846,7 +846,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Admin catalogue — fondateur uniquement */}
-      {user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL && (
+      {profile?.role === 'admin' && (
         <div className="mx-4 mb-4 rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
           <button
             onClick={() => router.push('/admin/catalog')}
