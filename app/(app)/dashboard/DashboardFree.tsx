@@ -391,17 +391,24 @@ export default function DashboardFree() {
             insightCta = 'Voir le détail →';
           } else if (myMember) {
             // ── Analyse catégorie / équilibre classique ────────────
+            // Minimum 2 tâches dans la catégorie pour éviter le bruit (1 tâche voiture ≠ signal)
+            // On priorise par nombre de tâches : un déséquilibre sur 5 tâches cuisine > 2 tâches voiture
             const catKeys = Object.keys(CATS_LABEL);
-            let mostSkewed = { cat: '', myPct: 0 };
+            let mostSkewed = { cat: '', myPct: 0, count: 0 };
             for (const cat of catKeys) {
               const catTasks = tasks.filter((t) => t.scoring_category === cat);
+              if (catTasks.length < 2) continue; // signal trop faible
               const catTotal = catTasks.reduce((s, t) => s + taskLoad(t), 0);
               if (catTotal === 0) continue;
               const myLoad = catTasks
                 .filter((t) => t.assigned_to === profile?.id)
                 .reduce((s, t) => s + taskLoad(t), 0);
               const myPct = Math.round((myLoad / catTotal) * 100);
-              if (myPct > mostSkewed.myPct) mostSkewed = { cat, myPct };
+              // Prioriser : % élevé ET plus de tâches dans la catégorie
+              const score = myPct * catTasks.length;
+              if (score > mostSkewed.myPct * mostSkewed.count) {
+                mostSkewed = { cat, myPct, count: catTasks.length };
+              }
             }
             if (mostSkewed.myPct > 75) {
               const partner = memberScores.find((m) => m.member.id !== profile?.id && !m.member.isPhantom)
