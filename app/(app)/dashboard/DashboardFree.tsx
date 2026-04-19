@@ -358,13 +358,34 @@ export default function DashboardFree() {
         };
         let insightText = 'Ajoute tes premières tâches — Yova analysera qui fait quoi dans ton foyer.';
         let insightCta: string | null = null;
-        // Priorité : tâches non assignées > déséquilibre > équilibré
+
+        // Priorité : non assignées > divergence mental/temps > déséquilibre > catégorie > équilibré
         if (hasUnassigned && totalLoad > 0) {
           insightText = `${unassignedTasks.length} tâche${unassignedTasks.length > 1 ? 's' : ''} sans responsable (${unassignedPct}% de la charge). Assigne-les pour que chacun sache ce qu'il doit faire.`;
           insightCta = 'Assigner les tâches →';
-        } else if (memberScores.length >= 2 && totalLoad > 0) {
+        } else if (memberScores.length >= 2 && totalLoad > 0 && totalMinutes > 0) {
           const myMember = memberScores.find((m) => !m.member.isPhantom && m.member.id === profile?.id);
-          if (myMember) {
+
+          // ── Divergence charge mentale ≠ temps réel ────────────────
+          // Si la différence entre timePct et pct dépasse 20 points, c'est un signal fort.
+          const divergentMember = memberScores
+            .filter((m) => m.pct > 0 || m.timePct > 0)
+            .find((m) => Math.abs(m.timePct - m.pct) >= 20);
+
+          if (divergentMember) {
+            const isMe = divergentMember.member.id === profile?.id;
+            const name = isMe ? 'Tu passes' : `${divergentMember.member.display_name} passe`;
+            const timeSuffix = formatWeeklyTime(divergentMember.mins);
+            if (divergentMember.timePct > divergentMember.pct) {
+              // Beaucoup de temps, peu de charge mentale → tâches physiques/répétitives sous-valorisées
+              insightText = `${name} ${formatWeeklyTime(divergentMember.mins)}/sem (${divergentMember.timePct}% du temps) mais seulement ${divergentMember.pct}% de la charge mentale. Des tâches longues et répétitives qui restent invisibles dans le score.`;
+            } else {
+              // Beaucoup de charge mentale, peu de temps → charge cognitive/admin
+              insightText = `${name} ${timeSuffix}/sem mais porte ${divergentMember.pct}% de la charge mentale. L'organisation, la planification — ça ne se voit pas dans le temps, mais ça pèse.`;
+            }
+            insightCta = 'Voir le détail →';
+          } else if (myMember) {
+            // ── Analyse catégorie / équilibre classique ────────────
             const catKeys = Object.keys(CATS_LABEL);
             let mostSkewed = { cat: '', myPct: 0 };
             for (const cat of catKeys) {
