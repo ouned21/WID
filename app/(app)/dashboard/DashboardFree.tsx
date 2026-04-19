@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { taskLoad } from '@/utils/designSystem';
-import { addDays, startOfWeek, isSameDay, format } from 'date-fns';
+import { addDays, isSameDay, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import SuggestionCard, { type Suggestion } from '@/components/SuggestionCard';
 
@@ -91,11 +91,11 @@ export default function DashboardFree() {
     return { myLoad, overdue, today, myToday, tomorrow, thisWeek, totalActive: tasks.length };
   }, [tasks, profile?.id]);
 
-  // ── Données semaine pour la vue Planning ────────────────────────────────────
+  // ── Planning roulant : aujourd'hui + les 6 prochains jours ─────────────────
   const weekDays = useMemo(() => {
-    const ws = startOfWeek(new Date(), { weekStartsOn: 1 });
+    const today = new Date();
     return Array.from({ length: 7 }, (_, i) => {
-      const day = addDays(ws, i);
+      const day = addDays(today, i);
       const dayTasks = tasks.filter((t) => t.next_due_at && isSameDay(new Date(t.next_due_at), day));
       const load = dayTasks.reduce((s, t) => s + taskLoad(t), 0);
       return { day, count: dayTasks.length, load };
@@ -181,7 +181,7 @@ export default function DashboardFree() {
                     style={{ borderBottom: '0.5px solid #f0f2f8' }}>
                     <div>
                       <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em] mb-1">
-                        Cette semaine
+                        7 prochains jours
                       </p>
                       <p className="text-[16px] font-bold" style={{ color: statusOk ? '#34c759' : '#ff9500' }}>
                         {statusOk
