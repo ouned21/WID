@@ -425,7 +425,7 @@ export default function DashboardFree() {
           <>
             {/* ── Big card sombre Répartition ── */}
             <button
-              onClick={() => router.push(hasUnassigned ? '/tasks' : '/score')}
+              onClick={() => router.push(hasUnassigned ? '/tasks/assign' : '/score')}
               className="mx-4 rounded-[22px] p-5 relative overflow-hidden transition-transform active:scale-[0.98] text-left w-[calc(100%-32px)]"
               style={{ background: 'linear-gradient(148deg,#16163a 0%,#2b1e72 55%,#163260 100%)' }}
             >
@@ -592,7 +592,7 @@ export default function DashboardFree() {
                 <p className="text-[12px] font-bold text-[#1c1c1e] mb-1">Yova a remarqué</p>
                 <p className="text-[11px] leading-[1.45]" style={{ color: '#8e8e93' }}>{insightText}</p>
                 {insightCta && (
-                  <button onClick={() => router.push(hasUnassigned ? '/tasks' : '/score')}
+                  <button onClick={() => router.push(hasUnassigned ? '/tasks/assign' : '/score')}
                     className="text-[11px] font-bold mt-1.5 block"
                     style={{ color: '#007aff' }}>
                     {insightCta}
