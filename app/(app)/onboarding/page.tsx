@@ -113,7 +113,7 @@ const FREQ_WINDOW: Record<string, number> = {
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { profile } = useAuthStore();
+  const { profile, refreshProfile } = useAuthStore();
   const { fetchTasks } = useTaskStore();
   const { fetchHousehold } = useHouseholdStore();
 
@@ -146,10 +146,29 @@ export default function OnboardingPage() {
     next_due_at?: string | null;
   }[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [householdCreating, setHouseholdCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const householdId = profile?.household_id;
   const userId = profile?.id;
+
+  // ── Créer le foyer via API route (service role, bypass RLS) ──
+  // Lancé dès que le profil est chargé et que household_id est absent.
+  useEffect(() => {
+    if (!userId || householdId) return; // déjà un foyer, ou pas encore authentifié
+    setHouseholdCreating(true);
+    fetch('/api/onboarding/create-household', { method: 'POST' })
+      .then((r) => r.json())
+      .then(async (data) => {
+        if (data.ok) {
+          await refreshProfile(); // met à jour householdId dans le store
+        } else {
+          console.error('[onboarding] create-household failed:', data.error);
+        }
+      })
+      .catch((e) => console.error('[onboarding] create-household error:', e))
+      .finally(() => setHouseholdCreating(false));
+  }, [userId, householdId, refreshProfile]);
 
   // ── Charger les équipements ──
   useEffect(() => {
@@ -279,7 +298,16 @@ export default function OnboardingPage() {
 
   // ── Créer les tâches depuis le catalogue via API route (service role, bypass RLS) ──
   const createFromCatalog = useCallback(async () => {
-    if (!householdId || !userId) {
+    // Attendre que le foyer soit prêt si la création est en cours
+    if (householdCreating) return;
+
+    // Si householdId est encore absent malgré la fin du useEffect, tenter un dernier refresh
+    let resolvedHouseholdId = householdId;
+    if (!resolvedHouseholdId && userId) {
+      await refreshProfile();
+      resolvedHouseholdId = useAuthStore.getState().profile?.household_id ?? null;
+    }
+    if (!resolvedHouseholdId || !userId) {
       setError('Foyer introuvable. Recharge la page.');
       return;
     }
@@ -297,7 +325,7 @@ export default function OnboardingPage() {
 
       // Éviter les doublons avec les tâches existantes
       const { data: existingTasks } = await supabase
-        .from('household_tasks').select('name').eq('household_id', householdId).eq('is_active', true);
+        .from('household_tasks').select('name').eq('household_id', resolvedHouseholdId).eq('is_active', true);
       const seen = new Set<string>((existingTasks ?? []).map((t: { name: string }) => t.name.toLowerCase()));
 
       type TaskRow = {
@@ -380,8 +408,8 @@ export default function OnboardingPage() {
       });
 
       setGeneratedTasks(created);
-      await fetchHousehold(householdId);
-      if (householdId) await fetchTasks(householdId);
+      await fetchHousehold(resolvedHouseholdId);
+      await fetchTasks(resolvedHouseholdId);
       setStep('results');
     } catch (err) {
       console.error('[onboarding] Erreur:', err);
@@ -389,7 +417,7 @@ export default function OnboardingPage() {
     } finally {
       setIsCreating(false);
     }
-  }, [householdId, userId, catalogTemplates, selectedTemplateIds, customTaskNames, family, fetchHousehold, fetchTasks]);
+  }, [householdId, userId, householdCreating, catalogTemplates, selectedTemplateIds, customTaskNames, family, fetchHousehold, fetchTasks, refreshProfile]);
 
   const handleFinish = useCallback(() => {
     router.push('/planning');
@@ -749,14 +777,16 @@ export default function OnboardingPage() {
           style={{ background: 'linear-gradient(transparent, #f6f8ff 30%)' }}>
           <button
             onClick={createFromCatalog}
-            disabled={totalSelected === 0 || isCreating}
+            disabled={totalSelected === 0 || isCreating || householdCreating}
             className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white disabled:opacity-40"
             style={{
               background: 'linear-gradient(135deg, #007aff, #5856d6)',
               boxShadow: '0 8px 24px rgba(0,122,255,0.3)',
             }}
           >
-            {isCreating
+            {householdCreating
+              ? 'Préparation du foyer…'
+              : isCreating
               ? 'Création en cours…'
               : `Créer ${totalSelected} tâche${totalSelected !== 1 ? 's' : ''} →`}
           </button>
