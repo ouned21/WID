@@ -185,6 +185,13 @@ export default function OnboardingPage() {
       if (!data) return;
       setCatalogTemplates(data as TaskTemplate[]);
 
+      // Catégories à exclure selon la composition familiale
+      const hasKids = family.some((m) => m.type === 'child' || m.type === 'baby' || m.type === 'teen');
+      const hasPets = family.some((m) => m.type === 'pet');
+      const excludedCategories = new Set<string>();
+      if (!hasKids) excludedCategories.add('children');
+      if (!hasPets) excludedCategories.add('pets');
+
       // Pré-sélection : max 3 tâches par catégorie parmi celles qui matchent les équipements
       // → démarre avec ~20-30 tâches essentielles, l'utilisateur peut en ajouter
       const equipIds = [...selectedEquipment];
@@ -193,11 +200,13 @@ export default function OnboardingPage() {
       const preSelected = new Set<string>();
       // Les templates sont déjà triés par sort_order → on prend les premiers par catégorie
       for (const t of data as TaskTemplate[]) {
+        const cat = t.scoring_category ?? 'other';
+        // Exclure les catégories non pertinentes pour cette famille
+        if (excludedCategories.has(cat)) continue;
         const tags = t.equipment_tags ?? [];
         const isUniversal = tags.length === 0;
         const matchesEquipment = tags.some((tag) => equipIds.includes(tag));
         if (!isUniversal && !matchesEquipment) continue;
-        const cat = t.scoring_category ?? 'other';
         if ((countByCategory[cat] ?? 0) >= MAX_PER_CATEGORY) continue;
         countByCategory[cat] = (countByCategory[cat] ?? 0) + 1;
         preSelected.add(t.id);
