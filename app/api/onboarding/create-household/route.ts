@@ -65,6 +65,7 @@ export async function POST(_req: NextRequest) {
       name: 'Mon foyer',
       invite_code: inviteCode,
       created_by: user.id,
+      is_active: true,
     });
 
     if (insertError) {

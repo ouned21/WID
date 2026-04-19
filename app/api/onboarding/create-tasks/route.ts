@@ -56,12 +56,14 @@ async function ensureHousehold(admin: ReturnType<typeof serviceClient>, userId: 
       name: 'Mon foyer',
       invite_code: inviteCode,
       created_by: userId,
+      is_active: true,
     });
 
     if (insertErr) {
       if (insertErr.code === '23505') continue; // collision → réessayer
-      console.error('[create-tasks] household insert error:', insertErr);
-      return null;
+      console.error('[create-tasks] household insert error:', JSON.stringify(insertErr));
+      // Remonter l'erreur complète pour debug
+      throw new Error(`household_insert: ${insertErr.message} (code ${insertErr.code})`);
     }
 
     const { error: profileErr } = await admin
@@ -87,10 +89,15 @@ export async function POST(req: NextRequest) {
   const admin = serviceClient();
 
   // Garantit qu'un foyer existe (crée si absent) — bypass RLS via service role
-  const householdId = await ensureHousehold(admin, user.id);
-
-  if (!householdId) {
-    return NextResponse.json({ error: 'Impossible de créer le foyer' }, { status: 500 });
+  let householdId: string;
+  try {
+    const hid = await ensureHousehold(admin, user.id);
+    if (!hid) return NextResponse.json({ error: 'Impossible de créer le foyer' }, { status: 500 });
+    householdId = hid;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[create-tasks] ensureHousehold threw:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 
   const body = await req.json() as {
