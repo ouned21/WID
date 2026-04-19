@@ -83,6 +83,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [profile?.household_id, household, fetchHousehold]);
 
+  // Rediriger vers l'onboarding si le profil est chargé mais sans foyer
+  useEffect(() => {
+    if (!isInitialized) return;
+    if (!profile) return;
+    if (isOnboarding) return;
+    if (!profile.household_id) {
+      router.replace('/onboarding');
+    }
+  }, [isInitialized, profile, isOnboarding, router]);
+
   // Planifier les notifications pour les tâches du jour
   useTaskNotifications();
 
