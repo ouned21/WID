@@ -40,6 +40,7 @@ type HouseholdState = {
   createHousehold: (name: string) => Promise<{ ok: boolean; error?: string }>;
   joinHousehold: (inviteCode: string) => Promise<{ ok: boolean; error?: string }>;
   renameHousehold: (newName: string) => Promise<{ ok: boolean; error?: string }>;
+  rotateInviteCode: () => Promise<{ ok: boolean; error?: string; newCode?: string }>;
   leaveHousehold: () => Promise<{ ok: boolean; error?: string }>;
   addPhantomMember: (name: string) => Promise<{ ok: boolean; error?: string }>;
   removePhantomMember: (id: string) => Promise<{ ok: boolean; error?: string }>;
@@ -249,6 +250,44 @@ export const useHouseholdStore = create<HouseholdState>((set, get) => ({
       household: state.household ? { ...state.household, name: newName } : null,
     }));
     return { ok: true };
+  },
+
+  /**
+   * Renouvelle le code d'invitation du foyer.
+   * Admin uniquement. Les anciens codes ne fonctionnent plus immédiatement.
+   * Réessaie en cas de collision, comme createHousehold.
+   */
+  rotateInviteCode: async () => {
+    const supabase = createClient();
+    const householdId = get().household?.id;
+    if (!householdId) return { ok: false, error: 'Aucun foyer.' };
+    const profile = useAuthStore.getState().profile;
+    if (profile?.role !== 'admin') {
+      return { ok: false, error: 'Seul l\'administrateur peut renouveler le code.' };
+    }
+
+    let lastError: string | null = null;
+    for (let attempt = 0; attempt < MAX_INVITE_CODE_RETRIES; attempt++) {
+      const newCode = generateInviteCode();
+      const { error } = await supabase
+        .from('households')
+        .update({ invite_code: newCode })
+        .eq('id', householdId);
+
+      if (error) {
+        if (isUniqueViolation(error)) {
+          lastError = 'Collision de code, nouvelle tentative...';
+          continue;
+        }
+        return { ok: false, error: error.message };
+      }
+
+      set((state) => ({
+        household: state.household ? { ...state.household, invite_code: newCode } : null,
+      }));
+      return { ok: true, newCode };
+    }
+    return { ok: false, error: lastError || 'Impossible de générer un code unique.' };
   },
 
   /**

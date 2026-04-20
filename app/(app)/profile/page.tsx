@@ -31,7 +31,7 @@ function DashboardStyleButton({ value, label, desc, emoji }: { value: DashboardS
 export default function ProfilePage() {
   const router = useRouter();
   const { profile, user, signOut, refreshProfile } = useAuthStore();
-  const { household, members, phantomMembers, renameHousehold, addPhantomMember, removePhantomMember, linkPhantomToReal } = useHouseholdStore();
+  const { household, members, phantomMembers, renameHousehold, rotateInviteCode, addPhantomMember, removePhantomMember, linkPhantomToReal } = useHouseholdStore();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [copied, setCopied] = useState(false);
@@ -250,17 +250,38 @@ export default function ProfilePage() {
               )}
 
               {/* Code d'invitation */}
-              <button onClick={handleCopyCode} className="w-full px-4 py-3 text-left">
+              <div className="px-4 py-3">
                 <p className="text-[13px] text-[#8e8e93] mb-1 flex items-center gap-1.5">
                   <span>Code d&apos;invitation</span>
-                  {copied
-                    ? <span style={{ color: '#34c759' }}>— Copié !</span>
-                    : <span className="text-[11px] text-[#c7c7cc]">· tap pour copier 📋</span>}
+                  {copied && <span style={{ color: '#34c759' }}>— Copié !</span>}
                 </p>
-                <p className="text-[22px] font-mono font-bold tracking-[0.3em]" style={{ color: '#007aff' }}>
-                  {household.invite_code}
-                </p>
-              </button>
+                <div className="flex items-center justify-between gap-3">
+                  <button onClick={handleCopyCode} className="flex-1 text-left">
+                    <p className="text-[22px] font-mono font-bold tracking-[0.3em]" style={{ color: '#007aff' }}>
+                      {household.invite_code}
+                    </p>
+                    <p className="text-[10px] text-[#c7c7cc] mt-0.5">tap pour copier 📋</p>
+                  </button>
+                  {profile?.role === 'admin' && (
+                    <button
+                      onClick={async () => {
+                        if (!confirm('Renouveler le code d\'invitation ?\n\nL\'ancien code ne fonctionnera plus. Les membres déjà dans le foyer ne sont pas affectés — tu devras seulement partager le nouveau code aux futures personnes à inviter.')) return;
+                        const res = await rotateInviteCode();
+                        if (!res.ok) alert(`Erreur : ${res.error ?? 'inconnue'}`);
+                      }}
+                      className="flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-semibold"
+                      style={{ background: '#f0f2f8', color: '#007aff' }}
+                      aria-label="Renouveler le code d'invitation"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 4v6h6M23 20v-6h-6"/>
+                        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+                      </svg>
+                      Renouveler
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
