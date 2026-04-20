@@ -32,8 +32,7 @@ Tenue à jour à chaque commit structurant.
 - [ ] **Wire up `/api/ai/anticipate`** — l'app doit anticiper proactivement et proposer des rééquilibrages. Endpoint existe côté serveur, à brancher au dashboard avec un appel hebdomadaire.
 - [ ] **Wire up `/api/ai/insights`** — insights IA hebdomadaires (version Premium de ce que DashboardFree fait côté client).
 - [ ] **Wire up `/api/ai/weekly-summary`** — version IA enrichie du récap dimanche (actuellement calculé client-side sans Claude).
-- [ ] **Mettre en avant `/api/ai/subtasks`** (proposition A) — bouton "✨ Décomposer" sur la fiche tâche qui propose des sous-tâches via Claude, checkboxes pour sélectionner, création en un tap.
-- [ ] **Bannière "projet détecté"** à la création (proposition B pour subtasks) — heuristique simple sur mots-clés ("organiser", "préparer la", score mental ≥ 4) qui suggère la décomposition.
+- [x] **Décomposition auto des tâches complexes** — déjà en place dans `/tasks/new` : à la création, l'app appelle `/api/ai/subtasks` en fallback du catalogue local. Si Claude retourne ≥ 1 sous-tâche, écran de review avec tout coché par défaut. User peut décocher ou sortir avec "Juste la tâche principale". Polissage UX : carte Yova gradient, toggle Tout cocher/décocher, dates relatives lisibles, opacité sur items décochés.
 
 ---
 

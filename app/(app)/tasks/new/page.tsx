@@ -1133,15 +1133,44 @@ export default function NewTaskPage() {
   // ═══════════════════════════════════════════════════════════════════════════════
   // MODE AVANCÉ — Formulaire complet
   // ═══════════════════════════════════════════════════════════════════════════════
-  // Overlay sous-tâches
+  // Overlay sous-tâches : Yova a décomposé automatiquement une tâche complexe.
+  // Auto-magic : tout coché par défaut. L'utilisateur retire ce qui ne s'applique pas.
   if (showSubTasks) {
+    const totalCount = subTaskSuggestions.length;
+    const selectedCount = selectedSubTasks.size;
+    const allSelected = selectedCount === totalCount;
     return (
-      <div className="pt-4 pb-28">
-        <div className="px-4 mb-4">
-          <h2 className="text-[22px] font-bold text-[#1c1c1e]">Tâches associées</h2>
-          <p className="text-[14px] text-[#8e8e93] mt-1">On a trouvé des sous-tâches pour &laquo; {name} &raquo;. Coche celles que tu veux créer.</p>
+      <div className="pt-3 pb-28" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        {/* Carte Yova */}
+        <div className="mx-4 rounded-2xl p-4 text-white" style={{ background: 'linear-gradient(135deg, #5856d6, #af52de)' }}>
+          <div className="flex items-start gap-3">
+            <span className="text-[24px] leading-none">✨</span>
+            <div className="flex-1">
+              <p className="text-[16px] font-bold leading-tight">Yova a décomposé ta tâche</p>
+              <p className="text-[13px] opacity-90 mt-1 leading-snug">
+                « {name} » se prépare en {totalCount} étape{totalCount > 1 ? 's' : ''}. Les dates sont calées sur ta tâche principale — décoche ce qui ne s&apos;applique pas à toi.
+              </p>
+            </div>
+          </div>
         </div>
 
+        {/* Toggle tout */}
+        <div className="px-4 flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-[#8e8e93] uppercase tracking-wide">
+            {selectedCount} / {totalCount} sélectionnée{selectedCount > 1 ? 's' : ''}
+          </span>
+          <button
+            onClick={() => {
+              if (allSelected) setSelectedSubTasks(new Set());
+              else setSelectedSubTasks(new Set(subTaskSuggestions.map((s) => s.id)));
+            }}
+            className="text-[12px] font-semibold"
+            style={{ color: '#007aff' }}>
+            {allSelected ? 'Tout décocher' : 'Tout cocher'}
+          </button>
+        </div>
+
+        {/* Liste */}
         <div className="mx-4 rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
           {subTaskSuggestions.map((s, i) => {
             const checked = selectedSubTasks.has(s.id);
@@ -1154,17 +1183,20 @@ export default function NewTaskPage() {
                     return next;
                   });
                 }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left"
-                style={i < subTaskSuggestions.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
+                className="w-full flex items-center gap-3 px-4 py-3 text-left transition-opacity"
+                style={{
+                  opacity: checked ? 1 : 0.55,
+                  ...(i < subTaskSuggestions.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}),
+                }}>
                 <span className="flex-shrink-0 flex items-center justify-center rounded-full"
                   style={{ width: 24, height: 24, background: checked ? '#007aff' : 'transparent', border: checked ? 'none' : '2px solid #c7c7cc' }}>
                   {checked && <svg width="12" height="12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>}
                 </span>
-                <div className="flex-1">
-                  <p className="text-[15px] text-[#1c1c1e]">{s.suggested_name}</p>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-[15px] ${checked ? 'text-[#1c1c1e]' : 'text-[#1c1c1e] line-through'}`}>{s.suggested_name}</p>
                   {s.relative_days !== 0 && (
-                    <p className="text-[11px] text-[#8e8e93]">
-                      {s.relative_days < 0 ? `${Math.abs(s.relative_days)} jours avant` : s.relative_days > 0 ? `${s.relative_days} jours après` : 'Le jour même'}
+                    <p className="text-[11px] text-[#8e8e93] mt-0.5">
+                      {s.relative_days < 0 ? `${Math.abs(s.relative_days)} jour${Math.abs(s.relative_days) > 1 ? 's' : ''} avant` : `${s.relative_days} jour${s.relative_days > 1 ? 's' : ''} après`}
                     </p>
                   )}
                 </div>
@@ -1173,15 +1205,19 @@ export default function NewTaskPage() {
           })}
         </div>
 
-        <div className="px-4 pt-4 space-y-2">
-          <button onClick={handleCreateSubTasks} disabled={creatingSubTasks}
+        <div className="px-4 pt-2 space-y-2">
+          <button onClick={handleCreateSubTasks} disabled={creatingSubTasks || selectedCount === 0}
             className="w-full rounded-xl py-[14px] text-[17px] font-semibold text-white disabled:opacity-50"
             style={{ background: '#007aff' }}>
-            {creatingSubTasks ? 'Création...' : `Créer ${selectedSubTasks.size} sous-tâche${selectedSubTasks.size > 1 ? 's' : ''}`}
+            {creatingSubTasks
+              ? 'Création…'
+              : selectedCount === 0
+                ? 'Aucune sélectionnée'
+                : `Créer ${selectedCount} tâche${selectedCount > 1 ? 's' : ''}`}
           </button>
           <button onClick={() => router.push('/tasks')}
-            className="w-full rounded-xl py-[14px] text-[15px] font-medium text-[#8e8e93]">
-            Passer
+            className="w-full rounded-xl py-[12px] text-[14px] font-medium text-[#8e8e93]">
+            Juste la tâche principale, merci
           </button>
         </div>
       </div>
