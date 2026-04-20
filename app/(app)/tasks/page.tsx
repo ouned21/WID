@@ -67,8 +67,6 @@ function TaskCard({ task, onComplete, onCompleteFor, onDelete, isCompleted, isAn
 
   if (isCompleted && !isAnimating) return null;
 
-  const sb: Record<string, number> | null = null; // score_breakdown removed from DB schema
-
   return (
     <div
       className={`rounded-2xl overflow-hidden flex flex-col transition-all duration-300 ${

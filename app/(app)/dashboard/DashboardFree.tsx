@@ -495,7 +495,7 @@ export default function DashboardFree() {
 
             {/* ── Big card sombre Répartition ── */}
             <button
-              onClick={() => router.push(hasUnassigned ? '/tasks/assign' : '/score')}
+              onClick={() => router.push(hasUnassigned ? '/tasks/assign' : '/distribution')}
               className="mx-4 rounded-[22px] p-5 relative overflow-hidden transition-transform active:scale-[0.98] text-left w-[calc(100%-32px)]"
               style={{ background: 'linear-gradient(148deg,#16163a 0%,#2b1e72 55%,#163260 100%)' }}
             >
@@ -666,7 +666,7 @@ export default function DashboardFree() {
                     onClick={() => {
                       if (insightCta === 'Rééquilibrer →') router.push('/tasks/rebalance');
                       else if (hasUnassigned) router.push('/tasks/assign');
-                      else router.push('/score');
+                      else router.push('/distribution');
                     }}
                     className="text-[11px] font-bold mt-1.5 block"
                     style={{ color: '#007aff' }}>
