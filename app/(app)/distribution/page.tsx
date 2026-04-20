@@ -5,14 +5,12 @@ import {
   computeTrend,
   computeTrendArrow,
   computeImbalance,
-  computeMemberLoad,
-  computeMemberLoadPercent,
 } from '@/utils/distributionAnalytics';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnalyticsStore } from '@/stores/analyticsStore';
-import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { createClient } from '@/lib/supabase';
 import BackButton from '@/components/BackButton';
@@ -29,9 +27,7 @@ const MEMBER_COLORS = ['#007aff', '#af52de', '#ff9500', '#34c759', '#ff3b30', '#
 export default function DistributionPage() {
   const { profile } = useAuthStore();
   const { period, memberAnalytics, categoryBreakdown, loading, setPeriod, fetchAnalytics } = useAnalyticsStore();
-  const { tasks } = useTaskStore();
   const { allMembers } = useHouseholdStore();
-  const allMemberIds = allMembers.map((m) => m.id);
 
   // Historique des complétions par jour pour la tendance
   const [dailyHistory, setDailyHistory] = useState<Record<string, number[]>>({});
@@ -69,6 +65,11 @@ export default function DistributionPage() {
 
   const totalCompletions = memberAnalytics.reduce((s, m) => s + m.taskCount, 0);
 
+  // Seuil de significativité : en dessous, toute conclusion (déséquilibre,
+  // tendance, comparaison) est du bruit. On masque les signaux alarmants.
+  const LOW_DATA_THRESHOLD = 5;
+  const hasEnoughData = totalCompletions >= LOW_DATA_THRESHOLD;
+
   // Déséquilibre entre membres (via distributionAnalytics)
   const imbalance = computeImbalance(memberAnalytics.map((m) => m.taskPercentage));
 
@@ -85,11 +86,20 @@ export default function DistributionPage() {
       </div>
       <div className="flex items-center justify-between px-4">
         <h2 className="text-[28px] font-bold text-[#1c1c1e]">Statistiques</h2>
-        {totalCompletions > 0 && (
-          <span className="rounded-full px-3 py-1 text-[12px] font-semibold text-white" style={{ background: imbalance.color }}>
-            {imbalance.label}
+        {hasEnoughData ? (
+          <Link href="/tasks/rebalance"
+            className="rounded-full px-3 py-1 text-[12px] font-semibold text-white flex items-center gap-1"
+            style={{ background: imbalance.color }}
+            aria-label="Voir les suggestions de rééquilibrage">
+            <span>{imbalance.label}</span>
+            <span aria-hidden="true">›</span>
+          </Link>
+        ) : totalCompletions > 0 ? (
+          <span className="rounded-full px-3 py-1 text-[11px] font-medium"
+            style={{ background: '#f0f2f8', color: '#8e8e93' }}>
+            Début d&apos;usage
           </span>
-        )}
+        ) : null}
       </div>
 
       {/* Période */}
@@ -123,11 +133,18 @@ export default function DistributionPage() {
                 <p className="text-[13px] opacity-80">Tâches complétées — {period} jours</p>
                 <p className="text-[40px] font-bold mt-1">{totalCompletions}</p>
               </div>
-              {trend && (
+              {trend && hasEnoughData && (
                 <div className="text-right">
                   <p className="text-[11px] opacity-80">Tendance</p>
                   <p className="text-[15px] font-bold">{trend.label}</p>
                   <p className="text-[12px] opacity-70">{trend.diff > 0 ? '+' : ''}{trend.diff} vs période précédente</p>
+                </div>
+              )}
+              {!hasEnoughData && totalCompletions > 0 && (
+                <div className="text-right max-w-[50%]">
+                  <p className="text-[11px] opacity-80 leading-tight">
+                    Reviens dans quelques jours pour une tendance fiable.
+                  </p>
                 </div>
               )}
             </div>
@@ -174,7 +191,7 @@ export default function DistributionPage() {
                           {m.displayName.charAt(0).toUpperCase()}
                         </div>
                         <span className="text-[15px] font-medium text-[#1c1c1e]">{m.displayName}</span>
-                        {memberTrend && <span className="text-[13px]">{memberTrend}</span>}
+                        {memberTrend && hasEnoughData && <span className="text-[13px]">{memberTrend}</span>}
                       </div>
                       <span className="text-[15px] font-bold" style={{ color }}>{m.taskPercentage}%</span>
                     </div>
@@ -208,28 +225,49 @@ export default function DistributionPage() {
             </div>
           )}
 
-          {/* Score cumulé par membre */}
+          {/* Score cumulé par membre — charge mentale effectivement portée */}
           {allMembers.length > 1 && (
             <div className="mx-4 pb-8">
-              <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Score cumulé</p>
-              <div className="rounded-xl bg-white p-4 space-y-3" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-                {allMembers.map((m, i) => {
-                  const color = MEMBER_COLORS[i % MEMBER_COLORS.length];
-                  const totalLoad = computeMemberLoad(tasks, m.id);
-                  const pct = computeMemberLoadPercent(tasks, m.id, allMemberIds);
-                  return (
-                    <div key={m.id} className="space-y-1">
-                      <div className="flex justify-between text-[13px]">
-                        <span className="font-medium text-[#1c1c1e]">{m.display_name}</span>
-                        <span className="font-bold" style={{ color }}>{totalLoad} pts</span>
-                      </div>
-                      <div className="h-2 rounded-full" style={{ background: '#f0f2f8' }}>
-                        <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="flex items-baseline justify-between mb-2 px-1">
+                <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide">Score cumulé</p>
+                <p className="text-[11px] text-[#c7c7cc]">charge portée sur {period}j</p>
               </div>
+              <div className="rounded-xl bg-white p-4 space-y-3" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+                {(() => {
+                  const loadByMember = new Map<string, number>();
+                  for (const ma of memberAnalytics) loadByMember.set(ma.memberId, ma.totalMentalLoad ?? 0);
+                  const maxLoad = Math.max(1, ...allMembers.map((m) => loadByMember.get(m.id) ?? 0));
+                  return allMembers.map((m, i) => {
+                    const color = MEMBER_COLORS[i % MEMBER_COLORS.length];
+                    const totalLoad = loadByMember.get(m.id) ?? 0;
+                    const pct = Math.round((totalLoad / maxLoad) * 100);
+                    const count = memberAnalytics.find((ma) => ma.memberId === m.id)?.taskCount ?? 0;
+                    return (
+                      <div key={m.id} className="space-y-1">
+                        <div className="flex justify-between text-[13px]">
+                          <span className="font-medium text-[#1c1c1e]">{m.display_name}</span>
+                          <span className="font-bold" style={{ color: totalLoad > 0 ? color : '#c7c7cc' }}>
+                            {totalLoad} pts
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full" style={{ background: '#f0f2f8' }}>
+                          <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
+                        </div>
+                        {totalLoad === 0 && (
+                          <p className="text-[11px] text-[#8e8e93] italic mt-0.5">
+                            {count === 0
+                              ? `${m.display_name} n'a encore rien marqué comme fait — le score monte dès la première tâche complétée.`
+                              : 'Complétions sans charge enregistrée.'}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+              <p className="text-[11px] text-[#8e8e93] mt-2 px-1">
+                Ce score additionne la charge mentale des tâches effectivement complétées. Les tâches assignées mais non faites n&apos;y comptent pas.
+              </p>
             </div>
           )}
         </>

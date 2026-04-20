@@ -59,7 +59,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
     // Requête simple : completions du foyer sur la période
     const { data: rawCompletions, error } = await supabase
       .from('task_completions')
-      .select('completed_by, completed_by_phantom_id, task_id')
+      .select('completed_by, completed_by_phantom_id, task_id, mental_load_score')
       .eq('household_id', householdId)
       .gte('completed_at', since.toISOString());
 
@@ -72,14 +72,15 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
     const completions = rawCompletions ?? [];
     const totalCompletions = completions.length;
 
-    // Charger les catégories des tâches séparément
+    // Charger les catégories + charge mentale des tâches séparément
     const taskIds = [...new Set(completions.map((c) => c.task_id))];
     let taskCategories: Record<string, { categoryId: string; categoryName: string; colorHex: string }> = {};
+    const taskMentalLoad = new Map<string, number>();
 
     if (taskIds.length > 0) {
       const { data: tasksData } = await supabase
         .from('household_tasks')
-        .select('id, category_id, task_categories(id, name, color_hex)')
+        .select('id, category_id, mental_load_score, task_categories(id, name, color_hex)')
         .in('id', taskIds);
 
       if (tasksData) {
@@ -87,6 +88,9 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
           const cat = t.task_categories as unknown as { id: string; name: string; color_hex: string } | null;
           if (cat) {
             taskCategories[t.id] = { categoryId: cat.id, categoryName: cat.name, colorHex: cat.color_hex };
+          }
+          if (typeof t.mental_load_score === 'number') {
+            taskMentalLoad.set(t.id as string, t.mental_load_score);
           }
         }
       }
@@ -96,12 +100,22 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
     // Si completed_by_phantom_id est renseigné → compter pour le fantôme
     // Sinon → compter pour completed_by (le membre réel)
     const countByMember = new Map<string, number>();
+    const loadByMember = new Map<string, number>();
     for (const c of completions) {
       const row = c as Record<string, unknown>;
       const phantomId = typeof row.completed_by_phantom_id === 'string' ? row.completed_by_phantom_id : null;
       const memberId = phantomId || c.completed_by;
       countByMember.set(memberId, (countByMember.get(memberId) ?? 0) + 1);
+      // Score cumulé = charge mentale effectivement portée.
+      // Priorité : mental_load_score enregistré lors de la complétion,
+      // fallback : mental_load_score courant de la tâche.
+      const compLoad = typeof row.mental_load_score === 'number' ? row.mental_load_score : null;
+      const fallback = taskMentalLoad.get(c.task_id) ?? 0;
+      const points = compLoad ?? fallback;
+      loadByMember.set(memberId, (loadByMember.get(memberId) ?? 0) + points);
     }
+
+    const totalLoad = [...loadByMember.values()].reduce((s, v) => s + v, 0);
 
     const rawPercentages = allMembers.map((m) => {
       const count = countByMember.get(m.id) ?? 0;
@@ -119,14 +133,17 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
       rounded[maxIdx].taskPercentage += diff;
     }
 
-    const memberAnalytics: MemberAnalytics[] = rounded.map((r) => ({
-      memberId: r.memberId,
-      displayName: r.displayName,
-      taskCount: r.taskCount,
-      taskPercentage: r.taskPercentage,
-      totalMentalLoad: 0, // Simplifie pour Phase 2 - enrichi plus tard
-      mentalLoadPercentage: 0,
-    }));
+    const memberAnalytics: MemberAnalytics[] = rounded.map((r) => {
+      const myLoad = loadByMember.get(r.memberId) ?? 0;
+      return {
+        memberId: r.memberId,
+        displayName: r.displayName,
+        taskCount: r.taskCount,
+        taskPercentage: r.taskPercentage,
+        totalMentalLoad: myLoad,
+        mentalLoadPercentage: totalLoad > 0 ? Math.round((myLoad / totalLoad) * 100) : 0,
+      };
+    });
 
     // -- Breakdown par catégorie --
     const catMap = new Map<string, { name: string; colorHex: string; count: number }>();
