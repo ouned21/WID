@@ -1,8 +1,12 @@
 import { redirect } from 'next/navigation';
 
 // Racine : redirige vers la landing marketing.
-// Cache bump 2026-04-20 : forcer Vercel à invalider un build corrompu
-// qui servait un Location: /login au lieu de /landing.
-export default function Home() {
+// force-dynamic : empêche toute mise en cache statique de la redirection.
+// Nécessaire car Vercel a servi pendant plusieurs jours un artefact compilé
+// issu d'un commit antérieur (redirect('/login')) malgré un code source à jour.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export default function RootRedirect() {
   redirect('/landing');
 }
