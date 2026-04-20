@@ -147,6 +147,8 @@ export default function OnboardingPage() {
   }[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [householdCreating, setHouseholdCreating] = useState(false);
+  const [journalConsent, setJournalConsent] = useState(false);
+  const [consentDetailsOpen, setConsentDetailsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // ── Assignments inline (écran résultats) ──
@@ -454,9 +456,19 @@ export default function OnboardingPage() {
     }
   }, [householdId, userId, householdCreating, catalogTemplates, selectedTemplateIds, customTaskNames, family, fetchHousehold, fetchTasks, refreshProfile]);
 
-  const handleFinish = useCallback(() => {
+  const handleFinish = useCallback(async () => {
+    // Persister le consentement IA journal si coché
+    // (si déjà consenti précédemment : no-op car ai_journal_consent_at existe)
+    if (journalConsent && userId && !profile?.ai_journal_consent_at) {
+      const supabase = createClient();
+      await supabase
+        .from('profiles')
+        .update({ ai_journal_consent_at: new Date().toISOString() })
+        .eq('id', userId);
+      await refreshProfile();
+    }
     router.push('/journal');
-  }, [router]);
+  }, [router, journalConsent, userId, profile?.ai_journal_consent_at, refreshProfile]);
 
   const deleteTask = useCallback(async (taskId: string) => {
     setGeneratedTasks((prev) => prev.filter((t) => t.id !== taskId));
@@ -872,18 +884,79 @@ export default function OnboardingPage() {
           )}
         </div>
 
+        {/* Carte consent IA journal — affichée seulement si pas déjà consenti */}
+        {!profile?.ai_journal_consent_at && (
+          <div className="mx-4 mt-5 rounded-2xl overflow-hidden" style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <button
+              onClick={() => setConsentDetailsOpen((v) => !v)}
+              className="w-full flex items-start gap-3 px-4 py-4 text-left"
+              aria-expanded={consentDetailsOpen}>
+              <span className="text-[20px] leading-none mt-0.5">🔒</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-bold text-[#1c1c1e]">Un dernier point avant de lancer</p>
+                <p className="text-[12px] text-[#8e8e93] mt-0.5 leading-relaxed">
+                  Yova utilise l&apos;IA <strong>Claude (Anthropic, US)</strong> pour comprendre ton journal.
+                  {consentDetailsOpen ? ' Masquer les détails.' : ' Voir les détails.'}
+                </p>
+              </div>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                className="flex-shrink-0 mt-1"
+                style={{ transform: consentDetailsOpen ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s' }}>
+                <path d="M4 2l4 4-4 4" />
+              </svg>
+            </button>
+            {consentDetailsOpen && (
+              <div className="px-4 pb-3 -mt-1">
+                <div className="rounded-xl p-3 text-[11px] leading-relaxed"
+                  style={{ background: '#f0f6ff', color: '#3a6fcc' }}>
+                  📍 <strong>Envoyé :</strong> ton texte libre + la liste de tes tâches (sans noms réels)<br />
+                  🔒 <strong>Conservé :</strong> résultat uniquement, serveurs Supabase (UE)<br />
+                  🗑️ <strong>Suppression :</strong> avec ton compte, depuis Profil → Mes données<br />
+                  <span className="opacity-75 mt-1 inline-block">RGPD Art. 7 — révocable à tout moment depuis ton profil.</span>
+                </div>
+              </div>
+            )}
+            <label className="flex items-center gap-3 px-4 py-3 cursor-pointer" style={{ borderTop: '0.5px solid var(--ios-separator)' }}>
+              <input
+                type="checkbox"
+                checked={journalConsent}
+                onChange={(e) => setJournalConsent(e.target.checked)}
+                className="flex-shrink-0"
+                style={{ width: 20, height: 20, accentColor: '#007aff' }}
+              />
+              <span className="text-[13px] text-[#1c1c1e] leading-snug">
+                J&apos;accepte que mes messages journal soient traités par Yova via Claude.
+              </span>
+            </label>
+          </div>
+        )}
+
         <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3"
           style={{ background: 'linear-gradient(transparent, #f6f8ff 30%)' }}>
-          <button
-            onClick={handleFinish}
-            className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white"
-            style={{
-              background: 'linear-gradient(135deg, #007aff, #5856d6)',
-              boxShadow: '0 8px 24px rgba(0,122,255,0.3)',
-            }}
-          >
-            Commencer avec Yova →
-          </button>
+          {(() => {
+            // Consent obligatoire pour débloquer le CTA, sauf si déjà consenti précédemment
+            const hasConsent = !!profile?.ai_journal_consent_at || journalConsent;
+            return (
+              <>
+                {!hasConsent && (
+                  <p className="text-center text-[11px] text-[#8e8e93] mb-2">
+                    Accepte le traitement IA ci-dessus pour continuer
+                  </p>
+                )}
+                <button
+                  onClick={handleFinish}
+                  disabled={!hasConsent}
+                  className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white disabled:opacity-40"
+                  style={{
+                    background: 'linear-gradient(135deg, #007aff, #5856d6)',
+                    boxShadow: hasConsent ? '0 8px 24px rgba(0,122,255,0.3)' : 'none',
+                  }}
+                >
+                  Commencer avec Yova →
+                </button>
+              </>
+            );
+          })()}
         </div>
       </div>
     );
