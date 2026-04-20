@@ -610,19 +610,16 @@ export default function ProfilePage() {
             </div>
             <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
           </Link>
-          <button
-            onClick={() => {
-              if (confirm('Relancer le tutoriel ?\n\nCela te fera repasser par les écrans d\'accueil. Tes tâches et ton foyer ne seront pas modifiés.')) {
-                router.push('/onboarding');
-              }
-            }}
-            className="w-full flex items-center justify-between px-4 py-3 text-left">
+          <Link href="/tasks/catalog" className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center gap-3">
-              <span className="text-[18px]">🏠</span>
-              <span className="text-[15px] text-[#1c1c1e]">Revoir le tutoriel</span>
+              <span className="text-[18px]">🗂</span>
+              <div>
+                <p className="text-[15px] text-[#1c1c1e]">Catalogue de tâches</p>
+                <p className="text-[11px] text-[#8e8e93]">Ajouter ou retirer des tâches suggérées</p>
+              </div>
             </div>
             <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
-          </button>
+          </Link>
         </div>
       </div>
 
