@@ -71,6 +71,41 @@ const DURATION_LABEL: Record<string, string> = {
   very_long: '> 1 h',
 };
 
+// ---- Packs thématiques --------------------------------------------------
+
+type Pack = {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  taskCount: number;
+  gradient: string;
+  color: string;
+  triggerValue: string;
+  datePrompt: string;
+};
+
+const PACKS: Pack[] = [
+  {
+    id: 'demenagement', name: 'Déménagement', emoji: '📦',
+    description: '17 tâches sur 3 mois — cartons, résiliations, changement d\'adresse, état des lieux…',
+    taskCount: 17, color: '#ff9500', gradient: 'linear-gradient(135deg, #ff9500, #ff6b00)',
+    triggerValue: 'demenagement', datePrompt: 'Date du déménagement ?',
+  },
+  {
+    id: 'mariage', name: 'Mariage', emoji: '💍',
+    description: '15 tâches sur 12 mois — salle, traiteur, photographe, faire-part, plan de table…',
+    taskCount: 15, color: '#af52de', gradient: 'linear-gradient(135deg, #af52de, #5856d6)',
+    triggerValue: 'mariage', datePrompt: 'Date du mariage ?',
+  },
+  {
+    id: 'bebe', name: 'Bébé arrive', emoji: '👶',
+    description: '11 tâches sur 9 mois — chambre, matériel, pédiatre, valise maternité, congé, CAF…',
+    taskCount: 11, color: '#ff6b9d', gradient: 'linear-gradient(135deg, #ff6b9d, #ff3b30)',
+    triggerValue: 'bebe', datePrompt: 'Date prévue d\'accouchement ?',
+  },
+];
+
 // ---- Types ---------------------------------------------------------------
 
 type Template = {
@@ -100,6 +135,10 @@ export default function CatalogPage() {
   const [search, setSearch] = useState('');
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [selectedPack, setSelectedPack] = useState<Pack | null>(null);
+  const [packDate, setPackDate] = useState('');
+  const [activatingPack, setActivatingPack] = useState<string | null>(null);
+  const [packError, setPackError] = useState<string | null>(null);
 
   // Charger les templates (lecture publique)
   useEffect(() => {
@@ -207,6 +246,58 @@ export default function CatalogPage() {
     setPendingId(null);
   };
 
+  const handleActivatePack = async () => {
+    if (!profile?.household_id || !profile?.id || !selectedPack || !packDate) return;
+    setActivatingPack(selectedPack.id);
+    setPackError(null);
+    try {
+      const supabase = createClient();
+      const { data: associations } = await supabase
+        .from('task_associations')
+        .select('*')
+        .eq('trigger_type', 'pack')
+        .eq('trigger_value', selectedPack.triggerValue)
+        .order('sort_order');
+      if (!associations || associations.length === 0) {
+        setPackError('Pack non trouvé en base.');
+        setActivatingPack(null);
+        return;
+      }
+      const refDate = new Date(`${packDate}T09:00:00`);
+      const { data: defaultCat } = await supabase.from('task_categories').select('id').limit(1);
+      const defaultCatId = defaultCat?.[0]?.id ?? '';
+      const rows = associations.map((assoc) => {
+        const taskDate = new Date(refDate);
+        taskDate.setDate(taskDate.getDate() + (assoc.relative_days || 0));
+        return {
+          household_id: profile.household_id,
+          name: assoc.suggested_name,
+          category_id: assoc.suggested_category_id || defaultCatId,
+          frequency: 'once',
+          mental_load_score: assoc.suggested_mental_load_score || 3,
+          scoring_category: assoc.suggested_scoring_category || 'misc',
+          duration_estimate: assoc.suggested_duration || 'short',
+          physical_effort: assoc.suggested_physical || 'light',
+          is_active: true,
+          is_fixed_assignment: false,
+          notifications_enabled: true,
+          created_by: profile.id,
+          assigned_to: null,
+          next_due_at: taskDate.toISOString(),
+        };
+      });
+      await supabase.from('household_tasks').insert(rows);
+      if (profile?.household_id) await fetchTasks(profile.household_id);
+      setSelectedPack(null);
+      setPackDate('');
+      setActivatingPack(null);
+    } catch (err) {
+      console.error('[catalog] activation pack:', err);
+      setPackError('Erreur lors de l\'activation.');
+      setActivatingPack(null);
+    }
+  };
+
   const handleRemove = async (tpl: Template) => {
     const taskId = taskIdFor(tpl);
     if (!taskId) return;
@@ -243,6 +334,27 @@ export default function CatalogPage() {
           </svg>
           Nouvelle
         </Link>
+      </div>
+
+      {/* Packs thématiques — en tête, un cran au-dessus des catégories */}
+      <div className="px-4">
+        <p className="text-[11px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-0.5">
+          📦 Packs thématiques · un événement, plein de tâches d&apos;un coup
+        </p>
+        <div className="flex gap-2.5 overflow-x-auto pb-1 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
+          {PACKS.map((pk) => (
+            <button
+              key={pk.id}
+              onClick={() => { setSelectedPack(pk); setPackDate(''); }}
+              className="flex-shrink-0 rounded-2xl p-4 text-left text-white"
+              style={{ width: 220, background: pk.gradient, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+              <p className="text-[24px] leading-none mb-2">{pk.emoji}</p>
+              <p className="text-[15px] font-bold">{pk.name}</p>
+              <p className="text-[11px] opacity-85 mt-1 line-clamp-2">{pk.description}</p>
+              <p className="text-[11px] mt-2 font-semibold opacity-95">{pk.taskCount} tâches →</p>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Recherche */}
@@ -372,6 +484,42 @@ export default function CatalogPage() {
               </section>
             );
           })}
+        </div>
+      )}
+
+      {/* Overlay activation d'un pack */}
+      {selectedPack && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+          onClick={() => { setSelectedPack(null); setPackDate(''); setPackError(null); }}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6"
+            onClick={(e) => e.stopPropagation()}
+            style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+            <p className="text-[20px] font-bold text-[#1c1c1e] mb-1">{selectedPack.emoji} {selectedPack.name}</p>
+            <p className="text-[14px] text-[#8e8e93] mb-4">{selectedPack.datePrompt}</p>
+            <input
+              type="date"
+              value={packDate}
+              onChange={(e) => setPackDate(e.target.value)}
+              className="w-full rounded-xl px-4 py-3 text-[17px] text-[#1c1c1e] mb-4"
+              style={{ background: '#f0f2f8' }}
+            />
+            {packError && (
+              <p className="text-[13px] mb-3" style={{ color: '#ff3b30' }}>{packError}</p>
+            )}
+            <button
+              onClick={handleActivatePack}
+              disabled={!packDate || activatingPack === selectedPack.id}
+              className="w-full rounded-xl py-[14px] text-[17px] font-semibold text-white disabled:opacity-50"
+              style={{ background: selectedPack.color }}>
+              {activatingPack === selectedPack.id ? 'Création…' : `Créer ${selectedPack.taskCount} tâches`}
+            </button>
+            <button
+              onClick={() => { setSelectedPack(null); setPackDate(''); setPackError(null); }}
+              className="w-full mt-2 py-2 text-[15px] text-[#8e8e93]">
+              Annuler
+            </button>
+          </div>
         </div>
       )}
     </div>

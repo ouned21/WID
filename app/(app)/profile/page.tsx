@@ -584,14 +584,6 @@ export default function ProfilePage() {
             </div>
             <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
           </Link>
-          <Link href="/packs" className="flex items-center justify-between px-4 py-3"
-            style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
-            <div className="flex items-center gap-3">
-              <span className="text-[18px]">📦</span>
-              <span className="text-[15px] text-[#1c1c1e]">Packs Projets</span>
-            </div>
-            <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
-          </Link>
           <Link href="/tasks/archived" className="flex items-center justify-between px-4 py-3"
             style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
             <div className="flex items-center gap-3">
