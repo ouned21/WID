@@ -100,7 +100,6 @@ export default function CatalogPage() {
   const [search, setSearch] = useState('');
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [showDescId, setShowDescId] = useState<string | null>(null);
 
   // Charger les templates (lecture publique)
   useEffect(() => {
@@ -165,12 +164,11 @@ export default function CatalogPage() {
     return entries;
   }, [visibleTemplates, taskIdFor]);
 
-  // Première catégorie expanded par défaut, ou toutes si recherche active
+  // Tout plié par défaut. Ouvert seulement si recherche/filtre actif
+  // (sinon l'utilisateur ne verrait aucun résultat).
   useEffect(() => {
     if (search.trim() || filterMode !== 'all') {
       setExpanded(new Set(grouped.map((g) => g.cat)));
-    } else if (grouped.length > 0 && expanded.size === 0) {
-      setExpanded(new Set([grouped[0].cat]));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, filterMode, grouped.length]);
@@ -263,7 +261,7 @@ export default function CatalogPage() {
       <div className="px-4 flex gap-1.5">
         {([
           { v: 'all', label: `Tout (${templates.length})` },
-          { v: 'missing', label: `À ajouter (${templates.length - totalInstalled})` },
+          { v: 'missing', label: `Disponibles (${templates.length - totalInstalled})` },
           { v: 'installed', label: `Installées (${totalInstalled})` },
         ] as const).map((opt) => {
           const active = filterMode === opt.v;
@@ -319,31 +317,29 @@ export default function CatalogPage() {
                   const existingTaskId = taskIdFor(tpl);
                   const isInstalled = !!existingTaskId;
                   const isPending = pendingId === tpl.id;
-                  const descOpen = showDescId === tpl.id;
                   return (
                     <div
                       key={tpl.id}
                       style={idx < catTemplates.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : undefined}>
                       <div className="flex items-center gap-3 px-4 py-3">
-                        {/* Zone info : tap → si installée, fiche détail; sinon toggle description */}
+                        {/* Tap sur la ligne :
+                            - installée → fiche détail pour modifier
+                            - disponible → formulaire pré-rempli pour personnaliser */}
                         <button
                           onClick={() => {
                             if (isInstalled && existingTaskId) {
                               router.push(`/tasks/${existingTaskId}`);
                             } else {
-                              setShowDescId(descOpen ? null : tpl.id);
+                              router.push(`/tasks/new?templateId=${tpl.id}`);
                             }
                           }}
                           className="flex-1 min-w-0 text-left"
-                          aria-label={isInstalled ? 'Voir les détails de la tâche' : 'Voir la description'}>
+                          aria-label={isInstalled
+                            ? `Modifier ${tpl.name}`
+                            : `Personnaliser ${tpl.name} avant de l'ajouter`}>
                           <div className="flex items-center gap-1.5">
                             <p className="text-[15px] font-medium text-[#1c1c1e] truncate">{tpl.name}</p>
-                            {tpl.description && !isInstalled && (
-                              <span className="flex-shrink-0 text-[10px] text-[#8e8e93]" aria-hidden="true">ⓘ</span>
-                            )}
-                            {isInstalled && (
-                              <span className="flex-shrink-0 text-[10px] text-[#c7c7cc]" aria-hidden="true">›</span>
-                            )}
+                            <span className="flex-shrink-0 text-[11px] text-[#c7c7cc]" aria-hidden="true">›</span>
                           </div>
                           <p className="text-[11px] text-[#8e8e93] mt-0.5">
                             {FREQ_LABEL[tpl.default_frequency] ?? tpl.default_frequency}
@@ -352,7 +348,7 @@ export default function CatalogPage() {
                         </button>
                         {isInstalled ? (
                           <button
-                            onClick={() => handleRemove(tpl)}
+                            onClick={(e) => { e.stopPropagation(); handleRemove(tpl); }}
                             disabled={isPending}
                             className="flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-semibold disabled:opacity-40 flex-shrink-0"
                             style={{ background: '#fff2f2', color: '#ff3b30', border: '1px solid #ffd5d3' }}
@@ -361,24 +357,15 @@ export default function CatalogPage() {
                           </button>
                         ) : (
                           <button
-                            onClick={() => handleAdd(tpl)}
+                            onClick={(e) => { e.stopPropagation(); handleAdd(tpl); }}
                             disabled={isPending}
                             className="flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-40 flex-shrink-0"
                             style={{ background: '#007aff' }}
-                            aria-label={`Ajouter ${tpl.name} au foyer`}>
+                            aria-label={`Ajouter ${tpl.name} rapidement`}>
                             {isPending ? '…' : <><span>+</span><span>Ajouter</span></>}
                           </button>
                         )}
                       </div>
-                      {/* Description repliée */}
-                      {descOpen && tpl.description && (
-                        <div className="px-4 pb-3 -mt-1">
-                          <p className="text-[12px] text-[#3c3c43] leading-relaxed rounded-lg px-3 py-2"
-                            style={{ background: '#f0f6ff' }}>
-                            {tpl.description}
-                          </p>
-                        </div>
-                      )}
                     </div>
                   );
                 })}

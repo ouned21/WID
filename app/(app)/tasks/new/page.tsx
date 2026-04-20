@@ -218,7 +218,22 @@ export default function NewTaskPage() {
           : Promise.resolve({ data: [] }),
       ]);
       if (catRes.data) setDbCategories(catRes.data as TaskCategory[]);
-      if (tplRes.data) setAllTemplates(tplRes.data);
+      if (tplRes.data) {
+        setAllTemplates(tplRes.data);
+        // Pré-remplissage depuis le catalogue : ?templateId=X
+        const tplIdParam = searchParams.get('templateId');
+        if (tplIdParam) {
+          const tpl = tplRes.data.find((t) => t.id === tplIdParam);
+          if (tpl) {
+            setName(tpl.name);
+            setSelectedTemplateId(tpl.id);
+            if (tpl.scoring_category) setScoringCategory(tpl.scoring_category as ScoringCategory);
+            if (tpl.default_frequency) setFrequency(tpl.default_frequency as Frequency);
+            if (tpl.default_duration) setDuration(tpl.default_duration as DurationEstimate);
+            if (tpl.default_physical) setPhysical(tpl.default_physical as PhysicalEffort);
+          }
+        }
+      }
       // Compter les usages par template
       if (usageRes.data && usageRes.data.length > 0) {
         const counts = new Map<string, number>();
