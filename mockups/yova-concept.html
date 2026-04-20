@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Yova — Vision Produit</title>
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  background: #111118;
+  min-height: 100vh;
+  padding: 48px 32px 72px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page-title {
+  text-align: center;
+  color: rgba(255,255,255,0.25);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 52px;
+}
+
+.screens-row {
+  display: flex;
+  gap: 28px;
+  justify-content: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.screen-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.screen-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.22);
+}
+
+/* ── PHONE SHELL ── */
+.phone {
+  width: 300px;
+  background: #1a1a1f;
+  border-radius: 50px;
+  padding: 12px;
+  box-shadow:
+    0 0 0 1.5px rgba(255,255,255,0.09),
+    0 0 0 3px rgba(0,0,0,0.8),
+    0 32px 80px rgba(0,0,0,0.7);
+}
+
+.phone-island {
+  width: 88px;
+  height: 26px;
+  background: #0d0d12;
+  border-radius: 13px;
+  margin: 0 auto 10px;
+}
+
+.screen {
+  border-radius: 38px;
+  overflow: hidden;
+  min-height: 620px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* STATUS BAR */
+.sbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px 0;
+  position: relative;
+  z-index: 10;
+}
+.sbar-time { font-size: 13px; font-weight: 700; }
+.sbar-icons { font-size: 11px; opacity: .7; }
+.sbar-light .sbar-time,
+.sbar-light .sbar-icons { color: #1c1c1e; }
+.sbar-dark .sbar-time,
+.sbar-dark .sbar-icons { color: rgba(255,255,255,0.85); }
+
+/* TAB BAR */
+.tabbar {
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 0 18px;
+  border-top: 0.5px solid;
+  margin-top: auto;
+  flex-shrink: 0;
+}
+.tabbar-light { background: rgba(242,242,247,0.92); border-color: rgba(0,0,0,0.1); }
+.tabbar-dark  { background: rgba(20,20,30,0.92);    border-color: rgba(255,255,255,0.08); }
+
+.tab { display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; }
+.tab-ico { font-size: 21px; }
+.tab-lbl { font-size: 9px; font-weight: 600; }
+.tab.on .tab-lbl { color: #007aff; }
+.tabbar-light .tab .tab-lbl { color: #8e8e93; }
+.tabbar-light .tab.on .tab-lbl { color: #007aff; }
+.tabbar-dark  .tab .tab-lbl { color: rgba(255,255,255,0.35); }
+.tabbar-dark  .tab.on .tab-lbl { color: #4da3ff; }
+
+
+/* ═══════════════════════════════════
+   SCREEN 1  —  ACCUEIL / SCORE
+═══════════════════════════════════ */
+#s1 { background: #f2f2f7; }
+
+.home-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 6px 18px 14px;
+}
+.home-hello { font-size: 21px; font-weight: 800; color: #1c1c1e; line-height: 1.15; }
+.home-sub   { font-size: 12px; color: #8e8e93; margin-top: 2px; }
+.ava {
+  width: 34px; height: 34px;
+  background: linear-gradient(135deg,#5856d6,#007aff);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; color: #fff;
+}
+
+/* BIG SCORE CARD */
+.score-card {
+  margin: 0 14px 12px;
+  border-radius: 22px;
+  padding: 18px 18px 16px;
+  background: linear-gradient(148deg, #16163a 0%, #2b1e72 55%, #163260 100%);
+  position: relative; overflow: hidden;
+}
+.score-card::before {
+  content: '';
+  position: absolute;
+  width: 160px; height: 160px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.035);
+  top: -50px; right: -40px;
+}
+.sc-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: rgba(255,255,255,0.4);
+  margin-bottom: 14px;
+}
+.sc-member { margin-bottom: 9px; }
+.sc-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.sc-name { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.88); }
+.sc-pct  { font-size: 13px; font-weight: 800; color: #fff; }
+.sc-track { height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+.sc-fill  { height: 100%; border-radius: 3px; }
+.fill-j { background: linear-gradient(90deg,#ff6b6b,#ff3030); width: 68%; }
+.fill-b { background: linear-gradient(90deg,#4ecdc4,#26b5ab); width: 32%; }
+.sc-badge {
+  margin-top: 13px;
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(255,100,100,0.18);
+  border: 1px solid rgba(255,100,100,0.28);
+  border-radius: 9px; padding: 3px 9px;
+  font-size: 11px; font-weight: 700; color: #ff8c8c;
+}
+
+/* INSIGHT */
+.insight {
+  margin: 0 14px 10px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: flex; gap: 10px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+}
+.insight-ico { font-size: 20px; flex-shrink: 0; padding-top: 1px; }
+.insight-title { font-size: 12px; font-weight: 700; color: #1c1c1e; margin-bottom: 2px; }
+.insight-body  { font-size: 11px; color: #8e8e93; line-height: 1.45; }
+.insight-cta   { font-size: 11px; font-weight: 700; color: #007aff; margin-top: 5px; display: block; }
+
+/* TASKS LIST */
+.sec-lbl { font-size: 11px; font-weight: 700; color: #8e8e93; letter-spacing: .5px; padding: 0 18px 6px; }
+.task-row {
+  margin: 0 14px 8px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 11px 13px;
+  display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+}
+.tdot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.tinfo { flex: 1; }
+.tname { font-size: 13px; font-weight: 600; color: #1c1c1e; }
+.tmeta { font-size: 10px; color: #8e8e93; margin-top: 1px; }
+.tpill {
+  font-size: 10px; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg,#5856d6,#007aff);
+  border-radius: 7px; padding: 3px 8px; flex-shrink: 0;
+}
+
+
+/* ═══════════════════════════════════
+   SCREEN 2  —  SCORE DÉTAILLÉ
+═══════════════════════════════════ */
+#s2 { background: #f2f2f7; }
+
+.back-row {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 14px; font-weight: 600; color: #007aff;
+  padding: 4px 16px 8px;
+}
+.pg-title { font-size: 22px; font-weight: 800; color: #1c1c1e; padding: 0 18px 2px; }
+.pg-sub   { font-size: 12px; color: #8e8e93; padding: 0 18px 12px; }
+
+.seg {
+  display: flex; margin: 0 14px 14px;
+  background: rgba(0,0,0,0.06); border-radius: 9px; padding: 2px;
+}
+.seg-btn {
+  flex: 1; text-align: center; padding: 5px 4px;
+  font-size: 11px; font-weight: 600; color: #8e8e93; border-radius: 7px;
+}
+.seg-btn.on { background: #fff; color: #1c1c1e; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+
+.cat-card { margin: 0 14px 8px; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 0 rgba(0,0,0,0.06); }
+.cat-row  { padding: 10px 14px; display: flex; align-items: center; gap: 9px; border-bottom: 0.5px solid #f0f0f5; }
+.cat-row:last-child { border-bottom: none; }
+.cat-emoji { font-size: 17px; width: 24px; text-align: center; }
+.cat-info  { flex: 1; }
+.cat-name  { font-size: 12px; font-weight: 700; color: #1c1c1e; }
+.cat-bars  { display: flex; align-items: center; gap: 3px; margin-top: 4px; }
+.cbar { height: 4px; border-radius: 2px; }
+.cbar-j { background: #ff4444; }
+.cbar-b { background: #26b5ab; }
+.clabel { font-size: 9px; color: #8e8e93; }
+.cstatus { font-size: 15px; }
+
+.trend-card {
+  margin: 0 14px 10px;
+  background: #fff; border-radius: 16px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+}
+.trend-title { font-size: 11px; font-weight: 700; color: #1c1c1e; margin-bottom: 10px; }
+.trend-bars { display: flex; align-items: flex-end; gap: 5px; height: 44px; }
+.tbar-col { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; }
+.tbar { width: 100%; border-radius: 3px 3px 0 0; }
+.tbar-lbl { font-size: 9px; color: #8e8e93; }
+.trend-note { font-size: 10px; font-weight: 700; color: #ff5555; margin-top: 6px; }
+
+
+/* ═══════════════════════════════════
+   SCREEN 3  —  JOURNAL
+═══════════════════════════════════ */
+#s3 { background: #15152a; }
+
+.jhead { padding: 4px 18px 14px; }
+.jback { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.4); margin-bottom: 8px; }
+.jtitle { font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 2px; }
+.jsub   { font-size: 12px; color: rgba(255,255,255,0.4); }
+
+.chat { padding: 0 14px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+
+.bubble { max-width: 84%; padding: 10px 13px; font-size: 12px; line-height: 1.5; }
+.byova {
+  background: rgba(255,255,255,0.09);
+  color: rgba(255,255,255,0.85);
+  border-radius: 16px 16px 16px 4px;
+  align-self: flex-start;
+}
+.buser {
+  background: linear-gradient(135deg,#5856d6,#1a7fe8);
+  color: #fff;
+  border-radius: 16px 16px 4px 16px;
+  align-self: flex-end;
+}
+.byova-name {
+  font-size: 9px; font-weight: 800; letter-spacing: 1.5px;
+  text-transform: uppercase; color: rgba(255,255,255,0.35);
+  margin-bottom: 4px;
+}
+.extract-box {
+  background: rgba(88,86,214,0.18);
+  border: 1px solid rgba(88,86,214,0.32);
+  border-radius: 11px;
+  padding: 9px 11px;
+  margin-top: 7px;
+}
+.extract-title { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.35); margin-bottom: 6px; }
+.extract-item { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; font-size: 11px; color: rgba(255,255,255,0.75); }
+.extract-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.score-bump {
+  margin-top: 7px;
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(52,199,89,0.16); border: 1px solid rgba(52,199,89,0.28);
+  border-radius: 7px; padding: 3px 8px;
+  font-size: 10px; font-weight: 700; color: #5dd879;
+}
+
+.chat-bar {
+  margin: 12px 14px 0;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 22px;
+  padding: 9px 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.chat-ph { flex: 1; font-size: 12px; color: rgba(255,255,255,0.3); }
+.mic-btn {
+  width: 27px; height: 27px;
+  background: linear-gradient(135deg,#5856d6,#1a7fe8);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+}
+
+
+/* ═══════════════════════════════════
+   SCREEN 4  —  RAPPORT DIMANCHE
+═══════════════════════════════════ */
+#s4 { background: #f2f2f7; }
+
+.rhead {
+  background: linear-gradient(148deg,#16163a 0%,#2b1e72 55%,#163260 100%);
+  padding: 8px 18px 28px;
+  position: relative; overflow: hidden;
+}
+.rhead::after {
+  content: '';
+  position: absolute; bottom: -16px; left: 0; right: 0;
+  height: 32px; background: #f2f2f7; border-radius: 20px 20px 0 0;
+}
+.rhead .sbar-time { color: #fff; }
+.rhead .sbar-icons { color: rgba(255,255,255,0.6); }
+.rback { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.45); margin-bottom: 10px; position: relative; z-index: 1; }
+.rweek { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.35); position: relative; z-index: 1; }
+.rtitle { font-size: 22px; font-weight: 800; color: #fff; position: relative; z-index: 1; margin-top: 2px; }
+.remoji { position: absolute; right: 18px; bottom: 24px; font-size: 38px; z-index: 1; }
+
+.rpills { display: flex; gap: 8px; padding: 18px 14px 10px; }
+.rpill {
+  flex: 1; background: #fff; border-radius: 14px;
+  padding: 11px 10px; text-align: center;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+}
+.rpill-name { font-size: 10px; font-weight: 700; color: #8e8e93; margin-bottom: 3px; }
+.rpill-pct  { font-size: 26px; font-weight: 800; line-height: 1; }
+.rpill-lbl  { font-size: 9px; color: #8e8e93; margin-top: 2px; }
+.pct-j { color: #ff3b30; }
+.pct-b { color: #26b5ab; }
+
+.rsec { margin: 0 14px 10px; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 0 rgba(0,0,0,0.06); }
+.rsec-title { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #8e8e93; padding: 10px 14px 7px; border-bottom: 0.5px solid #f0f0f5; }
+.ritem { display: flex; align-items: center; gap: 9px; padding: 9px 14px; border-bottom: 0.5px solid #f0f0f5; font-size: 12px; color: #1c1c1e; }
+.ritem:last-child { border-bottom: none; }
+.rico { font-size: 15px; }
+
+.rsugg {
+  margin: 0 14px 16px;
+  background: linear-gradient(135deg,rgba(88,86,214,0.08),rgba(0,122,255,0.08));
+  border: 1px solid rgba(88,86,214,0.16);
+  border-radius: 16px; padding: 12px 14px;
+  display: flex; gap: 9px;
+}
+.rsugg-ico { font-size: 18px; flex-shrink: 0; }
+.rsugg-title { font-size: 12px; font-weight: 700; color: #1c1c1e; margin-bottom: 2px; }
+.rsugg-body  { font-size: 11px; color: #8e8e93; line-height: 1.4; }
+
+
+/* ═══════════════════════════════════
+   SCREEN 5  —  NOTIFICATIONS
+═══════════════════════════════════ */
+#s5 {
+  background: #1e1430;
+  background-image: radial-gradient(ellipse at 60% 20%, rgba(88,86,214,0.3) 0%, transparent 60%);
+  justify-content: center;
+  gap: 10px;
+  padding: 0 16px 20px;
+}
+
+.lock-time { font-size: 58px; font-weight: 200; color: #fff; text-align: center; letter-spacing: -1px; margin-bottom: 0; }
+.lock-date { font-size: 14px; color: rgba(255,255,255,0.6); text-align: center; margin-bottom: 22px; }
+
+.notif {
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 18px;
+  padding: 12px 14px;
+  width: 100%;
+}
+.notif-hd { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+.notif-appico {
+  width: 26px; height: 26px;
+  background: linear-gradient(135deg,#5856d6,#007aff);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+}
+.notif-app  { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.8); }
+.notif-when { font-size: 10px; color: rgba(255,255,255,0.4); margin-left: auto; }
+.notif-title { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 2px; }
+.notif-body  { font-size: 12px; color: rgba(255,255,255,0.7); line-height: 1.4; margin-bottom: 10px; }
+.notif-btns { display: flex; gap: 7px; }
+.nbtn {
+  flex: 1; text-align: center;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 9px; padding: 7px;
+  font-size: 12px; font-weight: 600; color: #fff;
+}
+.nbtn.ok {
+  background: rgba(52,199,89,0.22);
+  border-color: rgba(52,199,89,0.36);
+  color: #5dd879;
+}
+</style>
+</head>
+<body>
+
+<p class="page-title">Yova — Vision Produit</p>
+
+<div class="screens-row">
+
+  <!-- ── S1: ACCUEIL ── -->
+  <div class="screen-col">
+    <span class="screen-tag">Accueil</span>
+    <div class="phone">
+      <div class="phone-island"></div>
+      <div class="screen" id="s1">
+        <div class="sbar sbar-light"><span class="sbar-time">9:41</span><span class="sbar-icons">● WiFi 🔋</span></div>
+
+        <div class="home-head">
+          <div>
+            <div class="home-hello">Bonjour Jonathan 👋</div>
+            <div class="home-sub">Semaine du 14 au 20 avr.</div>
+          </div>
+          <div class="ava">J</div>
+        </div>
+
+        <div class="score-card">
+          <div class="sc-label">Répartition · Cette semaine</div>
+          <div class="sc-member">
+            <div class="sc-row"><span class="sc-name">Jonathan</span><span class="sc-pct">68 %</span></div>
+            <div class="sc-track"><div class="sc-fill fill-j"></div></div>
+          </div>
+          <div class="sc-member">
+            <div class="sc-row"><span class="sc-name">Barbara</span><span class="sc-pct">32 %</span></div>
+            <div class="sc-track"><div class="sc-fill fill-b"></div></div>
+          </div>
+          <div class="sc-badge">⚠️ Déséquilibré</div>
+        </div>
+
+        <div class="insight">
+          <div class="insight-ico">💡</div>
+          <div>
+            <div class="insight-title">Yova a remarqué</div>
+            <div class="insight-body">Jonathan fait la cuisine seul depuis 3 semaines — Barbara n'a aucune tâche cuisine ce mois-ci.</div>
+            <span class="insight-cta">Rééquilibrer →</span>
+          </div>
+        </div>
+
+        <div class="sec-lbl">AUJOURD'HUI</div>
+        <div class="task-row">
+          <div class="tdot" style="background:#ff9500"></div>
+          <div class="tinfo">
+            <div class="tname">Faire les courses</div>
+            <div class="tmeta">Courses · En retard de 1 jour</div>
+          </div>
+          <div class="tpill">Barbara</div>
+        </div>
+        <div class="task-row">
+          <div class="tdot" style="background:#34c759"></div>
+          <div class="tinfo">
+            <div class="tname">Sortir les poubelles</div>
+            <div class="tmeta">Ménage · Aujourd'hui</div>
+          </div>
+          <div class="tpill">Jonathan</div>
+        </div>
+
+        <div class="tabbar tabbar-light">
+          <div class="tab on"><div class="tab-ico">⚖️</div><div class="tab-lbl">Score</div></div>
+          <div class="tab"><div class="tab-ico">📅</div><div class="tab-lbl">Planning</div></div>
+          <div class="tab"><div class="tab-ico">💬</div><div class="tab-lbl">Journal</div></div>
+          <div class="tab"><div class="tab-ico">👤</div><div class="tab-lbl">Profil</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── S2: SCORE DÉTAILLÉ ── -->
+  <div class="screen-col">
+    <span class="screen-tag">Score détaillé</span>
+    <div class="phone">
+      <div class="phone-island"></div>
+      <div class="screen" id="s2">
+        <div class="sbar sbar-light"><span class="sbar-time">9:41</span><span class="sbar-icons">🔋</span></div>
+        <div class="back-row">‹ Score</div>
+        <div class="pg-title">Répartition</div>
+        <div class="pg-sub">Qui fait quoi chez vous</div>
+
+        <div class="seg">
+          <div class="seg-btn on">Semaine</div>
+          <div class="seg-btn">Mois</div>
+          <div class="seg-btn">3 mois</div>
+        </div>
+
+        <div class="cat-card">
+          <div class="cat-row">
+            <div class="cat-emoji">🍳</div>
+            <div class="cat-info">
+              <div class="cat-name">Cuisine</div>
+              <div class="cat-bars">
+                <div class="cbar cbar-j" style="width:18px"></div><div class="clabel">J 30%</div>
+                <div class="cbar cbar-b" style="width:42px;margin-left:4px"></div><div class="clabel">B 70%</div>
+              </div>
+            </div>
+            <div class="cstatus">✅</div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-emoji">🧹</div>
+            <div class="cat-info">
+              <div class="cat-name">Ménage</div>
+              <div class="cat-bars">
+                <div class="cbar cbar-j" style="width:48px"></div><div class="clabel">J 80%</div>
+                <div class="cbar cbar-b" style="width:12px;margin-left:4px"></div><div class="clabel">B 20%</div>
+              </div>
+            </div>
+            <div class="cstatus">⚠️</div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-emoji">🧒</div>
+            <div class="cat-info">
+              <div class="cat-name">Enfants</div>
+              <div class="cat-bars">
+                <div class="cbar cbar-j" style="width:12px"></div><div class="clabel">J 20%</div>
+                <div class="cbar cbar-b" style="width:48px;margin-left:4px"></div><div class="clabel">B 80%</div>
+              </div>
+            </div>
+            <div class="cstatus">⚠️</div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-emoji">📋</div>
+            <div class="cat-info">
+              <div class="cat-name">Admin</div>
+              <div class="cat-bars">
+                <div class="cbar cbar-j" style="width:55px"></div><div class="clabel">J 90%</div>
+                <div class="cbar cbar-b" style="width:6px;margin-left:4px"></div><div class="clabel">B 10%</div>
+              </div>
+            </div>
+            <div class="cstatus">🔴</div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-emoji">🛒</div>
+            <div class="cat-info">
+              <div class="cat-name">Courses</div>
+              <div class="cat-bars">
+                <div class="cbar cbar-j" style="width:36px"></div><div class="clabel">J 60%</div>
+                <div class="cbar cbar-b" style="width:24px;margin-left:4px"></div><div class="clabel">B 40%</div>
+              </div>
+            </div>
+            <div class="cstatus">✅</div>
+          </div>
+        </div>
+
+        <div class="trend-card">
+          <div class="trend-title">Tendance 4 semaines — Jonathan</div>
+          <div class="trend-bars">
+            <div class="tbar-col"><div class="tbar" style="height:26px;background:rgba(255,68,68,.28)"></div><div class="tbar-lbl">S1</div></div>
+            <div class="tbar-col"><div class="tbar" style="height:33px;background:rgba(255,68,68,.45)"></div><div class="tbar-lbl">S2</div></div>
+            <div class="tbar-col"><div class="tbar" style="height:28px;background:rgba(255,68,68,.38)"></div><div class="tbar-lbl">S3</div></div>
+            <div class="tbar-col"><div class="tbar" style="height:40px;background:#ff4444"></div><div class="tbar-lbl">S4</div></div>
+          </div>
+          <div class="trend-note">↗ Ta charge augmente semaine après semaine</div>
+        </div>
+
+        <div class="tabbar tabbar-light">
+          <div class="tab"><div class="tab-ico">⚖️</div><div class="tab-lbl">Score</div></div>
+          <div class="tab"><div class="tab-ico">📅</div><div class="tab-lbl">Planning</div></div>
+          <div class="tab"><div class="tab-ico">💬</div><div class="tab-lbl">Journal</div></div>
+          <div class="tab"><div class="tab-ico">👤</div><div class="tab-lbl">Profil</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── S3: JOURNAL ── -->
+  <div class="screen-col">
+    <span class="screen-tag">Journal IA</span>
+    <div class="phone">
+      <div class="phone-island"></div>
+      <div class="screen" id="s3">
+        <div class="sbar sbar-dark"><span class="sbar-time">9:41</span><span class="sbar-icons">🔋</span></div>
+
+        <div class="jhead">
+          <div class="jback">‹ Retour</div>
+          <div class="jtitle">Charge mentale</div>
+          <div class="jsub">Ce que personne n'a vu aujourd'hui</div>
+        </div>
+
+        <div class="chat">
+          <div class="bubble byova">
+            <div class="byova-name">Yova</div>
+            Qu'est-ce que t'as géré aujourd'hui que personne d'autre n'a remarqué ?
+          </div>
+
+          <div class="bubble buser">
+            J'ai appelé l'assurance, pris rdv chez le dentiste pour les enfants, et commandé les fournitures scolaires
+          </div>
+
+          <div class="bubble byova">
+            <div class="byova-name">Yova</div>
+            Compris. Voici ce que j'ai noté dans ton score :
+            <div class="extract-box">
+              <div class="extract-title">Travail invisible détecté</div>
+              <div class="extract-item"><div class="extract-dot" style="background:#ff9500"></div>Admin · Assurance — 20 min</div>
+              <div class="extract-item"><div class="extract-dot" style="background:#5856d6"></div>Santé · Dentiste enfants — 15 min</div>
+              <div class="extract-item"><div class="extract-dot" style="background:#34c759"></div>Enfants · Fournitures — 10 min</div>
+              <div class="score-bump">+45 min · Score mis à jour ✓</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-bar">
+          <div class="chat-ph">Ajouter quelque chose…</div>
+          <div class="mic-btn">🎤</div>
+        </div>
+
+        <div class="tabbar tabbar-dark" style="margin-top:12px">
+          <div class="tab"><div class="tab-ico">⚖️</div><div class="tab-lbl">Score</div></div>
+          <div class="tab"><div class="tab-ico">📅</div><div class="tab-lbl">Planning</div></div>
+          <div class="tab on"><div class="tab-ico">💬</div><div class="tab-lbl">Journal</div></div>
+          <div class="tab"><div class="tab-ico">👤</div><div class="tab-lbl">Profil</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── S4: RAPPORT ── -->
+  <div class="screen-col">
+    <span class="screen-tag">Rapport dimanche</span>
+    <div class="phone">
+      <div class="phone-island"></div>
+      <div class="screen" id="s4">
+        <div class="rhead">
+          <div class="sbar sbar-dark" style="padding:10px 0 0;margin-bottom:6px"><span class="sbar-time">21:00</span><span class="sbar-icons">🔋</span></div>
+          <div class="rback">‹ Retour</div>
+          <div class="rweek">Semaine du 14 au 20 avril</div>
+          <div class="rtitle">Votre semaine 🏠</div>
+          <div class="remoji">📊</div>
+        </div>
+
+        <div class="rpills">
+          <div class="rpill">
+            <div class="rpill-name">JONATHAN</div>
+            <div class="rpill-pct pct-j">68%</div>
+            <div class="rpill-lbl">de la charge</div>
+          </div>
+          <div class="rpill">
+            <div class="rpill-name">BARBARA</div>
+            <div class="rpill-pct pct-b">32%</div>
+            <div class="rpill-lbl">de la charge</div>
+          </div>
+        </div>
+
+        <div class="rsec">
+          <div class="rsec-title">Ce que vous avez accompli</div>
+          <div class="ritem"><div class="rico">✅</div>14 tâches réalisées sur 17</div>
+          <div class="ritem"><div class="rico">⏱️</div>~6h de travail domestique</div>
+          <div class="ritem"><div class="rico">🧠</div>3 tâches invisibles loguées</div>
+        </div>
+
+        <div class="rsec">
+          <div class="rsec-title">Points d'attention</div>
+          <div class="ritem"><div class="rico">⚠️</div>Admin : Jonathan seul depuis 1 mois</div>
+          <div class="ritem"><div class="rico">📌</div>3 tâches non faites cette semaine</div>
+        </div>
+
+        <div class="rsugg">
+          <div class="rsugg-ico">💡</div>
+          <div>
+            <div class="rsugg-title">Suggestion semaine prochaine</div>
+            <div class="rsugg-body">Proposer 2 tâches admin à Barbara pour rééquilibrer cette catégorie.</div>
+          </div>
+        </div>
+
+        <div class="tabbar tabbar-light">
+          <div class="tab"><div class="tab-ico">⚖️</div><div class="tab-lbl">Score</div></div>
+          <div class="tab"><div class="tab-ico">📅</div><div class="tab-lbl">Planning</div></div>
+          <div class="tab"><div class="tab-ico">💬</div><div class="tab-lbl">Journal</div></div>
+          <div class="tab"><div class="tab-ico">👤</div><div class="tab-lbl">Profil</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── S5: NOTIFICATIONS ── -->
+  <div class="screen-col">
+    <span class="screen-tag">Notifications</span>
+    <div class="phone">
+      <div class="phone-island"></div>
+      <div class="screen" id="s5">
+        <div class="sbar sbar-dark" style="padding:10px 20px 0"><span class="sbar-time">21:00</span><span class="sbar-icons">🔋</span></div>
+        <div class="lock-time">21:00</div>
+        <div class="lock-date">Dimanche 20 avril</div>
+
+        <div class="notif">
+          <div class="notif-hd">
+            <div class="notif-appico">⚖️</div>
+            <div class="notif-app">Yova</div>
+            <div class="notif-when">maintenant</div>
+          </div>
+          <div class="notif-title">Votre semaine en un coup d'œil 📊</div>
+          <div class="notif-body">Jonathan 68% · Barbara 32%<br>14 tâches faites. Admin toujours déséquilibré.</div>
+          <div class="notif-btns">
+            <div class="nbtn">Ignorer</div>
+            <div class="nbtn ok">Voir le rapport →</div>
+          </div>
+        </div>
+
+        <div class="notif" style="margin-top:2px">
+          <div class="notif-hd">
+            <div class="notif-appico">⚖️</div>
+            <div class="notif-app">Yova</div>
+            <div class="notif-when">10 min</div>
+          </div>
+          <div class="notif-title">Tu as fait les courses ?</div>
+          <div class="notif-body">Prévu aujourd'hui · Assigné à Barbara</div>
+          <div class="notif-btns">
+            <div class="nbtn">⏰ Plus tard</div>
+            <div class="nbtn ok">✅ Oui !</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -2,6 +2,7 @@
 
 import { taskScoreDisplay, taskLoad, scoreColor10 } from '@/utils/designSystem';
 import DeleteButton from '@/components/DeleteButton';
+import ViewToggle from '@/components/ViewToggle';
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
@@ -300,8 +301,11 @@ export default function TasksPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* Toggle Liste / Planning */}
+      <ViewToggle mode="list" />
+
       {/* Header */}
-      <div className="flex items-end justify-between px-4 pt-4">
+      <div className="flex items-end justify-between px-4 pt-2">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-[28px] font-bold text-[#1c1c1e]">Tâches</h2>

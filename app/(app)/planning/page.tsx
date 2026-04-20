@@ -15,10 +15,9 @@ import {
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import type { TaskListItem } from '@/types/database';
-import TasksTab from '../tasks/page';
+import ViewToggle from '@/components/ViewToggle';
 
 type ViewMode = 'week' | 'month';
-type PlanningTab = 'planning' | 'tasks';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   cleaning: '🧹', tidying: '🗂', shopping: '🛒', laundry: '👕',
@@ -766,12 +765,8 @@ export default function PlanningPage() {
 
   const today = new Date();
 
-  // Lire les params URL (?date=YYYY-MM-DD, ?tab=tasks|planning) via Next.js
+  // Lire les params URL (?date=YYYY-MM-DD) via Next.js
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get('tab') as PlanningTab | null;
-  const [planningTab, setPlanningTab] = useState<PlanningTab>(
-    tabParam === 'tasks' ? 'tasks' : 'planning',
-  );
   const dateParam = searchParams.get('date');
   const initialDate = dateParam ? new Date(dateParam) : today;
   const initialWeekStart = startOfWeek(initialDate, { weekStartsOn: 1 });
@@ -809,35 +804,13 @@ export default function PlanningPage() {
   const monthLabel = format(monthStart, 'MMMM yyyy', { locale: fr });
 
   return (
-    <div className="pb-8" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div className="pb-8 pt-3" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-      {/* ─── TABS Planning / Tâches ─── */}
-      <div className="px-4 pt-4">
-        <div className="flex rounded-2xl p-1" style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-          <button
-            onClick={() => setPlanningTab('planning')}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-semibold transition-all"
-            style={planningTab === 'planning'
-              ? { background: 'linear-gradient(135deg, #007aff, #5856d6)', color: 'white', boxShadow: '0 2px 8px rgba(0,122,255,0.25)' }
-              : { color: '#8e8e93' }}>
-            📅 Planning
-          </button>
-          <button
-            onClick={() => setPlanningTab('tasks')}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-semibold transition-all"
-            style={planningTab === 'tasks'
-              ? { background: 'linear-gradient(135deg, #007aff, #5856d6)', color: 'white', boxShadow: '0 2px 8px rgba(0,122,255,0.25)' }
-              : { color: '#8e8e93' }}>
-            ✅ Tâches
-          </button>
-        </div>
-      </div>
+      {/* Toggle Liste / Planning */}
+      <ViewToggle mode="planning" />
 
-      {/* ─── TAB TÂCHES ─── */}
-      {planningTab === 'tasks' && <TasksTab />}
-
-      {/* ─── TAB PLANNING ─── */}
-      {planningTab === 'planning' && (
+      {/* ─── PLANNING ─── */}
+      {true && (
         <>
           {/* Header */}
           <div className="px-4 flex items-end justify-between">

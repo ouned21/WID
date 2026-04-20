@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Yova — Écrans principaux (vision Claude)</title>
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  background: #111118;
+  min-height: 100vh;
+  padding: 48px 32px 72px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page-title {
+  text-align: center;
+  color: rgba(255,255,255,0.25);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.page-subtitle {
+  text-align: center;
+  color: rgba(255,255,255,0.55);
+  font-size: 14px;
+  max-width: 720px;
+  margin: 0 auto 44px;
+  line-height: 1.6;
+}
+
+.screens-row {
+  display: flex;
+  gap: 28px;
+  justify-content: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 56px;
+}
+
+.screen-col { display:flex; flex-direction:column; align-items:center; gap:12px; }
+.screen-tag { font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,0.28); }
+.screen-delta { font-size:11px; font-weight:600; color:#af52de; max-width:300px; text-align:center; line-height:1.4; margin-top:-4px; }
+
+/* PHONE */
+.phone { width:300px; background:#1a1a1f; border-radius:50px; padding:12px; box-shadow: 0 0 0 1.5px rgba(255,255,255,0.09), 0 0 0 3px rgba(0,0,0,0.8), 0 32px 80px rgba(0,0,0,0.7); }
+.phone-island { width:88px; height:26px; background:#0d0d12; border-radius:13px; margin:0 auto 10px; }
+.screen { border-radius:38px; overflow:hidden; min-height:620px; display:flex; flex-direction:column; position:relative; background:#f2f2f7; color:#1c1c1e; }
+.screen.dark { background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 100%); color:white; }
+.sbar { display:flex; justify-content:space-between; padding:10px 24px 4px; font-size:12px; font-weight:600; color:#1c1c1e; }
+.sbar.light { color:white; }
+
+/* TAB BAR (4 tabs, vision alternative) */
+.tab { display:flex; justify-content:space-around; padding:8px 0 18px; background:rgba(242,242,247,0.94); border-top:0.5px solid rgba(0,0,0,0.08); margin-top:auto; }
+.tab.dark { background:rgba(15,15,26,0.96); border-color:rgba(255,255,255,0.08); }
+.tab-item { font-size:9px; font-weight:600; color:#8e8e93; text-align:center; }
+.tab-item.on { color:#af52de; }
+.tab-item.dark { color:rgba(255,255,255,0.35); }
+.tab-item.dark.on { color:#d4a8f0; }
+.tab-item div:first-child { font-size:19px; margin-bottom:2px; line-height:1; }
+
+/* ═════════ 1 · ONBOARDING INVITE ═════════ */
+.ob { flex:1; padding:40px 24px 24px; display:flex; flex-direction:column; color:white; }
+.ob-logo { font-size:44px; margin-bottom:10px; }
+.ob-h1 { font-size:24px; font-weight:800; line-height:1.2; margin-bottom:8px; }
+.ob-h1 em { font-style:normal; color:#af52de; }
+.ob-sub { font-size:13px; opacity:0.72; line-height:1.5; margin-bottom:24px; }
+.ob-input { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:14px; padding:13px 16px; font-size:14px; margin-bottom:10px; }
+.ob-input.filled { color:white; }
+.ob-input.placeholder { color:rgba(255,255,255,0.4); }
+.ob-rgpd { font-size:10px; opacity:0.45; line-height:1.45; margin-top:12px; margin-bottom:14px; }
+.ob-cta { margin-top:auto; background:#af52de; color:white; text-align:center; padding:15px; border-radius:14px; font-weight:700; font-size:15px; }
+.ob-skip { text-align:center; color:rgba(255,255,255,0.45); font-size:11px; margin-top:12px; }
+
+/* ═════════ 2 · ACCUEIL JOURNAL ═════════ */
+.jh { flex:1; display:flex; flex-direction:column; padding:14px 0 0; color:white; }
+.jh-head { padding:6px 18px 12px; display:flex; justify-content:space-between; align-items:flex-start; }
+.jh-greet { font-size:19px; font-weight:700; line-height:1.2; }
+.jh-date { font-size:11px; opacity:0.5; margin-top:2px; }
+.jh-ava { width:30px; height:30px; background:linear-gradient(135deg,#af52de,#5856d6); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; }
+.jh-chat { flex:1; padding:4px 14px; display:flex; flex-direction:column; gap:8px; overflow:hidden; }
+.bubble { max-width:85%; padding:9px 13px; border-radius:16px; font-size:12px; line-height:1.4; }
+.bubble.yv { background:rgba(255,255,255,0.08); align-self:flex-start; border-top-left-radius:4px; }
+.bubble.yv strong { color:#d4a8f0; }
+.bubble.me { background:#af52de; align-self:flex-end; border-top-right-radius:4px; }
+.bubble.system { align-self:center; font-size:10px; opacity:0.5; background:rgba(255,255,255,0.04); border-radius:8px; padding:5px 10px; }
+.routine-card { margin:6px 0; background:rgba(175,82,222,0.12); border:1px solid rgba(175,82,222,0.3); border-radius:14px; padding:12px; align-self:stretch; }
+.routine-card .head { font-size:10px; color:#d4a8f0; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-bottom:6px; }
+.routine-card .ttl { font-size:13px; font-weight:700; margin-bottom:6px; }
+.routine-card .itm { font-size:11px; opacity:0.8; margin-bottom:3px; }
+.routine-card .btns { display:flex; gap:6px; margin-top:10px; }
+.routine-card .btn { flex:1; text-align:center; padding:7px; border-radius:10px; font-size:11px; font-weight:700; }
+.routine-card .btn.yes { background:#af52de; color:white; }
+.routine-card .btn.no { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.7); }
+.jh-input-wrap { padding:10px 14px 14px; border-top:1px solid rgba(255,255,255,0.08); }
+.jh-input { background:rgba(255,255,255,0.1); border-radius:22px; padding:10px 14px; font-size:12px; display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.45); }
+.jh-input .mic { margin-left:auto; font-size:16px; color:#d4a8f0; }
+
+/* ═════════ 3 · ÉQUILIBRE ═════════ */
+.eq { flex:1; padding:12px 0 0; display:flex; flex-direction:column; }
+.eq-head { padding:8px 18px 16px; display:flex; justify-content:space-between; align-items:flex-end; }
+.eq-title { font-size:23px; font-weight:800; }
+.eq-chip { background:#34c759; color:white; font-size:10px; font-weight:700; padding:4px 10px; border-radius:12px; letter-spacing:0.5px; }
+.eq-score-card { margin:0 14px 14px; background:linear-gradient(135deg,#1a1a2e,#2d1f5c); border-radius:20px; padding:20px; color:white; position:relative; }
+.eq-hint { position:absolute; top:10px; right:12px; font-size:9px; opacity:0.4; }
+.eq-score-num { font-size:52px; font-weight:900; line-height:1; letter-spacing:-1.5px; }
+.eq-score-lbl { font-size:11px; opacity:0.6; letter-spacing:1.5px; text-transform:uppercase; margin-top:3px; margin-bottom:18px; }
+.eq-bar-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.eq-bar-row .name { width:56px; font-size:12px; font-weight:600; }
+.eq-bar { flex:1; height:7px; background:rgba(255,255,255,0.1); border-radius:4px; overflow:hidden; }
+.eq-bar .fill { height:100%; border-radius:4px; }
+.eq-bar-row .pct { width:40px; text-align:right; font-size:12px; font-weight:700; }
+.eq-trend { font-size:10px; opacity:0.55; margin-top:6px; }
+.eq-trend strong { color:#7fffa3; opacity:1; }
+
+.eq-reco { margin:0 14px 12px; background:white; border-radius:16px; padding:16px; }
+.eq-reco-tag { font-size:10px; font-weight:700; letter-spacing:1.5px; color:#af52de; text-transform:uppercase; margin-bottom:6px; }
+.eq-reco-title { font-size:14px; font-weight:700; margin-bottom:4px; }
+.eq-reco-body { font-size:12px; color:#6b7280; line-height:1.45; margin-bottom:10px; }
+.eq-reco-body strong { color:#1c1c1e; font-weight:700; }
+.eq-reco-btn { background:#af52de; color:white; text-align:center; padding:9px; border-radius:11px; font-size:12px; font-weight:700; }
+
+.eq-routines-title { font-size:9px; font-weight:700; color:#8e8e93; letter-spacing:1.5px; padding:4px 18px 4px; text-transform:uppercase; }
+.eq-routine { margin:0 14px 6px; background:white; border-radius:12px; padding:10px 12px; display:flex; align-items:center; gap:10px; }
+.eq-routine .emo { font-size:20px; }
+.eq-routine .info { flex:1; }
+.eq-routine .nm { font-size:12px; font-weight:700; }
+.eq-routine .sub { font-size:10px; color:#8e8e93; margin-top:1px; }
+.eq-routine .ava { width:22px; height:22px; border-radius:50%; font-size:10px; font-weight:700; color:white; display:flex; align-items:center; justify-content:center; }
+
+/* ═════════ 4 · FIL RECONNAISSANCE ═════════ */
+.rf { flex:1; padding:12px 0 0; display:flex; flex-direction:column; }
+.rf-head { padding:8px 18px 12px; }
+.rf-title { font-size:23px; font-weight:800; }
+.rf-sub { font-size:11px; color:#8e8e93; margin-top:1px; }
+.rf-sunday { margin:0 14px 14px; background:linear-gradient(135deg,#af52de,#5856d6); border-radius:16px; padding:14px; color:white; }
+.rf-sunday .badge { font-size:9px; font-weight:700; letter-spacing:1.5px; background:rgba(255,255,255,0.18); padding:3px 8px; border-radius:8px; display:inline-block; margin-bottom:8px; }
+.rf-sunday .ttl { font-size:14px; font-weight:700; margin-bottom:6px; }
+.rf-sunday .body { font-size:12px; opacity:0.9; line-height:1.4; margin-bottom:10px; }
+.rf-sunday .body strong { color:white; }
+.rf-sunday .cta { background:white; color:#5856d6; text-align:center; padding:9px; border-radius:10px; font-size:12px; font-weight:700; }
+
+.rf-filter { padding:4px 18px 4px; display:flex; gap:6px; }
+.rf-chip { font-size:10px; font-weight:600; padding:5px 10px; border-radius:14px; background:white; color:#3c3c43; }
+.rf-chip.on { background:#af52de; color:white; }
+.rf-items { padding:4px 14px; display:flex; flex-direction:column; gap:6px; }
+.rf-item { background:white; border-radius:13px; padding:10px; display:flex; align-items:center; gap:10px; }
+.rf-avatar { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; color:white; font-size:12px; flex-shrink:0; }
+.rf-avatar.j { background:#007aff; }
+.rf-avatar.b { background:#af52de; }
+.rf-text { flex:1; font-size:12px; line-height:1.3; }
+.rf-text .task { font-weight:600; color:#1c1c1e; }
+.rf-text .time { font-size:10px; color:#8e8e93; margin-top:1px; }
+.rf-text .recog { font-size:10px; color:#af52de; margin-top:1px; }
+.rf-heart { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; background:#f0f2f8; flex-shrink:0; }
+.rf-heart.done { background:#fff0fa; }
+
+/* ═════════ 5 · TÂCHES (LISTE, 2E NIVEAU) ═════════ */
+.tk-head { padding:10px 18px 6px; display:flex; justify-content:space-between; align-items:flex-start; }
+.tk-title { font-size:23px; font-weight:800; }
+.tk-count { font-size:11px; color:#8e8e93; margin-top:1px; }
+.tk-new { background:#af52de; color:white; font-size:11px; font-weight:700; padding:6px 11px; border-radius:16px; }
+.tk-filter { padding:0 18px 6px; display:flex; gap:5px; }
+.tk-chip { font-size:10px; font-weight:600; padding:5px 9px; border-radius:14px; background:white; color:#3c3c43; }
+.tk-chip.on { background:#af52de; color:white; }
+
+.tk-rgroup-title { font-size:9px; font-weight:700; color:#af52de; letter-spacing:1px; padding:4px 18px 4px; text-transform:uppercase; }
+.tk-routine { margin:0 14px 6px; background:white; border-radius:14px; padding:11px 14px; }
+.tk-routine-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.tk-routine-emo { font-size:18px; }
+.tk-routine-nm { flex:1; font-size:13px; font-weight:700; }
+.tk-routine-ava { width:22px; height:22px; border-radius:50%; background:#007aff; color:white; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.tk-routine-items { font-size:11px; color:#8e8e93; line-height:1.45; }
+.tk-routine-cta { margin-top:8px; background:#af52de; color:white; text-align:center; padding:8px; border-radius:10px; font-size:12px; font-weight:700; }
+
+.tk-tasks-title { font-size:9px; font-weight:700; color:#8e8e93; letter-spacing:1px; padding:8px 18px 4px; text-transform:uppercase; }
+.tk-task { margin:0 14px 6px; background:white; border-radius:12px; padding:10px 12px; display:flex; align-items:center; gap:10px; }
+.tk-task-chk { width:22px; height:22px; border-radius:50%; border:1.5px solid #c7c7cc; flex-shrink:0; }
+.tk-task-chk.done { background:#34c759; border-color:#34c759; color:white; display:flex; align-items:center; justify-content:center; font-size:11px; }
+.tk-task-info { flex:1; }
+.tk-task-nm { font-size:12px; font-weight:600; }
+.tk-task-sub { font-size:10px; color:#8e8e93; margin-top:1px; }
+
+/* ═════════ 6 · PROFIL ═════════ */
+.pr-head { padding:10px 18px 10px; }
+.pr-title { font-size:23px; font-weight:800; }
+.pr-user { margin:0 14px 12px; background:white; border-radius:14px; padding:14px; display:flex; align-items:center; gap:12px; }
+.pr-user .ava2 { width:46px; height:46px; border-radius:50%; background:linear-gradient(135deg,#af52de,#5856d6); color:white; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:17px; }
+.pr-user .nm { font-size:15px; font-weight:700; }
+.pr-user .sub { font-size:10px; color:#8e8e93; margin-top:1px; }
+.pr-partner { margin:0 14px 12px; background:white; border-radius:14px; padding:11px 14px; display:flex; align-items:center; gap:10px; }
+.pr-partner .emo { font-size:20px; }
+.pr-partner .info { flex:1; font-size:11px; line-height:1.4; }
+.pr-partner .info strong { color:#1c1c1e; font-size:12px; font-weight:700; display:block; margin-bottom:1px; }
+.pr-partner .info .st { color:#8e8e93; }
+.pr-partner .status { font-size:9px; font-weight:700; color:#ff9500; padding:3px 6px; border-radius:6px; background:#fff4ea; }
+.pr-sec { font-size:9px; font-weight:700; color:#8e8e93; letter-spacing:1.5px; padding:4px 20px 4px; text-transform:uppercase; }
+.pr-card { margin:0 14px 10px; background:white; border-radius:14px; overflow:hidden; }
+.pr-row { padding:10px 14px; border-bottom:0.5px solid rgba(0,0,0,0.06); font-size:11px; display:flex; justify-content:space-between; align-items:center; }
+.pr-row:last-child { border-bottom:0; }
+.pr-row .act { color:#af52de; font-weight:600; font-size:10px; }
+.pr-row .val { color:#8e8e93; font-size:10px; }
+.pr-learn { margin:0 14px 10px; background:rgba(175,82,222,0.08); border:1px solid rgba(175,82,222,0.18); border-radius:12px; padding:11px 13px; }
+.pr-learn .tag { font-size:9px; font-weight:700; letter-spacing:1px; color:#af52de; text-transform:uppercase; margin-bottom:6px; }
+.pr-learn .body { font-size:11px; color:#1c1c1e; line-height:1.45; }
+.pr-learn .body strong { color:#af52de; }
+
+/* FOOTER COMPARE */
+.compare {
+  max-width: 1100px;
+  margin: 60px auto 0;
+  padding: 32px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 20px;
+  color: rgba(255,255,255,0.85);
+}
+.compare h2 { font-size:13px; letter-spacing:2px; color:#af52de; text-transform:uppercase; margin-bottom:16px; }
+.compare-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; font-size:12px; line-height:1.55; }
+.compare-col strong { color:white; }
+.compare-col .ttl { color:#d4a8f0; font-weight:700; margin-bottom:10px; }
+</style>
+</head>
+<body>
+
+<div class="page-title">Yova — Écrans principaux (vision Claude)</div>
+<div class="page-subtitle">
+  6 écrans détaillés de l'app alternative. Même format que yova-current.html pour comparaison directe.
+  Les 4 onglets héros : <strong style="color:white">Yova · Équilibre · Fil · Toi</strong>.
+  Le reste (tâches, catalogue, stats, vacances…) vit au 2e niveau ou dans Toi.
+</div>
+
+<div class="screens-row">
+
+  <!-- ══ 1 · ONBOARDING — INVITE ══ -->
+  <div class="screen-col">
+    <div class="screen-tag">1. Onboarding · invite (2/2)</div>
+    <div class="phone"><div class="phone-island"></div>
+      <div class="screen dark">
+        <div class="sbar light"><span>9:41</span><span>••• 100%</span></div>
+        <div class="ob">
+          <div class="ob-logo">✨</div>
+          <div class="ob-h1">Invite ton·ta<br><em>partenaire</em></div>
+          <div class="ob-sub">L'app n'a de sens qu'à deux. Si ton·ta partenaire ne veut pas installer, elle recevra un SMS hebdo récapitulant ta semaine — tu pourras la supprimer en tap STOP.</div>
+          <div class="ob-input filled">Barbara</div>
+          <div class="ob-input filled">+33 6 12 34 56 78</div>
+          <div class="ob-rgpd">📱 Elle recevra ce SMS :<br><em>"Jonathan t'a invité·e sur Yova. Réponds OUI pour recevoir ton bilan hebdo, STOP pour ne plus être contactée. yova.fr/b"</em></div>
+          <div class="ob-cta">Envoyer l'invitation →</div>
+          <div class="ob-skip">Plus tard (mode solo, déconseillé)</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">Invite obligatoire mais RGPD-compliant. Opt-in explicite côté partenaire, STOP respecté. Mode solo existe mais caché en petit.</div>
+  </div>
+
+  <!-- ══ 2 · ACCUEIL JOURNAL ══ -->
+  <div class="screen-col">
+    <div class="screen-tag">2. Accueil = Yova (journal)</div>
+    <div class="phone"><div class="phone-island"></div>
+      <div class="screen dark">
+        <div class="sbar light"><span>9:41</span><span>••• 100%</span></div>
+        <div class="jh">
+          <div class="jh-head">
+            <div><div class="jh-greet">Hello Jonathan 👋</div><div class="jh-date">Lundi 20 avr · 8h10</div></div>
+            <div class="jh-ava">J</div>
+          </div>
+          <div class="jh-chat">
+            <div class="bubble system">hier · dimanche 20h</div>
+            <div class="bubble yv">Je t'ai préparé le bilan de ta semaine. <strong>73/100 — équilibré.</strong></div>
+            <div class="bubble system">aujourd'hui · 8h10</div>
+            <div class="bubble me">🎤 j'ai fait les courses et sorti les poubelles ce matin</div>
+            <div class="bubble yv">Noté. <strong>+2 tâches</strong>. Barbara le verra dans son fil.</div>
+            <div class="routine-card">
+              <div class="head">✨ Yova a repéré une routine</div>
+              <div class="ttl">Tu enchaînes toujours :</div>
+              <div class="itm">• Préparer école · 7h15</div>
+              <div class="itm">• Préparer lunch box · 7h30</div>
+              <div class="itm">• Emmener à l'école · 7h45</div>
+              <div class="btns">
+                <div class="btn yes">Créer routine</div>
+                <div class="btn no">Pas maintenant</div>
+              </div>
+            </div>
+          </div>
+          <div class="jh-input-wrap">
+            <div class="jh-input"><span>Dis à Yova ta journée…</span><span class="mic">🎤</span></div>
+          </div>
+        </div>
+        <div class="tab dark">
+          <div class="tab-item dark on"><div>💬</div>Yova</div>
+          <div class="tab-item dark"><div>⚖️</div>Équilibre</div>
+          <div class="tab-item dark"><div>❤️</div>Fil</div>
+          <div class="tab-item dark"><div>👤</div>Toi</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">Ouverture = conversation. Pas de liste intimidante. Yova détecte routines + pose questions contextuelles pour enrichir le profil.</div>
+  </div>
+
+  <!-- ══ 3 · ÉQUILIBRE ══ -->
+  <div class="screen-col">
+    <div class="screen-tag">3. Équilibre — un seul chiffre</div>
+    <div class="phone"><div class="phone-island"></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span>••• 100%</span></div>
+        <div class="eq">
+          <div class="eq-head">
+            <div class="eq-title">Équilibre</div>
+            <div class="eq-chip">Équilibré</div>
+          </div>
+          <div class="eq-score-card">
+            <div class="eq-hint">tap long = détail</div>
+            <div class="eq-score-num">73</div>
+            <div class="eq-score-lbl">Équilibre du foyer</div>
+            <div class="eq-bar-row"><div class="name">Jonathan</div><div class="eq-bar"><div class="fill" style="width:52%;background:#4da3ff"></div></div><div class="pct">52%</div></div>
+            <div class="eq-bar-row"><div class="name">Barbara</div><div class="eq-bar"><div class="fill" style="width:48%;background:#d4a8f0"></div></div><div class="pct">48%</div></div>
+            <div class="eq-trend"><strong>↑ +4 pts</strong> cette semaine vs la précédente</div>
+          </div>
+          <div class="eq-reco">
+            <div class="eq-reco-tag">Yova a remarqué</div>
+            <div class="eq-reco-title">Barbara porte 82% du "pôle enfants".</div>
+            <div class="eq-reco-body">RDV pédiatre, activités, devoirs, inscription — si tu en prends <strong>1 par semaine</strong>, la charge mentale rééquilibre vite.</div>
+            <div class="eq-reco-btn">Voir les 3 tâches →</div>
+          </div>
+          <div class="eq-routines-title">Routines actives</div>
+          <div class="eq-routine">
+            <span class="emo">🛁</span>
+            <div class="info"><div class="nm">Soir enfants</div><div class="sub">Bain · histoire · au lit · 18h30</div></div>
+            <span class="ava" style="background:#007aff">J</span>
+          </div>
+          <div class="eq-routine">
+            <span class="emo">🍳</span>
+            <div class="info"><div class="nm">Petit déj semaine</div><div class="sub">Café · lunch box · départ · 7h15</div></div>
+            <span class="ava" style="background:#af52de">B</span>
+          </div>
+        </div>
+        <div class="tab">
+          <div class="tab-item"><div>💬</div>Yova</div>
+          <div class="tab-item on"><div>⚖️</div>Équilibre</div>
+          <div class="tab-item"><div>❤️</div>Fil</div>
+          <div class="tab-item"><div>👤</div>Toi</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">1 chiffre 0-100 + tendance + UNE reco actionable + routines visibles. Détail 4 axes accessible en tap long (power-user, caché).</div>
+  </div>
+
+  <!-- ══ 4 · FIL RECONNAISSANCE ══ -->
+  <div class="screen-col">
+    <div class="screen-tag">4. Fil de reconnaissance</div>
+    <div class="phone"><div class="phone-island"></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span>••• 100%</span></div>
+        <div class="rf">
+          <div class="rf-head">
+            <div class="rf-title">Ce que vous faites</div>
+            <div class="rf-sub">Dimanche 20 avr · 23 tâches cette semaine</div>
+          </div>
+          <div class="rf-sunday">
+            <span class="badge">🌙 BILAN DIMANCHE</span>
+            <div class="ttl">Reconnaître la semaine de Barbara ?</div>
+            <div class="body"><strong>12 tâches</strong> cette semaine. Un tap pour toutes les reconnaître, ou vas-y une par une dans le fil ci-dessous.</div>
+            <div class="cta">❤️ Reconnaître les 12 tâches</div>
+          </div>
+          <div class="rf-filter">
+            <div class="rf-chip on">Toutes</div>
+            <div class="rf-chip">À reconnaître</div>
+            <div class="rf-chip">Reconnues</div>
+          </div>
+          <div class="rf-items">
+            <div class="rf-item">
+              <div class="rf-avatar b">B</div>
+              <div class="rf-text">
+                <div class="task">Barbara a préparé le dîner</div>
+                <div class="time">il y a 2 h · cuisine · 30 min</div>
+              </div>
+              <div class="rf-heart">❤️</div>
+            </div>
+            <div class="rf-item">
+              <div class="rf-avatar j">J</div>
+              <div class="rf-text">
+                <div class="task">Tu as sorti les poubelles</div>
+                <div class="time">il y a 3 h · ménage</div>
+                <div class="recog">❤️ Barbara · "merci 🙏"</div>
+              </div>
+              <div class="rf-heart done">❤️</div>
+            </div>
+            <div class="rf-item">
+              <div class="rf-avatar b">B</div>
+              <div class="rf-text">
+                <div class="task">Barbara a pris RDV pédiatre</div>
+                <div class="time">hier · admin · charge 4/5</div>
+              </div>
+              <div class="rf-heart">❤️</div>
+            </div>
+          </div>
+        </div>
+        <div class="tab">
+          <div class="tab-item"><div>💬</div>Yova</div>
+          <div class="tab-item"><div>⚖️</div>Équilibre</div>
+          <div class="tab-item on"><div>❤️</div>Fil</div>
+          <div class="tab-item"><div>👤</div>Toi</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">Reconnaissance en lot (dimanche) + individuelle (au fil) + échanges libres ("merci 🙏"). L'initiative est humaine, jamais poussée.</div>
+  </div>
+
+  <!-- ══ 5 · TÂCHES (2E NIVEAU, accessible depuis Yova ou Équilibre) ══ -->
+  <div class="screen-col">
+    <div class="screen-tag">5. Tâches (2e niveau)</div>
+    <div class="phone"><div class="phone-island"></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span>••• 100%</span></div>
+        <div class="tk-head">
+          <div><div class="tk-title">Tâches</div><div class="tk-count">17 actives · 3 en retard</div></div>
+          <div class="tk-new">+ Nouvelle</div>
+        </div>
+        <div class="tk-filter">
+          <div class="tk-chip on">Aujourd'hui</div>
+          <div class="tk-chip">Semaine</div>
+          <div class="tk-chip">Toutes</div>
+        </div>
+        <div class="tk-rgroup-title">✨ Routines du jour</div>
+        <div class="tk-routine">
+          <div class="tk-routine-head">
+            <span class="tk-routine-emo">🛁</span>
+            <div class="tk-routine-nm">Soir enfants · 18h30</div>
+            <div class="tk-routine-ava">J</div>
+          </div>
+          <div class="tk-routine-items">Bain · Histoire · Au lit — 3 tâches</div>
+          <div class="tk-routine-cta">✓ Routine faite (3 tâches)</div>
+        </div>
+        <div class="tk-tasks-title">Autres tâches</div>
+        <div class="tk-task">
+          <div class="tk-task-chk"></div>
+          <div class="tk-task-info"><div class="tk-task-nm">Courses hebdo</div><div class="tk-task-sub">10h · 1h · jojo · charge 3/5</div></div>
+        </div>
+        <div class="tk-task">
+          <div class="tk-task-chk done">✓</div>
+          <div class="tk-task-info"><div class="tk-task-nm" style="text-decoration:line-through;color:#8e8e93">Sortir poubelles</div><div class="tk-task-sub">Fait il y a 3h · Barbara ❤️</div></div>
+        </div>
+        <div class="tk-task">
+          <div class="tk-task-chk"></div>
+          <div class="tk-task-info"><div class="tk-task-nm">Ranger chambre enfants</div><div class="tk-task-sub">15h · 20 min · non assigné</div></div>
+        </div>
+        <div class="tab">
+          <div class="tab-item"><div>💬</div>Yova</div>
+          <div class="tab-item"><div>⚖️</div>Équilibre</div>
+          <div class="tab-item"><div>❤️</div>Fil</div>
+          <div class="tab-item"><div>👤</div>Toi</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">Pas d'onglet dédié — accessible en 2e niveau depuis Yova ou Équilibre. Routines mises en avant (1 tap = N tâches). Reconnaissances visibles en ligne.</div>
+  </div>
+
+  <!-- ══ 6 · PROFIL (Toi) ══ -->
+  <div class="screen-col">
+    <div class="screen-tag">6. Toi (profil minimal)</div>
+    <div class="phone"><div class="phone-island"></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span>••• 100%</span></div>
+        <div class="pr-head"><div class="pr-title">Toi</div></div>
+        <div class="pr-user">
+          <div class="ava2">J</div>
+          <div><div class="nm">Jonathan</div><div class="sub">Depuis 3 semaines · 58 tâches reconnues</div></div>
+        </div>
+        <div class="pr-partner">
+          <span class="emo">👥</span>
+          <div class="info"><strong>Barbara</strong><span class="st">Bilan SMS · répond parfois</span></div>
+          <span class="status">Non installée</span>
+        </div>
+        <div class="pr-learn">
+          <div class="tag">✨ Ce que Yova a appris sur toi</div>
+          <div class="body">Tu es plutôt <strong>du matin</strong> (cuisine, préparation école). Les <strong>tâches administratives</strong> te pèsent plus (charge mentale +30%). Tu évites le ménage le <strong>weekend</strong>. <span style="color:#8e8e93; font-size:10px">Appris sans formulaire, via 12 échanges.</span></div>
+        </div>
+        <div class="pr-sec">Foyer</div>
+        <div class="pr-card">
+          <div class="pr-row"><span>Famille Sia</span><span class="act">Modifier</span></div>
+          <div class="pr-row"><span>Code invitation <span style="font-size:9px;color:#c7c7cc">· tap pour copier</span></span><span style="font-family:monospace;letter-spacing:3px;color:#af52de;font-weight:800">QPMAUY</span></div>
+          <div class="pr-row"><span>Renouveler le code</span><span class="act">Nouveau</span></div>
+        </div>
+        <div class="pr-sec">Accès avancés</div>
+        <div class="pr-card">
+          <div class="pr-row"><span>🗂 Catalogue de tâches</span><span class="act">›</span></div>
+          <div class="pr-row"><span>📊 Stats détaillées</span><span class="act">›</span></div>
+          <div class="pr-row"><span>📁 Historique (archives)</span><span class="act">›</span></div>
+          <div class="pr-row"><span>🏖 Mode vacances</span><span class="val">Désactivé</span></div>
+          <div class="pr-row"><span>🔔 Notifications</span><span class="val">Rappels Yova ✓</span></div>
+        </div>
+        <div class="pr-sec">Compte & données</div>
+        <div class="pr-card">
+          <div class="pr-row"><span>🔒 Mes données (RGPD)</span><span class="act">›</span></div>
+          <div class="pr-row"><span>💎 Premium · 4,99€/mois</span><span class="act">Essayer</span></div>
+          <div class="pr-row"><span style="color:#ff3b30">Se déconnecter</span><span></span></div>
+        </div>
+        <div class="tab">
+          <div class="tab-item"><div>💬</div>Yova</div>
+          <div class="tab-item"><div>⚖️</div>Équilibre</div>
+          <div class="tab-item"><div>❤️</div>Fil</div>
+          <div class="tab-item on"><div>👤</div>Toi</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">Pas 6 champs de préférences à remplir. Yova apprend via la conversation — résultat visible dans une carte dédiée. Les features avancées (catalogue, stats, vacances) en 2e niveau.</div>
+  </div>
+
+</div>
+
+<!-- ═════════ COMPARATIF ═════════ -->
+<div class="compare">
+  <h2>Différences clés par rapport à l'app actuelle</h2>
+  <div class="compare-grid">
+    <div class="compare-col">
+      <div class="ttl">🏠 Accueil</div>
+      <p><strong>Actuel :</strong> Dashboard Score saturé (score, barres, banner, insight, catégories, tendance, aujourd'hui).</p>
+      <p style="margin-top:10px"><strong>Vision :</strong> Journal Yova conversationnel. Tu parles, elle agit. Les données sont en 2e onglet.</p>
+    </div>
+    <div class="compare-col">
+      <div class="ttl">🗂 Tâches</div>
+      <p><strong>Actuel :</strong> Onglet dédié, chips Portée/Horizon, liste dense avec Charge /10 + Mental + Temps.</p>
+      <p style="margin-top:10px"><strong>Vision :</strong> Accessible en 2e niveau. <strong>Routines en premier</strong> (1 tap = 3 tâches). Liste simplifiée.</p>
+    </div>
+    <div class="compare-col">
+      <div class="ttl">⚖️ Équilibre</div>
+      <p><strong>Actuel :</strong> Page /distribution séparée, plusieurs métriques (taskCount, pct, totalMentalLoad, catégories).</p>
+      <p style="margin-top:10px"><strong>Vision :</strong> UN chiffre 0-100. Le détail 4 axes existe mais caché (tap long).</p>
+    </div>
+    <div class="compare-col">
+      <div class="ttl">❤️ Fil</div>
+      <p><strong>Actuel :</strong> N'existe pas. Le score mentionne ce qu'a fait l'autre dans les insights.</p>
+      <p style="margin-top:10px"><strong>Vision :</strong> Onglet dédié. Rendre l'autre visible en temps réel. Reconnaissance en lot dimanche + individuelle optionnelle.</p>
+    </div>
+    <div class="compare-col">
+      <div class="ttl">👤 Profil</div>
+      <p><strong>Actuel :</strong> 7 sections, 6 champs de préférences Yova à remplir manuellement.</p>
+      <p style="margin-top:10px"><strong>Vision :</strong> 3 sections + carte "Ce que Yova a appris" (résultat de la conversation, pas un formulaire).</p>
+    </div>
+    <div class="compare-col">
+      <div class="ttl">💬 Onboarding</div>
+      <p><strong>Actuel :</strong> 4-5 écrans (équipements, famille, baseline, catalogue, thinking IA).</p>
+      <p style="margin-top:10px"><strong>Vision :</strong> 2 écrans (auth + invite). Les tâches se créent progressivement en parlant à Yova.</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

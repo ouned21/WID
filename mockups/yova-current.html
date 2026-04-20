@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Yova — État actuel de l'app (avril 2026)</title>
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  background: #111118;
+  min-height: 100vh;
+  padding: 48px 32px 72px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page-title {
+  text-align: center;
+  color: rgba(255,255,255,0.25);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.page-subtitle {
+  text-align: center;
+  color: rgba(255,255,255,0.55);
+  font-size: 14px;
+  font-weight: 400;
+  max-width: 720px;
+  margin: 0 auto 44px;
+  line-height: 1.6;
+}
+
+.screens-row {
+  display: flex;
+  gap: 28px;
+  justify-content: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 56px;
+}
+
+.screen-col { display:flex; flex-direction:column; align-items:center; gap:12px; }
+.screen-tag { font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color: rgba(255,255,255,0.28); }
+.screen-delta { font-size: 11px; font-weight: 600; color: #4da3ff; max-width: 300px; text-align: center; line-height: 1.4; margin-top: -4px; }
+
+/* PHONE */
+.phone {
+  width: 300px;
+  background: #1a1a1f;
+  border-radius: 50px;
+  padding: 12px;
+  box-shadow: 0 0 0 1.5px rgba(255,255,255,0.09), 0 0 0 3px rgba(0,0,0,0.8), 0 32px 80px rgba(0,0,0,0.7);
+}
+.phone-island { width:88px; height:26px; background:#0d0d12; border-radius:13px; margin:0 auto 10px; }
+.screen { border-radius: 38px; overflow:hidden; min-height:620px; display:flex; flex-direction:column; position:relative; background: #f2f2f7; color:#1c1c1e; }
+.sbar { display:flex; justify-content:space-between; padding: 10px 24px 4px; font-size:12px; font-weight:600; color:#1c1c1e; }
+
+/* TAB BAR (light, current app style) */
+.tab {
+  display:flex; justify-content:space-around;
+  padding: 8px 0 18px;
+  background: rgba(242,242,247,0.94);
+  border-top: 0.5px solid rgba(0,0,0,0.08);
+}
+.tab-item { font-size:9px; font-weight:600; color:#8e8e93; text-align:center; }
+.tab-item.on { color:#007aff; }
+.tab-item div:first-child { font-size:19px; margin-bottom:2px; line-height:1; }
+
+/* ═════════ 1 · ONBOARDING ÉQUIPEMENTS ═════════ */
+.ob-head { padding: 14px 18px 6px; }
+.ob-title { font-size:22px; font-weight:800; }
+.ob-sub { font-size:12px; color:#8e8e93; margin-top:2px; }
+.ob-stepper { display:flex; gap:6px; margin: 8px 0 14px; }
+.ob-stepper .pip { flex:1; height:3px; border-radius:2px; background:#d1d1d6; }
+.ob-stepper .pip.on { background:#007aff; }
+.ob-cat-title { font-size:12px; font-weight:700; color:#8e8e93; text-transform:uppercase; letter-spacing:1px; padding: 8px 18px 6px; }
+.ob-grid { padding: 0 16px; display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; }
+.ob-chip { background:white; border-radius:10px; padding:10px 8px; display:flex; flex-direction:column; align-items:center; gap:4px; font-size:10px; color:#1c1c1e; border:1.5px solid transparent; }
+.ob-chip .emo { font-size:18px; }
+.ob-chip.on { background:#e6f0ff; border-color:#007aff; color:#007aff; font-weight:700; }
+.ob-foot { margin-top:auto; padding: 14px 16px; background: rgba(242,242,247,0.95); border-top: 0.5px solid rgba(0,0,0,0.06); }
+.ob-cta { background:#007aff; color:white; text-align:center; padding:14px; border-radius:14px; font-weight:700; font-size:15px; }
+
+/* ═════════ 2 · DASHBOARD SCORE ═════════ */
+.home-head { display:flex; justify-content:space-between; align-items:flex-start; padding: 6px 16px 10px; }
+.home-hello { font-size:21px; font-weight:800; color:#1c1c1e; }
+.home-sub { font-size:11px; color:#8e8e93; margin-top:1px; }
+.ava { width:34px; height:34px; background:linear-gradient(135deg,#5856d6,#007aff); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:#fff; }
+
+.score-card { margin: 0 12px 10px; border-radius:20px; padding: 14px 14px 12px; background: linear-gradient(148deg,#16163a 0%,#2b1e72 55%,#163260 100%); color:white; }
+.sc-big { font-size:34px; font-weight:800; line-height:1; }
+.sc-lbl { font-size:10px; opacity:0.6; letter-spacing:1.5px; text-transform:uppercase; margin-top:3px; margin-bottom:12px; }
+.sc-row { display:flex; align-items:center; gap:8px; margin-bottom:7px; font-size:11px; }
+.sc-row .nm { width:48px; font-weight:600; }
+.sc-bar { flex:1; height:6px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden; }
+.sc-bar .fill { height:100%; border-radius:3px; }
+.sc-row .pct { width:38px; text-align:right; font-weight:700; }
+
+.banner-assign { margin: 0 12px 10px; background:#ffe9cc; border:1px solid #ffc078; color:#8a4b00; border-radius:12px; padding:8px 12px; font-size:11px; display:flex; justify-content:space-between; align-items:center; font-weight:600; }
+
+.insight { margin: 0 12px 10px; background:white; border-radius:14px; padding:12px 14px; }
+.insight .tag { font-size:9px; color:#af52de; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:4px; }
+.insight .body { font-size:12px; color:#1c1c1e; line-height:1.35; }
+.insight .cta { color:#007aff; font-size:11px; font-weight:700; margin-top:6px; }
+
+.cats-title { font-size:9px; font-weight:700; color:#8e8e93; letter-spacing:1.5px; padding: 2px 18px 4px; text-transform:uppercase; }
+.cats-card { margin: 0 12px 10px; background:white; border-radius:14px; padding: 10px 12px; }
+.cat-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:11px; }
+.cat-row .emo { font-size:14px; width:20px; }
+.cat-row .nm { flex:1; font-weight:600; color:#1c1c1e; }
+.cat-row .bars { flex: 1.2; display:flex; gap:2px; height:6px; border-radius:3px; overflow:hidden; background:#f0f2f8; }
+.cat-row .bars .b1 { background:#007aff; }
+.cat-row .bars .b2 { background:#af52de; }
+
+.tr-title { font-size:9px; font-weight:700; color:#8e8e93; letter-spacing:1.5px; padding: 2px 18px 4px; text-transform:uppercase; }
+.tr-card { margin: 0 12px 10px; background:white; border-radius:14px; padding: 10px 12px; display:flex; align-items:flex-end; gap:4px; height:60px; }
+.tr-bar { flex:1; display:flex; flex-direction:column; gap:1px; }
+.tr-bar .j { background:#007aff; border-radius:2px; }
+.tr-bar .b { background:#af52de; border-radius:2px; }
+.tr-bar .lbl { font-size:8px; color:#c7c7cc; text-align:center; margin-top:2px; }
+
+/* ═════════ 3 · TÂCHES ═════════ */
+.tk-head { padding: 10px 16px 6px; display:flex; justify-content:space-between; align-items:flex-start; }
+.tk-title { font-size:22px; font-weight:800; }
+.tk-count { font-size:11px; color:#8e8e93; margin-top:1px; }
+.tk-btn-new { background:#007aff; color:white; font-size:11px; font-weight:700; padding:6px 11px; border-radius:16px; }
+.tk-search { margin: 4px 12px 8px; background:white; border-radius:10px; padding:8px 12px; font-size:11px; color:#c7c7cc; }
+
+.tk-filters { padding: 0 16px 8px; }
+.tk-fg { margin-bottom:6px; }
+.tk-fg-lbl { font-size:8px; font-weight:700; letter-spacing:1px; color:#8e8e93; text-transform:uppercase; margin-bottom:3px; }
+.tk-chips { display:flex; flex-wrap:wrap; gap:5px; }
+.tk-chip { font-size:10px; font-weight:600; padding:5px 9px; border-radius:14px; background:white; color:#3c3c43; }
+.tk-chip.on { background:#007aff; color:white; }
+.tk-chip.red.on { background:#ff3b30; }
+.tk-chip.blue.on { background:#007aff; }
+
+.tk-section-title { font-size:9px; font-weight:700; color:#ff3b30; padding: 4px 18px 4px; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; gap:6px; }
+.tk-section-title .pill { background:#ff3b30; color:white; width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:8px; }
+.tk-list { padding: 0 12px; display:flex; flex-direction:column; gap:6px; }
+.tk-card { background:white; border-radius:14px; padding: 10px 12px; }
+.tk-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap:6px; margin-bottom:6px; }
+.tk-card-name { font-size:12px; font-weight:700; line-height:1.2; flex:1; }
+.tk-card-score { text-align:right; font-size:8px; color:#8e8e93; text-transform:uppercase; letter-spacing:0.5px; }
+.tk-card-score .big { font-size:16px; font-weight:900; color:#ff9500; display:block; line-height:1; }
+.tk-gauge { display:flex; align-items:center; gap:4px; font-size:9px; margin-bottom:3px; }
+.tk-gauge .lbl { width:28px; color:#8e8e93; }
+.tk-gauge .bar { flex:1; height:4px; background:#e8ecf2; border-radius:2px; overflow:hidden; }
+.tk-gauge .bar .fill { height:100%; border-radius:2px; }
+.tk-gauge .v { width:10px; text-align:right; font-weight:700; }
+.tk-card-footer { display:flex; justify-content:space-between; align-items:center; margin-top:6px; }
+.tk-card-meta { font-size:10px; color:#8e8e93; }
+.tk-card-actions { display:flex; gap:5px; }
+.tk-act { font-size:9px; font-weight:700; padding:3px 8px; border-radius:10px; }
+.tk-act.fait { background:#34c759; color:white; }
+.tk-act.phan { background:#e5e5ea; color:#3c3c43; }
+.tk-act.del { background:#fff2f2; color:#ff3b30; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; padding:0; }
+
+/* ═════════ 4 · PLANNING ═════════ */
+.pl-head { padding: 10px 16px 8px; display:flex; justify-content:space-between; align-items:center; }
+.pl-title { font-size:22px; font-weight:800; }
+.pl-week { padding: 0 14px 10px; display:flex; gap:4px; }
+.pl-day { flex:1; background:white; border-radius:10px; padding:6px 2px; text-align:center; font-size:9px; }
+.pl-day .dow { color:#8e8e93; font-weight:700; }
+.pl-day .num { font-size:14px; font-weight:800; margin-top:2px; }
+.pl-day.on { background:#007aff; color:white; }
+.pl-day.on .dow { color:rgba(255,255,255,0.8); }
+.pl-dayhead { padding: 4px 16px 4px; font-size:11px; color:#1c1c1e; font-weight:700; display:flex; justify-content:space-between; }
+.pl-dayhead .chg { color:#ff9500; font-size:10px; }
+.pl-tasks { padding: 0 12px; display:flex; flex-direction:column; gap:6px; }
+.pl-task { background:white; border-radius:12px; padding:10px 12px; display:flex; align-items:center; gap:8px; }
+.pl-task .cat { width:4px; height:28px; border-radius:2px; background:#007aff; }
+.pl-task .info { flex:1; }
+.pl-task .nm { font-size:12px; font-weight:700; }
+.pl-task .sub { font-size:10px; color:#8e8e93; margin-top:1px; }
+.pl-task .fait { background:#34c759; color:white; font-size:11px; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+
+/* ═════════ 5 · JOURNAL ═════════ */
+.jl-head { padding: 10px 16px 8px; display:flex; justify-content:space-between; align-items:center; }
+.jl-title { font-size:22px; font-weight:800; }
+.jl-toggle { font-size:11px; color:#007aff; font-weight:600; }
+.jl-recap { margin: 0 12px 10px; border-radius:18px; padding:14px; background: linear-gradient(148deg,#16163a 0%,#2b1e72 55%,#163260 100%); color:white; }
+.jl-recap .badge { font-size:8px; font-weight:700; letter-spacing:1px; background:rgba(255,255,255,0.15); padding:2px 8px; border-radius:8px; display:inline-block; margin-bottom:8px; }
+.jl-recap .ttl { font-size:14px; font-weight:700; margin-bottom:8px; }
+.jl-recap-row { display:flex; align-items:center; gap:6px; font-size:10px; margin-bottom:5px; }
+.jl-recap-row .nm { width:50px; }
+.jl-recap-row .bar { flex:1; height:5px; background:rgba(255,255,255,0.12); border-radius:3px; overflow:hidden; }
+.jl-recap-row .fill { height:100%; border-radius:3px; }
+.jl-recap-row .pct { width:28px; text-align:right; font-weight:700; }
+
+.jl-hist-title { font-size:9px; font-weight:700; letter-spacing:1.5px; color:#8e8e93; padding: 8px 18px 6px; text-transform:uppercase; }
+.jl-msg { margin: 0 12px 8px; padding:10px 12px; border-radius:14px; font-size:11px; line-height:1.35; }
+.jl-msg.me { background:#007aff; color:white; margin-left:32px; border-top-right-radius:4px; }
+.jl-msg.yv { background:white; color:#1c1c1e; margin-right:32px; border-top-left-radius:4px; }
+.jl-msg.yv strong { color:#af52de; }
+.jl-input { margin: auto 12px 10px; background:white; border-radius:22px; padding:8px 14px; font-size:11px; color:#c7c7cc; display:flex; align-items:center; justify-content:space-between; }
+.jl-input .mic { font-size:14px; color:#af52de; }
+
+/* ═════════ 6 · PROFIL ═════════ */
+.pr-head { padding: 10px 16px 10px; }
+.pr-title { font-size:22px; font-weight:800; }
+.pr-user { margin: 0 12px 10px; background:white; border-radius:14px; padding:12px; display:flex; align-items:center; gap:10px; }
+.pr-user .ava2 { width:42px; height:42px; border-radius:50%; background:#007aff; color:white; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px; }
+.pr-user .nm { font-size:14px; font-weight:700; }
+.pr-user .sub { font-size:10px; color:#8e8e93; margin-top:1px; }
+.pr-sec { font-size:9px; font-weight:700; color:#8e8e93; letter-spacing:1.5px; padding: 4px 18px 4px; text-transform:uppercase; }
+.pr-card { margin: 0 12px 10px; background:white; border-radius:14px; overflow:hidden; }
+.pr-row { padding: 9px 14px; border-bottom: 0.5px solid rgba(0,0,0,0.06); font-size:11px; display:flex; justify-content:space-between; align-items:center; }
+.pr-row:last-child { border-bottom:0; }
+.pr-row .lbl { color:#1c1c1e; }
+.pr-row .act { color:#007aff; font-weight:600; font-size:10px; }
+.pr-row .act.red { color:#ff3b30; }
+.pr-code { font-family:monospace; letter-spacing:4px; color:#007aff; font-weight:800; font-size:14px; }
+
+/* LIST COMPARATIVE */
+.compare {
+  max-width: 1100px;
+  margin: 60px auto 0;
+  padding: 32px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 20px;
+  color: rgba(255,255,255,0.85);
+}
+.compare h2 { font-size: 13px; letter-spacing: 2px; color: #4da3ff; text-transform: uppercase; margin-bottom: 16px; }
+.compare-grid { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; font-size: 12px; line-height: 1.55; }
+.compare-col h3 { font-size: 12px; color: #4da3ff; margin-bottom: 10px; font-weight: 700; }
+.compare-col.alt h3 { color: #af52de; }
+.compare-col ul { list-style: none; }
+.compare-col li { padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.compare-col li:last-child { border-bottom: 0; }
+</style>
+</head>
+<body>
+
+<div class="page-title">Yova — État actuel de l'app (avril 2026)</div>
+<div class="page-subtitle">
+  Ce qui existe concrètement dans le code, déployé sur Vercel.
+  6 écrans clés qui représentent 95% de ce qu'un utilisateur voit.
+  À comparer avec <strong style="color:white">yova-concept.html</strong> (la vision initiale) et <strong style="color:white">vision-alternative.html</strong> (ma proposition).
+</div>
+
+<div class="screens-row">
+
+  <!-- ══ 1 · ONBOARDING ÉQUIPEMENTS ══ -->
+  <div class="screen-col">
+    <div class="screen-tag">1. Onboarding (étape 1/3)</div>
+    <div class="phone"><div class="phone-island"></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span>••• 100%</span></div>
+        <div class="ob-head">
+          <div class="ob-title">Tes équipements</div>
+          <div class="ob-sub">Sélectionne ce que tu as chez toi — on préparera les tâches associées.</div>
+          <div class="ob-stepper"><div class="pip on"></div><div class="pip"></div><div class="pip"></div></div>
+        </div>
+        <div class="ob-cat-title">🍳 Cuisine</div>
+        <div class="ob-grid">
+          <div class="ob-chip on"><span class="emo">🍽️</span><span>Lave-vaisselle</span></div>
+          <div class="ob-chip on"><span class="emo">🔥</span><span>Four</span></div>
+          <div class="ob-chip"><span class="emo">🧊</span><span>Congélateur</span></div>
+          <div class="ob-chip on"><span class="emo">☕</span><span>Machine café</span></div>
+          <div class="ob-chip"><span class="emo">🍞</span><span>Grille-pain</span></div>
+          <div class="ob-chip"><span class="emo">🥘</span><span>Cocotte-minute</span></div>
+        </div>
+        <div class="ob-cat-title" style="margin-top:6px">🚿 Salle de bain</div>
+        <div class="ob-grid">
+          <div class="ob-chip on"><span class="emo">🛁</span><span>Baignoire</span></div>
+          <div class="ob-chip"><span class="emo">🚿</span><span>Douche ital.</span></div>
+          <div class="ob-chip"><span class="emo">🪞</span><span>Miroir mural</span></div>
+        </div>
+        <div class="ob-foot">
+          <div class="ob-cta">Continuer (4) →</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">29 équipements à cocher + écran famille + catalogue + thinking IA. 4-5 écrans avant d'arriver dans l'app.</div>
+  </div>
+
+  <!-- ══ 2 · DASHBOARD SCORE ══ -->
+  <div class="screen-col">
+    <div class="screen-tag">2. Accueil = Dashboard Score</div>
+    <div class="phone"><div class="phone-island"></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span>••• 100%</span></div>
+        <div class="home-head">
+          <div><div class="home-hello">Salut Jonathan</div><div class="home-sub">Dim. 20 avr. · 17 tâches actives</div></div>
+          <div class="ava">J</div>
+        </div>
+        <div class="score-card">
+          <div class="sc-big">68%</div>
+          <div class="sc-lbl">Ta charge cette semaine</div>
+          <div class="sc-row"><div class="nm">jojo</div><div class="sc-bar"><div class="fill" style="width:68%;background:#4da3ff"></div></div><div class="pct">68%</div></div>
+          <div class="sc-row"><div class="nm">barbara</div><div class="sc-bar"><div class="fill" style="width:22%;background:#af52de"></div></div><div class="pct">22%</div></div>
+          <div class="sc-row"><div class="nm" style="color:rgba(255,255,255,0.4)">Non assigné</div><div class="sc-bar"><div class="fill" style="width:10%;background:#8e8e93"></div></div><div class="pct" style="color:rgba(255,255,255,0.4)">10%</div></div>
+        </div>
+        <div class="banner-assign"><span>⚠️ 3 tâches sans responsable</span><span>→</span></div>
+        <div class="insight">
+          <div class="tag">Yova a remarqué</div>
+          <div class="body">Barbara porte 8h50/sem (31% du temps) mais seulement <strong>22% de la charge mentale</strong>.</div>
+          <div class="cta">Rééquilibrer →</div>
+        </div>
+        <div class="cats-title">Par catégorie</div>
+        <div class="cats-card">
+          <div class="cat-row"><span class="emo">🧹</span><span class="nm">Ménage</span><div class="bars"><div class="b1" style="width:70%"></div><div class="b2" style="width:30%"></div></div></div>
+          <div class="cat-row"><span class="emo">🍳</span><span class="nm">Cuisine</span><div class="bars"><div class="b1" style="width:45%"></div><div class="b2" style="width:55%"></div></div></div>
+          <div class="cat-row"><span class="emo">🛒</span><span class="nm">Courses</span><div class="bars"><div class="b1" style="width:90%"></div><div class="b2" style="width:10%"></div></div></div>
+        </div>
+        <div class="tr-title">Tendance 4 semaines</div>
+        <div class="tr-card">
+          <div class="tr-bar"><div class="j" style="height:20px"></div><div class="b" style="height:10px"></div><div class="lbl">-3sem</div></div>
+          <div class="tr-bar"><div class="j" style="height:28px"></div><div class="b" style="height:14px"></div><div class="lbl">-2sem</div></div>
+          <div class="tr-bar"><div class="j" style="height:30px"></div><div class="b" style="height:16px"></div><div class="lbl">-1sem</div></div>
+          <div class="tr-bar"><div class="j" style="height:32px"></div><div class="b" style="height:12px"></div><div class="lbl">Cette</div></div>
+        </div>
+        <div class="tab">
+          <div class="tab-item on"><div>🏠</div>Accueil</div>
+          <div class="tab-item"><div>📋</div>Tâches</div>
+          <div class="tab-item"><div>📅</div>Planning</div>
+          <div class="tab-item"><div>📖</div>Journal</div>
+          <div class="tab-item"><div>👤</div>Profil</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">5 onglets, écran saturé (score / banner / insight / catégories / tendance). Lecture riche mais dense.</div>
+  </div>
+
+  <!-- ══ 3 · TÂCHES ══ -->
+  <div class="screen-col">
+    <div class="screen-tag">3. Onglet Tâches</div>
+    <div class="phone"><div class="phone-island"></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span>••• 100%</span></div>
+        <div class="tk-head">
+          <div><div class="tk-title">Tâches <span style="font-size:13px;color:#8e8e93">ⓘ</span></div><div class="tk-count">17 tâches · 3 en retard · 2 aujourd'hui · 5 cette semaine</div></div>
+          <div class="tk-btn-new">+ Nouvelle</div>
+        </div>
+        <div class="tk-search">Rechercher une tâche…</div>
+        <div class="tk-filters">
+          <div class="tk-fg">
+            <div class="tk-fg-lbl">Portée</div>
+            <div class="tk-chips">
+              <div class="tk-chip">Mes tâches</div>
+              <div class="tk-chip on">Tout le foyer</div>
+            </div>
+          </div>
+          <div class="tk-fg">
+            <div class="tk-fg-lbl">Horizon</div>
+            <div class="tk-chips">
+              <div class="tk-chip on">Tout</div>
+              <div class="tk-chip red">En retard</div>
+              <div class="tk-chip blue">Aujourd'hui</div>
+              <div class="tk-chip">Demain</div>
+              <div class="tk-chip">Semaine</div>
+              <div class="tk-chip">Plus tard</div>
+            </div>
+          </div>
+        </div>
+        <div class="tk-section-title"><span style="width:8px;height:8px;border-radius:50%;background:#ff3b30"></span>EN RETARD<span class="pill">3</span></div>
+        <div class="tk-list">
+          <div class="tk-card">
+            <div class="tk-card-top">
+              <div class="tk-card-name">Organiser le covoiturage</div>
+              <div class="tk-card-score"><span>Charge</span><span class="big">6</span><span>/10</span></div>
+            </div>
+            <div class="tk-gauge"><span class="lbl">Mental</span><div class="bar"><div class="fill" style="width:60%;background:#ff9500"></div></div><span class="v" style="color:#ff9500">6</span></div>
+            <div class="tk-gauge"><span class="lbl">Temps</span><div class="bar"><div class="fill" style="width:10%;background:#34c759"></div></div><span class="v" style="color:#34c759">1</span></div>
+            <div class="tk-card-footer">
+              <div class="tk-card-meta">Non assigné · 19 avr.</div>
+              <div class="tk-card-actions"><div class="tk-act fait">FAIT</div><div class="tk-act phan">👻 Pour…</div><div class="tk-act del">🗑</div></div>
+            </div>
+          </div>
+          <div class="tk-card">
+            <div class="tk-card-top">
+              <div class="tk-card-name">Ranger les chambres</div>
+              <div class="tk-card-score"><span>Charge</span><span class="big" style="color:#ff9500">4</span><span>/10</span></div>
+            </div>
+            <div class="tk-gauge"><span class="lbl">Mental</span><div class="bar"><div class="fill" style="width:40%;background:#ff9500"></div></div><span class="v" style="color:#ff9500">4</span></div>
+            <div class="tk-gauge"><span class="lbl">Temps</span><div class="bar"><div class="fill" style="width:30%;background:#34c759"></div></div><span class="v" style="color:#34c759">3</span></div>
+            <div class="tk-card-footer">
+              <div class="tk-card-meta">Non assigné · 19 avr.</div>
+              <div class="tk-card-actions"><div class="tk-act fait">FAIT</div><div class="tk-act del">🗑</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="tab">
+          <div class="tab-item"><div>🏠</div>Accueil</div>
+          <div class="tab-item on"><div>📋</div>Tâches</div>
+          <div class="tab-item"><div>📅</div>Planning</div>
+          <div class="tab-item"><div>📖</div>Journal</div>
+          <div class="tab-item"><div>👤</div>Profil</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">Chips Portée + Horizon bien séparés. Chaque carte = Charge /10 + Mental + Temps + FAIT/👻/🗑.</div>
+  </div>
+
+  <!-- ══ 4 · PLANNING ══ -->
+  <div class="screen-col">
+    <div class="screen-tag">4. Onglet Planning</div>
+    <div class="phone"><div class="phone-island"></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span>••• 100%</span></div>
+        <div class="pl-head">
+          <div class="pl-title">Ta semaine</div>
+          <div style="font-size:11px;color:#007aff;font-weight:700">Avril</div>
+        </div>
+        <div class="pl-week">
+          <div class="pl-day"><div class="dow">Lun</div><div class="num">14</div></div>
+          <div class="pl-day"><div class="dow">Mar</div><div class="num">15</div></div>
+          <div class="pl-day"><div class="dow">Mer</div><div class="num">16</div></div>
+          <div class="pl-day"><div class="dow">Jeu</div><div class="num">17</div></div>
+          <div class="pl-day"><div class="dow">Ven</div><div class="num">18</div></div>
+          <div class="pl-day on"><div class="dow">Sam</div><div class="num">19</div></div>
+          <div class="pl-day"><div class="dow">Dim</div><div class="num">20</div></div>
+        </div>
+        <div class="pl-dayhead"><span>Samedi 19 avril · 4 tâches</span><span class="chg">charge 45 pts</span></div>
+        <div class="pl-tasks">
+          <div class="pl-task">
+            <div class="cat" style="background:#af52de"></div>
+            <div class="info"><div class="nm">Préparer les repas</div><div class="sub">jojo · 18h30 · 30 min</div></div>
+            <div class="fait">✓</div>
+          </div>
+          <div class="pl-task">
+            <div class="cat" style="background:#34c759"></div>
+            <div class="info"><div class="nm">Sortir poubelles</div><div class="sub">barbara · 20h · 5 min</div></div>
+            <div class="fait">✓</div>
+          </div>
+          <div class="pl-task">
+            <div class="cat" style="background:#ff9500"></div>
+            <div class="info"><div class="nm">Ranger les chambres</div><div class="sub">jojo · 15h · 30 min</div></div>
+            <div class="fait">✓</div>
+          </div>
+          <div class="pl-task">
+            <div class="cat" style="background:#007aff"></div>
+            <div class="info"><div class="nm">Courses hebdo</div><div class="sub">jojo · 10h · 1h</div></div>
+            <div class="fait">✓</div>
+          </div>
+        </div>
+        <div class="tab">
+          <div class="tab-item"><div>🏠</div>Accueil</div>
+          <div class="tab-item"><div>📋</div>Tâches</div>
+          <div class="tab-item on"><div>📅</div>Planning</div>
+          <div class="tab-item"><div>📖</div>Journal</div>
+          <div class="tab-item"><div>👤</div>Profil</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">Vue semaine + liste du jour. Tap sur tâche = bottom sheet (Fait / Décaler / Supprimer).</div>
+  </div>
+
+  <!-- ══ 5 · JOURNAL ══ -->
+  <div class="screen-col">
+    <div class="screen-tag">5. Onglet Journal (dimanche)</div>
+    <div class="phone"><div class="phone-island"></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span>••• 100%</span></div>
+        <div class="jl-head">
+          <div class="jl-title">Journal</div>
+          <div class="jl-toggle">Masquer historique</div>
+        </div>
+        <div class="jl-recap">
+          <span class="badge">🌙 BILAN DIMANCHE</span>
+          <div class="ttl">Ta semaine en un coup d'œil</div>
+          <div class="jl-recap-row"><div class="nm">jojo</div><div class="bar"><div class="fill" style="width:78%;background:#4da3ff"></div></div><div class="pct">78%</div></div>
+          <div class="jl-recap-row"><div class="nm">barbara</div><div class="bar"><div class="fill" style="width:22%;background:#af52de"></div></div><div class="pct">22%</div></div>
+          <div style="font-size:10px; opacity:0.6; margin-top:8px">17 tâches complétées · +3 vs semaine dernière</div>
+        </div>
+        <div class="jl-hist-title">Historique</div>
+        <div class="jl-msg me">j'ai fait la vaisselle et sorti les poubelles ce matin</div>
+        <div class="jl-msg yv">Noté 👍 <strong>+2 tâches</strong> enregistrées sur ton compte.<br>Tu veux que je te rappelle de ressortir les poubelles jeudi ?</div>
+        <div class="jl-msg me">oui</div>
+        <div class="jl-msg yv">Fait ✓</div>
+        <div class="jl-input"><span>Raconte ta journée à Yova…</span><span class="mic">🎤</span></div>
+        <div class="tab">
+          <div class="tab-item"><div>🏠</div>Accueil</div>
+          <div class="tab-item"><div>📋</div>Tâches</div>
+          <div class="tab-item"><div>📅</div>Planning</div>
+          <div class="tab-item on"><div>📖</div>Journal</div>
+          <div class="tab-item"><div>👤</div>Profil</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">Récap hebdo en carte (le dimanche) + chat Yova classique. Historique toggleable.</div>
+  </div>
+
+  <!-- ══ 6 · PROFIL ══ -->
+  <div class="screen-col">
+    <div class="screen-tag">6. Onglet Profil</div>
+    <div class="phone"><div class="phone-island"></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span>••• 100%</span></div>
+        <div class="pr-head"><div class="pr-title">Profil</div></div>
+        <div class="pr-user">
+          <div class="ava2">J</div>
+          <div><div class="nm">jojo</div><div class="sub">Administrateur · Fondateur du foyer</div></div>
+        </div>
+        <div class="pr-sec">Foyer</div>
+        <div class="pr-card">
+          <div class="pr-row"><span class="lbl">Famille Sia</span><span class="act">Modifier</span></div>
+          <div class="pr-row"><span class="lbl">Code d'invitation<br><span style="font-size:9px;color:#c7c7cc">tap pour copier 📋</span></span><span class="pr-code">QPMAUY</span></div>
+        </div>
+        <div class="pr-sec">Membres (2)</div>
+        <div class="pr-card">
+          <div class="pr-row"><span class="lbl">🔵 jojo</span><span class="act" style="color:#8e8e93">Admin</span></div>
+          <div class="pr-row"><span class="lbl">👻 barbara</span><span><span class="act">Associer</span> · <span class="act red">Retirer</span></span></div>
+        </div>
+        <div class="pr-sec">🤖 Ce qu'Yova sait de toi</div>
+        <div class="pr-card">
+          <div class="pr-row"><span class="lbl">Tâches détestées</span><span class="act">+ Ajouter</span></div>
+          <div class="pr-row"><span class="lbl">Tâches aimées</span><span class="act">+ Ajouter</span></div>
+          <div class="pr-row"><span class="lbl">Créneau préféré</span><span style="font-size:10px;color:#8e8e93">Peu importe</span></div>
+          <div class="pr-row"><span class="lbl">Jours indispo</span><span style="font-size:10px;color:#8e8e93">Di Lu Ma Me Je Ve Sa</span></div>
+          <div class="pr-row"><span class="lbl">Niveau de charge</span><span style="font-size:10px;color:#8e8e93">Équilibré</span></div>
+        </div>
+        <div class="pr-sec">Raccourcis</div>
+        <div class="pr-card">
+          <div class="pr-row"><span class="lbl">📊 Statistiques détaillées</span><span class="act">›</span></div>
+          <div class="pr-row"><span class="lbl">🗂 Catalogue de tâches</span><span class="act">›</span></div>
+          <div class="pr-row"><span class="lbl">📁 Tâches archivées</span><span class="act">›</span></div>
+        </div>
+        <div class="tab">
+          <div class="tab-item"><div>🏠</div>Accueil</div>
+          <div class="tab-item"><div>📋</div>Tâches</div>
+          <div class="tab-item"><div>📅</div>Planning</div>
+          <div class="tab-item"><div>📖</div>Journal</div>
+          <div class="tab-item on"><div>👤</div>Profil</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">7 sections denses : user / foyer / membres / préférences Yova (6 champs) / raccourcis / objectif / vacances / notifs / RGPD.</div>
+  </div>
+
+</div>
+
+<!-- ═════════ COMPARATIF ═════════ -->
+<div class="compare">
+  <h2>Les 3 mockups côte à côte</h2>
+  <div class="compare-grid">
+
+    <div class="compare-col">
+      <h3>📘 yova-concept.html (vision initiale)</h3>
+      <ul>
+        <li>Dashboard dark très soigné · score, insight, barres</li>
+        <li>Planning sombre élégant</li>
+        <li>Focus : beauté visuelle + narratif Yova</li>
+        <li>Accueil = Score, Journal en 3e tab</li>
+        <li>Référence esthétique du produit</li>
+      </ul>
+    </div>
+
+    <div class="compare-col">
+      <h3>🟢 yova-current.html (état actuel, ce fichier)</h3>
+      <ul>
+        <li>Accueil = Dashboard saturé (score/banner/insight/catégories/tendance)</li>
+        <li>5 onglets : Accueil · Tâches · Planning · Journal · Profil</li>
+        <li>Tâches en liste 1 col avec Charge/Mental/Temps</li>
+        <li>Journal avec récap hebdo dimanche</li>
+        <li>Profil dense : 6 préférences Yova + 4 raccourcis + RGPD</li>
+        <li>Onboarding : équipements + famille + catalogue + IA</li>
+      </ul>
+    </div>
+
+    <div class="compare-col alt">
+      <h3>🟣 vision-alternative.html (ma proposition)</h3>
+      <ul>
+        <li>Accueil = Journal Yova conversationnel</li>
+        <li>4 onglets : Yova · Équilibre · Fil · Toi</li>
+        <li>Équilibre en UN chiffre (0-100)</li>
+        <li>Fil de reconnaissance (tap ❤️ sur les tâches de l'autre)</li>
+        <li>Onboarding 2 écrans : auth + invite partenaire</li>
+        <li>Tâches/catalogue au 2e niveau</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top:28px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.08); font-size:12px; color:rgba(255,255,255,0.7); line-height:1.6">
+    <strong style="color:white">Différence clé :</strong> le <strong>current</strong> met la donnée en avant (scores, barres, tendances, catégories — on voit BEAUCOUP). Le <strong>concept</strong> fait de même avec une meilleure esthétique. La <strong>vision alternative</strong> inverse : on voit PEU au premier niveau, la conversation est le cœur, la reconnaissance humaine devient la feature centrale.
+  </div>
+</div>
+
+</body>
+</html>

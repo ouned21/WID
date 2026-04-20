@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Yova — Vision alternative (Claude)</title>
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  background: #111118;
+  min-height: 100vh;
+  padding: 48px 32px 72px;
+  -webkit-font-smoothing: antialiased;
+  color: white;
+}
+
+.page-title {
+  text-align: center;
+  color: rgba(255,255,255,0.25);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.page-subtitle {
+  text-align: center;
+  color: rgba(255,255,255,0.55);
+  font-size: 14px;
+  font-weight: 400;
+  max-width: 720px;
+  margin: 0 auto 44px;
+  line-height: 1.5;
+}
+
+.screens-row {
+  display: flex;
+  gap: 28px;
+  justify-content: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.screen-col { display:flex; flex-direction:column; align-items:center; gap:12px; }
+.screen-tag { font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color: rgba(255,255,255,0.22); }
+.screen-delta {
+  font-size: 11px;
+  font-weight: 600;
+  color: #af52de;
+  max-width: 300px;
+  text-align: center;
+  line-height: 1.4;
+  margin-top: -4px;
+}
+
+/* PHONE */
+.phone {
+  width: 300px;
+  background: #1a1a1f;
+  border-radius: 50px;
+  padding: 12px;
+  box-shadow: 0 0 0 1.5px rgba(255,255,255,0.09), 0 0 0 3px rgba(0,0,0,0.8), 0 32px 80px rgba(0,0,0,0.7);
+}
+.phone-island { width:88px; height:26px; background:#0d0d12; border-radius:13px; margin:0 auto 10px; }
+.screen { border-radius: 38px; overflow:hidden; min-height:620px; display:flex; flex-direction:column; position:relative; background: #f5f6f8; color:#1c1c1e; }
+.sbar { display:flex; justify-content:space-between; padding: 10px 24px 4px; font-size:12px; font-weight:600; color:#1c1c1e; }
+.sbar .r { display:flex; gap:4px; align-items:center; }
+
+/* ───── ÉCRAN 1 : Onboarding conversationnel ───── */
+.ob { background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 100%); color:white; flex:1; padding: 48px 24px 24px; display:flex; flex-direction:column; }
+.ob-logo { font-size:48px; margin-bottom:12px; }
+.ob-h1 { font-size:26px; font-weight:800; line-height:1.15; margin-bottom:8px; }
+.ob-h1 em { font-style:normal; color:#af52de; }
+.ob-sub { font-size:14px; opacity:0.75; line-height:1.5; margin-bottom:28px; }
+.ob-input { background: rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:14px; padding:14px 16px; font-size:15px; color:rgba(255,255,255,0.5); margin-bottom:12px; }
+.ob-input.filled { color:white; background: rgba(255,255,255,0.14); }
+.ob-cta { margin-top:auto; background:#af52de; color:white; text-align:center; padding:16px; border-radius:14px; font-weight:700; font-size:15px; }
+.ob-hint { text-align:center; font-size:11px; opacity:0.4; margin-top:12px; }
+
+/* ───── ÉCRAN 2 : Journal = Accueil ───── */
+.jh { background: linear-gradient(180deg, #0e0e1a 0%, #1d1d35 100%); color:white; flex:1; display:flex; flex-direction:column; padding: 16px 0 0; }
+.jh-head { padding: 8px 20px 16px; }
+.jh-greet { font-size:20px; font-weight:700; margin-bottom:2px; }
+.jh-date { font-size:12px; opacity:0.5; }
+.jh-chat { flex:1; padding: 8px 16px; display:flex; flex-direction:column; gap:10px; overflow:hidden; }
+.bubble { max-width:80%; padding:10px 14px; border-radius:18px; font-size:13px; line-height:1.4; }
+.bubble.yova { background: rgba(255,255,255,0.08); align-self:flex-start; border-top-left-radius:4px; }
+.bubble.yova strong { color:#af52de; }
+.bubble.me { background:#af52de; align-self:flex-end; border-top-right-radius:4px; }
+.bubble.event { align-self:center; font-size:11px; opacity:0.55; background: rgba(255,255,255,0.04); border-radius:10px; padding:6px 10px; }
+.jh-input-wrap { padding: 10px 14px 16px; border-top: 1px solid rgba(255,255,255,0.08); }
+.jh-input { background: rgba(255,255,255,0.1); border-radius:22px; padding:10px 16px; font-size:13px; display:flex; align-items:center; gap:10px; color: rgba(255,255,255,0.4); }
+.jh-input .mic { margin-left:auto; font-size:16px; opacity:0.8; }
+
+/* ───── ÉCRAN 3 : Équilibre simple ───── */
+.eq { flex:1; padding: 12px 0 0; background:#f5f6f8; display:flex; flex-direction:column; }
+.eq-head { padding: 8px 20px 20px; display:flex; justify-content:space-between; align-items:flex-end; }
+.eq-title { font-size:26px; font-weight:800; }
+.eq-chip { background: #34c759; color:white; font-size:10px; font-weight:700; padding:4px 10px; border-radius:12px; letter-spacing:0.5px; }
+.eq-score-card { margin: 0 16px; background: linear-gradient(135deg,#1a1a2e 0%,#2d1f5c 100%); border-radius:22px; padding:24px; color:white; }
+.eq-score-num { font-size:64px; font-weight:900; line-height:1; letter-spacing:-2px; }
+.eq-score-lbl { font-size:12px; opacity:0.6; letter-spacing:2px; text-transform:uppercase; margin-top:4px; margin-bottom:20px; }
+.eq-bar-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.eq-bar-row .name { width:58px; font-size:13px; font-weight:600; }
+.eq-bar { flex:1; height:8px; background: rgba(255,255,255,0.1); border-radius:4px; overflow:hidden; }
+.eq-bar .fill { height:100%; border-radius:4px; }
+.eq-bar-row .pct { width:42px; text-align:right; font-size:13px; font-weight:700; }
+
+.eq-reco { margin: 16px; background:white; border-radius:18px; padding:18px; }
+.eq-reco-tag { font-size:10px; font-weight:700; letter-spacing:1.5px; color:#af52de; text-transform:uppercase; margin-bottom:8px; }
+.eq-reco-title { font-size:15px; font-weight:700; line-height:1.3; margin-bottom:4px; }
+.eq-reco-body { font-size:13px; color:#6b7280; line-height:1.45; margin-bottom:12px; }
+.eq-reco-body strong { color:#1c1c1e; font-weight:700; }
+.eq-reco-btn { background: #af52de; color:white; text-align:center; padding:10px; border-radius:12px; font-size:13px; font-weight:700; }
+
+/* ───── ÉCRAN 4 : Fil de reconnaissance ───── */
+.rf { flex:1; background:#f5f6f8; padding: 12px 0 0; display:flex; flex-direction:column; }
+.rf-head { padding: 8px 20px 14px; }
+.rf-title { font-size:22px; font-weight:800; }
+.rf-sub { font-size:12px; color:#8e8e93; margin-top:2px; }
+.rf-counter { margin: 0 16px 14px; background: #fff4e6; border: 1px solid #ffd09a; border-radius:14px; padding:12px 14px; font-size:12px; color:#a45a00; line-height:1.4; }
+.rf-counter strong { color:#1c1c1e; }
+.rf-items { padding: 0 16px; display:flex; flex-direction:column; gap:10px; }
+.rf-item { background:white; border-radius:16px; padding:14px; display:flex; align-items:center; gap:12px; }
+.rf-avatar { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; color:white; font-size:14px; flex-shrink:0; }
+.rf-avatar.j { background:#007aff; }
+.rf-avatar.b { background:#af52de; }
+.rf-text { flex:1; font-size:13px; line-height:1.35; }
+.rf-text .task { font-weight:600; color:#1c1c1e; }
+.rf-text .time { font-size:11px; color:#8e8e93; margin-top:2px; }
+.rf-heart { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:17px; background:#f0f2f8; flex-shrink:0; }
+.rf-heart.done { background:#fff4ea; }
+
+/* ───── ÉCRAN 5 : Paywall (journal IA) ───── */
+.pw { flex:1; background: linear-gradient(180deg,#0f0f1a 0%,#1a1a2e 100%); color:white; display:flex; flex-direction:column; padding: 32px 24px; }
+.pw-badge { align-self:flex-start; background: rgba(175,82,222,0.2); color:#d4a8f0; font-size:10px; font-weight:700; letter-spacing:1.5px; padding:4px 10px; border-radius:10px; text-transform:uppercase; margin-bottom:16px; }
+.pw-h1 { font-size:26px; font-weight:800; line-height:1.15; margin-bottom:12px; }
+.pw-h1 em { font-style:normal; color:#af52de; }
+.pw-sub { font-size:14px; opacity:0.7; line-height:1.5; margin-bottom:24px; }
+.pw-feature { display:flex; gap:12px; align-items:flex-start; font-size:13px; margin-bottom:14px; line-height:1.4; }
+.pw-feature .check { color:#34c759; font-weight:700; }
+.pw-price { margin-top:auto; text-align:center; }
+.pw-price .big { font-size:32px; font-weight:800; }
+.pw-price .small { font-size:12px; opacity:0.55; }
+.pw-cta { background:#af52de; text-align:center; padding:16px; border-radius:14px; font-weight:700; font-size:15px; margin-top:18px; }
+.pw-free { text-align:center; font-size:12px; opacity:0.45; margin-top:10px; }
+
+/* TAB BAR */
+.tab { display:flex; justify-content:space-around; padding: 10px 0 18px; background: rgba(0,0,0,0.2); border-top:1px solid rgba(255,255,255,0.06); }
+.tab.light { background:white; border-top:0.5px solid rgba(0,0,0,0.08); }
+.tab-item { font-size:10px; font-weight:600; color: rgba(255,255,255,0.4); text-align:center; }
+.tab-item.active { color:#af52de; }
+.tab-item.light { color: #8e8e93; }
+.tab-item.light.active { color:#af52de; }
+.tab-item div:first-child { font-size:17px; margin-bottom:2px; }
+
+/* FOOTER NOTES */
+.notes {
+  max-width: 900px;
+  margin: 80px auto 0;
+  padding: 32px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 20px;
+}
+.notes h2 { font-size:14px; letter-spacing:2px; text-transform:uppercase; color:#af52de; margin-bottom:18px; }
+.notes-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 24px; font-size:13px; line-height:1.55; color:rgba(255,255,255,0.75); }
+.notes-grid strong { color:white; }
+</style>
+</head>
+<body>
+
+<div class="page-title">Yova — Vision alternative (Claude)</div>
+<div class="page-subtitle">
+  Si c'était mon app : <strong style="color:white">plus conversationnelle, plus sociale, plus concentrée</strong>.
+  Mêmes features que la version actuelle, mais hiérarchie différente à l'ouverture.
+  Le journal IA devient le cœur, l'équilibre devient un miroir simple, la reconnaissance rend l'autre visible.
+</div>
+
+<div class="screens-row">
+
+  <!-- ─────── ÉCRAN 1 : Onboarding minimal ─────── -->
+  <div class="screen-col">
+    <div class="screen-tag">1. Onboarding (2 écrans)</div>
+    <div class="phone">
+      <div class="phone-island"></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span class="r">••• 100%</span></div>
+        <div class="ob">
+          <div class="ob-logo">✨</div>
+          <div class="ob-h1">Bonjour. Qui vit<br>avec <em>toi</em> ?</div>
+          <div class="ob-sub">On est mieux à deux. Invite ton·ta partenaire maintenant — tout fonctionne mieux quand vous êtes connectés.</div>
+          <div class="ob-input filled">Barbara</div>
+          <div class="ob-input filled">+33 6 12 34 56 78</div>
+          <div class="ob-cta">📱 Envoyer l'invitation</div>
+          <div class="ob-hint">Elle recevra un SMS avec un lien. Pas d'app ? Elle aura des résumés par SMS.</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">Pas de liste d'équipements, pas de génération IA batch. 2 écrans : auth + invite. Les tâches arrivent en conversation ensuite.</div>
+  </div>
+
+  <!-- ─────── ÉCRAN 2 : Journal = accueil ─────── -->
+  <div class="screen-col">
+    <div class="screen-tag">2. Accueil = Journal</div>
+    <div class="phone">
+      <div class="phone-island"></div>
+      <div class="screen">
+        <div class="sbar" style="color:white"><span>9:41</span><span class="r">••• 100%</span></div>
+        <div class="jh">
+          <div class="jh-head">
+            <div class="jh-greet">Hello Jonathan 👋</div>
+            <div class="jh-date">Lundi 20 avril · Dis-moi ta journée.</div>
+          </div>
+          <div class="jh-chat">
+            <div class="bubble yova">Bien dormi ? <strong>Barbara a fait la vaisselle hier soir</strong> — tu veux le reconnaître ?</div>
+            <div class="bubble event">❤️ tu as reconnu</div>
+            <div class="bubble me">j'ai sorti les poubelles et fait les courses</div>
+            <div class="bubble yova">Noté. <strong>+2 tâches</strong>. Barbara le verra. Tu veux que je planifie le recyclage pour mercredi ?</div>
+            <div class="bubble me">oui</div>
+            <div class="bubble yova">Fait. ✓</div>
+          </div>
+          <div class="jh-input-wrap">
+            <div class="jh-input">
+              <span>Dis à Yova ce que tu as géré…</span>
+              <span class="mic">🎤</span>
+            </div>
+          </div>
+        </div>
+        <div class="tab">
+          <div class="tab-item active"><div>💬</div>Yova</div>
+          <div class="tab-item"><div>⚖️</div>Équilibre</div>
+          <div class="tab-item"><div>❤️</div>Fil</div>
+          <div class="tab-item"><div>👤</div>Toi</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">Ouverture = conversation. Pas de liste intimidante. Les tâches se créent/complètent dans le flow. Le mode liste reste accessible en 2e onglet.</div>
+  </div>
+
+  <!-- ─────── ÉCRAN 3 : Équilibre simple ─────── -->
+  <div class="screen-col">
+    <div class="screen-tag">3. Équilibre (un seul chiffre)</div>
+    <div class="phone">
+      <div class="phone-island"></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span class="r">••• 100%</span></div>
+        <div class="eq">
+          <div class="eq-head">
+            <div class="eq-title">Équilibre</div>
+            <div class="eq-chip">Équilibré</div>
+          </div>
+          <div class="eq-score-card">
+            <div class="eq-score-num">73</div>
+            <div class="eq-score-lbl">Équilibre du foyer</div>
+            <div class="eq-bar-row">
+              <div class="name">Jonathan</div>
+              <div class="eq-bar"><div class="fill" style="width:52%; background:#007aff"></div></div>
+              <div class="pct">52%</div>
+            </div>
+            <div class="eq-bar-row">
+              <div class="name">Barbara</div>
+              <div class="eq-bar"><div class="fill" style="width:48%; background:#af52de"></div></div>
+              <div class="pct">48%</div>
+            </div>
+          </div>
+          <div class="eq-reco">
+            <div class="eq-reco-tag">Yova a remarqué</div>
+            <div class="eq-reco-title">Vous êtes bien équilibrés cette semaine.</div>
+            <div class="eq-reco-body">
+              Mais <strong>Barbara porte la charge mentale "enfants"</strong> (rendez-vous pédiatre, activités) à 82%.
+              Prends 1 de ces 3 tâches — ça rebalance sans effort.
+            </div>
+            <div class="eq-reco-btn">Voir les 3 tâches →</div>
+          </div>
+        </div>
+        <div class="tab light">
+          <div class="tab-item light"><div>💬</div>Yova</div>
+          <div class="tab-item light active"><div>⚖️</div>Équilibre</div>
+          <div class="tab-item light"><div>❤️</div>Fil</div>
+          <div class="tab-item light"><div>👤</div>Toi</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">Un score global 0-100, une barre par personne, une reco Yova actionable. Le détail (par catégorie, tendance) est dans un 2e niveau.</div>
+  </div>
+
+  <!-- ─────── ÉCRAN 4 : Fil de reconnaissance ─────── -->
+  <div class="screen-col">
+    <div class="screen-tag">4. Fil de reconnaissance</div>
+    <div class="phone">
+      <div class="phone-island"></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span class="r">••• 100%</span></div>
+        <div class="rf">
+          <div class="rf-head">
+            <div class="rf-title">Ce que vous faites</div>
+            <div class="rf-sub">Cette semaine · 23 tâches</div>
+          </div>
+          <div class="rf-counter">
+            💡 <strong>5 tâches de Barbara</strong> cette semaine que tu n'as pas encore reconnues. Un tap = elle le voit.
+          </div>
+          <div class="rf-items">
+            <div class="rf-item">
+              <div class="rf-avatar b">B</div>
+              <div class="rf-text">
+                <div class="task">Barbara a préparé le dîner</div>
+                <div class="time">il y a 1 h · cuisine</div>
+              </div>
+              <div class="rf-heart">❤️</div>
+            </div>
+            <div class="rf-item">
+              <div class="rf-avatar j">J</div>
+              <div class="rf-text">
+                <div class="task">Tu as sorti les poubelles</div>
+                <div class="time">il y a 3 h · ménage · Barbara ❤️</div>
+              </div>
+              <div class="rf-heart done">❤️</div>
+            </div>
+            <div class="rf-item">
+              <div class="rf-avatar b">B</div>
+              <div class="rf-text">
+                <div class="task">Barbara a pris RDV pédiatre</div>
+                <div class="time">hier · admin · charge mentale 4/5</div>
+              </div>
+              <div class="rf-heart">❤️</div>
+            </div>
+            <div class="rf-item">
+              <div class="rf-avatar j">J</div>
+              <div class="rf-text">
+                <div class="task">Tu as fait les courses</div>
+                <div class="time">hier · courses · Barbara ❤️</div>
+              </div>
+              <div class="rf-heart done">❤️</div>
+            </div>
+          </div>
+        </div>
+        <div class="tab light">
+          <div class="tab-item light"><div>💬</div>Yova</div>
+          <div class="tab-item light"><div>⚖️</div>Équilibre</div>
+          <div class="tab-item light active"><div>❤️</div>Fil</div>
+          <div class="tab-item light"><div>👤</div>Toi</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">La vraie promesse : rendre l'autre visible. Tap ❤️ = reconnaissance. Les non-reconnues s'accumulent. Le "il voit pas ce que je fais" disparaît.</div>
+  </div>
+
+  <!-- ─────── ÉCRAN 5 : Paywall (pricing inversé) ─────── -->
+  <div class="screen-col">
+    <div class="screen-tag">5. Paywall inversé</div>
+    <div class="phone">
+      <div class="phone-island"></div>
+      <div class="screen">
+        <div class="sbar" style="color:white"><span>9:41</span><span class="r">••• 100%</span></div>
+        <div class="pw">
+          <div class="pw-badge">Yova Premium</div>
+          <div class="pw-h1">Parle à <em>Yova</em>.<br>Elle gère tout.</div>
+          <div class="pw-sub">
+            Le reste est gratuit à vie. Mais le journal conversationnel — dicter ta journée, laisser Yova créer/assigner/planifier — ça, c'est premium.
+          </div>
+          <div class="pw-feature"><span class="check">✓</span><span>Journal IA illimité — dicte, elle code</span></div>
+          <div class="pw-feature"><span class="check">✓</span><span>Anticipation proactive hebdomadaire</span></div>
+          <div class="pw-feature"><span class="check">✓</span><span>Détection des "projets" (déménagement, naissance…) auto-planifiés</span></div>
+          <div class="pw-feature"><span class="check">✓</span><span>Bilan IA personnalisé le dimanche</span></div>
+          <div class="pw-price">
+            <div class="big">4,99 €<span class="small" style="font-size:14px; opacity:0.5"> /mois</span></div>
+            <div class="small">Ou 39 € / an (-35%)</div>
+          </div>
+          <div class="pw-cta">Essayer 7 jours gratuits</div>
+          <div class="pw-free">Continuer en gratuit — toutes les features hors IA</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-delta">Free = toute l'app (équilibre, catalogue, fil, assignation). Premium = la magie IA conversationnelle. Modèle Notion/Spotify : 90% free = acquisition, 10% paient la killer.</div>
+  </div>
+
+</div>
+
+<!-- ─────────── NOTES ─────────── -->
+<div class="notes">
+  <h2>Les 5 décisions structurelles derrière ces écrans</h2>
+  <div class="notes-grid">
+    <div>
+      <strong>① Journal IA en accueil.</strong><br>
+      Aujourd'hui le journal est l'onglet 3. Je le mets en onglet 1. L'app s'ouvre sur la conversation, pas sur une liste. C'est ce qui te différencie de Todoist.
+    </div>
+    <div>
+      <strong>② Invite obligatoire à l'onboarding.</strong><br>
+      Pas de skip, pas de mode fantôme en option principale. Si le partenaire refuse, mode "SMS hebdo" sans app. Au moins l'autre existe, l'app est jamais solo par défaut.
+    </div>
+    <div>
+      <strong>③ Fil de reconnaissance = le vrai cœur.</strong><br>
+      La plainte réelle n'est pas "je fais trop", c'est "il ne voit pas". Rendre visible + permettre le ❤️ = transformer l'app en canal de validation mutuelle. C'est la killer feature émotionnelle.
+    </div>
+    <div>
+      <strong>④ Un seul score (0-100).</strong><br>
+      73 = équilibré, 50 = déséquilibré, 25 = alerte. Une seule métrique qu'un couple peut digérer en 2 secondes. Les 4 axes (temps/physique/mental/impact) restent dans la machinerie mais pas dans l'UI.
+    </div>
+    <div>
+      <strong>⑤ Pricing inversé.</strong><br>
+      Gratuit puissant = acquisition virale. Premium = IA conversationnelle illimitée. 4,99€/mois parce qu'on vend la magie qui te fait gagner 30 min/semaine, pas des barres de progression.
+    </div>
+    <div>
+      <strong>Ce que je garde chez toi sans y toucher :</strong><br>
+      Le scope IA strict (refus relationnel/santé/juridique), le score = charge portée pas assignée, la pédagogie ("assigner ≠ faire seul·e"), le seuil 5 complétions avant tendance. Ces décisions sont excellentes, rares, et difficiles à refaire.
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

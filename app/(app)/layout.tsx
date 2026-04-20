@@ -9,23 +9,25 @@ import { useTaskNotifications } from '@/utils/useTaskNotifications';
 import { initRealtime, stopRealtime } from '@/stores/realtimeStore';
 import { requestNotificationPermission, scheduleEveningRecap, scheduleDraftReminders } from '@/utils/pushNotifications';
 
+// Nav 4 onglets : Accueil (journal) · À faire (tâches+planning avec toggle) · Score · Profil
+// L'onglet "À faire" est actif sur /tasks, /planning et /tasks/*.
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Accueil', icon: (
+  { href: '/journal', matches: ['/journal'], label: 'Accueil', icon: (
     <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-      <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" />
+      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
     </svg>
   )},
-  { href: '/planning', label: 'Planning', icon: (
+  { href: '/tasks', matches: ['/tasks', '/planning'], label: 'À faire', icon: (
     <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-      <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
+      <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
     </svg>
   )},
-  { href: '/journal', label: 'Journal', icon: (
+  { href: '/dashboard', matches: ['/dashboard', '/distribution'], label: 'Score', icon: (
     <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-      <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+      <path d="M12 20V10M18 20V4M6 20v-4" />
     </svg>
   )},
-  { href: '/profile', label: 'Profil', icon: (
+  { href: '/profile', matches: ['/profile'], label: 'Profil', icon: (
     <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
       <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" />
     </svg>
@@ -204,7 +206,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }}>
         <div className="flex">
           {NAV_ITEMS.map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const isActive = item.matches.some((m) => pathname.startsWith(m));
             return (
               <Link
                 key={item.href}

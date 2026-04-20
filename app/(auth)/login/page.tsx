@@ -29,7 +29,7 @@ export default function LoginPage() {
       // Récupérer le profil frais pour savoir où rediriger
       await useAuthStore.getState().refreshProfile();
       const profile = useAuthStore.getState().profile;
-      router.push(profile?.household_id ? '/dashboard' : '/onboarding');
+      router.push(profile?.household_id ? '/journal' : '/onboarding');
     } else {
       const newCount = failCount + 1;
       setFailCount(newCount);

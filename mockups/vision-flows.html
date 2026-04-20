@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Yova — Parcours utilisateur (Claude)</title>
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  background: #111118;
+  min-height: 100vh;
+  padding: 48px 32px 96px;
+  color: white;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page-title {
+  text-align: center;
+  color: rgba(255,255,255,0.28);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.page-subtitle {
+  text-align: center;
+  color: rgba(255,255,255,0.55);
+  font-size: 14px;
+  max-width: 800px;
+  margin: 0 auto 56px;
+  line-height: 1.6;
+}
+.flow {
+  max-width: 1200px;
+  margin: 0 auto 72px;
+}
+.flow-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.flow-number {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #af52de, #5856d6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 18px;
+}
+.flow-title { font-size: 20px; font-weight: 700; }
+.flow-title-sub { font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 2px; }
+
+.steps {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 20px;
+}
+.step {
+  flex: 0 0 220px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 16px;
+  position: relative;
+}
+.step-num {
+  font-size: 10px;
+  font-weight: 700;
+  color: #af52de;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.step-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+.step-screen {
+  background: #f5f6f8;
+  color: #1c1c1e;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 11px;
+  line-height: 1.45;
+  margin-bottom: 10px;
+  min-height: 94px;
+}
+.step-screen strong { color: #af52de; }
+.step-screen.dark {
+  background: linear-gradient(135deg, #1a1a2e, #2d1f5c);
+  color: rgba(255,255,255,0.9);
+}
+.step-screen.dark strong { color: #d4a8f0; }
+.step-action {
+  font-size: 11px;
+  color: rgba(255,255,255,0.55);
+  font-style: italic;
+  line-height: 1.4;
+}
+.step-arrow {
+  position: absolute;
+  right: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255,255,255,0.2);
+  font-size: 18px;
+  z-index: 1;
+}
+
+.branch {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255,255,255,0.1);
+  font-size: 11px;
+}
+.branch-lbl { color: rgba(255,255,255,0.4); font-weight: 600; }
+.branch-val { color: rgba(255,255,255,0.75); }
+
+.note {
+  background: rgba(175,82,222,0.08);
+  border: 1px solid rgba(175,82,222,0.2);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 20px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.8);
+  line-height: 1.5;
+}
+.note strong { color: #d4a8f0; }
+
+.hierarchy {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+}
+.hierarchy h2 {
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: #af52de;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.hierarchy-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+.h-col { background: rgba(255,255,255,0.03); border-radius: 12px; padding: 16px; }
+.h-col-lbl { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; color: rgba(255,255,255,0.4); text-transform: uppercase; margin-bottom: 10px; }
+.h-item { font-size: 13px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); line-height: 1.4; }
+.h-item:last-child { border-bottom: 0; }
+.h-item.hero { color: #d4a8f0; font-weight: 700; }
+.h-item.secondary { color: rgba(255,255,255,0.8); }
+.h-item.tertiary { color: rgba(255,255,255,0.5); font-size: 12px; }
+.h-item.hidden-item { color: rgba(255,255,255,0.35); font-size: 11px; font-style: italic; }
+</style>
+</head>
+<body>
+
+<div class="page-title">Yova — Parcours utilisateur (Claude)</div>
+<div class="page-subtitle">
+  4 flows principaux qui couvrent 95% de l'usage. Les features existent toutes — ce qui change, c'est ce que l'utilisateur <strong style="color:white">voit à l'ouverture</strong> et ce qu'il <strong style="color:white">découvre au fil du temps</strong>.
+</div>
+
+<!-- ═══════════════════ FLOW 1 : Première ouverture ═══════════════════ -->
+<div class="flow">
+  <div class="flow-header">
+    <div class="flow-number">1</div>
+    <div>
+      <div class="flow-title">Première ouverture — 2 min max</div>
+      <div class="flow-title-sub">Depuis la découverte de l'app jusqu'à la 1re conversation avec Yova</div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">Étape 1</div>
+      <div class="step-title">Landing ou App Store</div>
+      <div class="step-screen">
+        <strong>"Rendez visible ce que vous faites déjà chez vous."</strong><br><br>
+        Pour les couples qui veulent moins de charge mentale et plus de reconnaissance.
+      </div>
+      <div class="step-action">→ S'inscrire</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Étape 2</div>
+      <div class="step-title">Auth rapide</div>
+      <div class="step-screen">
+        Email · Mot de passe<br><br>
+        Ou <strong>Continue avec Apple / Google</strong>
+      </div>
+      <div class="step-action">→ Validation, pas d'email confirm (post-test) → Étape 3</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Étape 3</div>
+      <div class="step-title">Invitation partenaire (obligatoire)</div>
+      <div class="step-screen dark">
+        <strong>Qui vit avec toi ?</strong><br><br>
+        Prénom + n° de téléphone ou email.<br><br>
+        Si seul : "mode solo" caché en petit.
+      </div>
+      <div class="step-action">→ Envoi SMS d'invitation explicite (opt-in RGPD) → Étape 4</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Étape 4</div>
+      <div class="step-title">1re conversation Yova</div>
+      <div class="step-screen dark">
+        <strong>Yova :</strong> "Raconte-moi ta journée ou ta semaine — je vais créer ton foyer au fur et à mesure. Commence simple."<br><br>
+        [Input avec 🎤]
+      </div>
+      <div class="step-action">→ L'utilisateur parle → tâches se créent → onboarding invisible</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Étape 5</div>
+      <div class="step-title">Premier équilibre</div>
+      <div class="step-screen">
+        <strong>Tu es seul·e pour l'instant.</strong><br><br>
+        Score pas encore calculé — viens demain pour une première vraie mesure.
+      </div>
+      <div class="step-action">Accueil par défaut = Yova (pas une liste vide)</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>Ce qui disparaît :</strong> sélection de 29 équipements, écran famille, écran thinking IA, écran résultats de 25 tâches.
+    <strong>Ce qui arrive :</strong> les tâches se créent pendant les 2 premières semaines, une à la fois, en parlant à Yova. Zéro "grosse bouchée" initiale à avaler.
+  </div>
+</div>
+
+<!-- ═══════════════════ FLOW 2 : Usage quotidien ═══════════════════ -->
+<div class="flow">
+  <div class="flow-header">
+    <div class="flow-number">2</div>
+    <div>
+      <div class="flow-title">Usage quotidien — 30 secondes</div>
+      <div class="flow-title-sub">Le matin au café / Le soir avant de dormir</div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">Étape 1</div>
+      <div class="step-title">Ouverture app</div>
+      <div class="step-screen dark">
+        <strong>Hello Jonathan 👋</strong><br>
+        Lundi 20 avril · Dis-moi ta journée.<br><br>
+        [Derniers messages avec Yova]
+      </div>
+      <div class="step-action">Pas de liste intimidante. Direct en conversation.</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Étape 2</div>
+      <div class="step-title">Dicte</div>
+      <div class="step-screen dark">
+        <strong>Toi :</strong> "j'ai sorti les poubelles, fait les courses, donné le bain aux enfants"<br><br>
+        🎤 ou texte.
+      </div>
+      <div class="step-action">Mode voix prioritaire : une phrase = 3 tâches notées</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Étape 3</div>
+      <div class="step-title">Yova traite</div>
+      <div class="step-screen dark">
+        <strong>Yova :</strong> "Noté. +3 tâches reconnues. Barbara le verra dans son fil.<br><br>
+        Je remarque : tu fais toujours bain + histoire + lit ensemble. Je les regroupe en <strong>routine 'Soir enfants'</strong> ?"
+      </div>
+      <div class="step-action">Détection passive de routines + proposition</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Étape 4</div>
+      <div class="step-title">Routine créée</div>
+      <div class="step-screen">
+        <strong>Routine "Soir enfants"</strong><br>
+        · Bain · Histoire · Au lit<br>
+        Portée par Jonathan · 18h30<br><br>
+        Désormais : 1 tap = les 3 faites
+      </div>
+      <div class="step-action">Friction réduite à 1 tap pour N tâches quotidiennes</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Étape 5</div>
+      <div class="step-title">Side-note : Barbara active</div>
+      <div class="step-screen">
+        <strong>Fil · 2 nouveautés</strong><br><br>
+        Barbara a préparé le dîner · il y a 1h<br>
+        Barbara a pris RDV pédiatre · hier<br><br>
+        [❤️ Reconnaître]
+      </div>
+      <div class="step-action">Tap ❤️ = initiative personnelle, jamais poussée</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>Nouveauté majeure : détection de routines.</strong> Si Yova voit que tu enchaînes A+B+C systématiquement (≥3 fois), elle propose le regroupement. Accepté → 1 tap cocherait les 3. <strong>Gain d'usage : ~40% des tâches quotidiennes sont dans des routines.</strong>
+  </div>
+</div>
+
+<!-- ═══════════════════ FLOW 3 : Dimanche (hebdo) ═══════════════════ -->
+<div class="flow">
+  <div class="flow-header">
+    <div class="flow-number">3</div>
+    <div>
+      <div class="flow-title">Dimanche soir — le moment de vérité</div>
+      <div class="flow-title-sub">Récap hebdo + reconnaissance mutuelle + arbitrage</div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">Étape 1</div>
+      <div class="step-title">Notif dimanche 18h</div>
+      <div class="step-screen">
+        🔔 <strong>Bilan de la semaine prêt</strong><br><br>
+        "Toi et Barbara avez fait 23 tâches. Voyons ensemble."
+      </div>
+      <div class="step-action">Notif unique = pas de spam quotidien</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Étape 2</div>
+      <div class="step-title">Écran Équilibre hebdo</div>
+      <div class="step-screen">
+        <strong>73 / Équilibré</strong><br><br>
+        Jonathan 52% · Barbara 48%<br>
+        +4 pts vs semaine dernière
+      </div>
+      <div class="step-action">Un seul chiffre. Tendance visible.</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Étape 3</div>
+      <div class="step-title">Yova a remarqué</div>
+      <div class="step-screen dark">
+        <strong>Yova :</strong><br>
+        "Barbara porte 82% de la charge 'enfants'. Si tu prends <strong>1 RDV pédiatre</strong> ou <strong>inscription école</strong> par semaine, vous rééquilibrez."
+      </div>
+      <div class="step-action">UNE reco ciblée et actionnable. Pas de dashboard.</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Étape 4</div>
+      <div class="step-title">Reconnaissance en lot (optionnel)</div>
+      <div class="step-screen">
+        <strong>❤️ Reconnaître les 12 tâches de Barbara cette semaine ?</strong><br><br>
+        [Tout reconnaître] [Choisir une par une] [Passer]
+      </div>
+      <div class="step-action">Initiative volontaire, Yova propose mais ne force pas</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Étape 5</div>
+      <div class="step-title">SMS hebdo vers +1 non-installé</div>
+      <div class="step-screen">
+        <strong>SMS à Barbara (si pas d'app) :</strong><br><br>
+        "Ta semaine selon Jonathan : 12 tâches reconnues.<br>Voir / réagir → lien<br>STOP pour ne plus recevoir"
+      </div>
+      <div class="step-action">Conforme RGPD : opt-in initial + STOP respecté</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>Dimanche est le rituel</strong> qui fait revenir l'utilisateur. Usage quotidien optionnel (journal IA), usage hebdo obligatoire (rituel). Les couples qui adoptent ce rituel = rétention 6 mois >70%.
+  </div>
+</div>
+
+<!-- ═══════════════════ FLOW 4 : Découverte progressive ═══════════════════ -->
+<div class="flow">
+  <div class="flow-header">
+    <div class="flow-number">4</div>
+    <div>
+      <div class="flow-title">Découverte progressive — semaines 1 à 8</div>
+      <div class="flow-title-sub">Les features cachées apparaissent au bon moment, par Yova</div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">Sem. 1</div>
+      <div class="step-title">Onboarding conversationnel</div>
+      <div class="step-screen dark">
+        <strong>Yova pose 2 questions/semaine max :</strong><br><br>
+        "Tu préfères ranger le matin ou le soir ?"<br>
+        "Les enfants vont à quelle école ?"
+      </div>
+      <div class="step-action">Profil à 20% au bout de 7 jours</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Sem. 2-3</div>
+      <div class="step-title">Catalogue révélé</div>
+      <div class="step-screen">
+        <strong>Yova :</strong> "J'ai trouvé <strong>8 tâches classiques</strong> que tu ne m'as pas encore dites — les enfants, la voiture, le jardin…"<br><br>
+        [Voir la liste]
+      </div>
+      <div class="step-action">Catalogue apparaît dans le journal, pas en onboarding</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Sem. 3-4</div>
+      <div class="step-title">1re routine détectée</div>
+      <div class="step-screen">
+        <strong>Routine suggérée :</strong><br>
+        Préparer école + Lunch box + Départ<br><br>
+        [Créer] [Pas maintenant]
+      </div>
+      <div class="step-action">Heuristique basée sur 3+ occurrences du même pattern</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Sem. 4+</div>
+      <div class="step-title">1er paywall (après valeur reçue)</div>
+      <div class="step-screen dark">
+        <strong>Tu as utilisé Yova 4 fois cette semaine.</strong><br><br>
+        Pour un journal illimité : Premium 4,99€/mois<br>
+        [Continuer en gratuit (5/mois)]
+      </div>
+      <div class="step-action">Paywall apparaît à la limite, jamais en intro</div>
+      <div class="step-arrow">→</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Sem. 6+</div>
+      <div class="step-title">Projet détecté</div>
+      <div class="step-screen dark">
+        <strong>Toi :</strong> "on déménage le 15 juin"<br>
+        <strong>Yova :</strong> "J'ai préparé 17 tâches échelonnées sur 3 mois. Tu peux ajuster."
+      </div>
+      <div class="step-action">Packs automatiques déclenchés par le langage naturel</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>Philosophie :</strong> l'app ne montre pas ses 20 features à l'ouverture. Elle les révèle une par une, au moment où elles ont du sens pour l'utilisateur. Yova est le guide, pas une liste de menus.
+  </div>
+</div>
+
+<!-- ═══════════════════ HIÉRARCHIE COMPARÉE ═══════════════════ -->
+<div class="hierarchy">
+  <h2>La hiérarchie des écrans à l'ouverture</h2>
+  <div class="hierarchy-grid">
+
+    <div class="h-col">
+      <div class="h-col-lbl">🏆 Héros (toujours visible)</div>
+      <div class="h-item hero">💬 Journal Yova</div>
+      <div class="h-item hero">⚖️ Équilibre (1 chiffre)</div>
+      <div class="h-item hero">❤️ Fil de reconnaissance</div>
+      <div class="h-item hero">👤 Profil</div>
+    </div>
+
+    <div class="h-col">
+      <div class="h-col-lbl">🔽 Deuxième niveau</div>
+      <div class="h-item secondary">📋 Liste des tâches</div>
+      <div class="h-item secondary">📅 Planning semaine</div>
+      <div class="h-item secondary">🗂 Catalogue</div>
+      <div class="h-item secondary">📊 Stats détaillées</div>
+      <div class="h-item secondary">🔄 Rééquilibrer</div>
+      <div class="h-item secondary">📦 Routines</div>
+    </div>
+
+    <div class="h-col">
+      <div class="h-col-lbl">⚙️ Troisième niveau (profil)</div>
+      <div class="h-item tertiary">Mode vacances</div>
+      <div class="h-item tertiary">Code invitation / partenaire</div>
+      <div class="h-item tertiary">Notifications</div>
+      <div class="h-item tertiary">Préférences Yova</div>
+      <div class="h-item tertiary">Historique / archive</div>
+      <div class="h-item tertiary">Admin catalogue (toi)</div>
+      <div class="h-item tertiary">RGPD · Mes données</div>
+    </div>
+
+    <div class="h-col">
+      <div class="h-col-lbl">🤫 Caché (power users)</div>
+      <div class="h-item hidden-item">Tap long sur le score = détail 4 axes (temps, physique, mental, impact)</div>
+      <div class="h-item hidden-item">Mode avancé création tâche (score manuel)</div>
+      <div class="h-item hidden-item">Objectif personnalisé (slider 10-90%)</div>
+      <div class="h-item hidden-item">Éditer fréquences custom</div>
+      <div class="h-item hidden-item">Export JSON / réglages labo</div>
+    </div>
+
+  </div>
+  <div class="note" style="margin-top: 28px">
+    <strong>Règle de hiérarchie :</strong> une feature <strong>n'est pas détruite, elle est déplacée</strong>. Les 12 pages actuelles → 4 onglets principaux + 6 écrans profil + ~5 features cachées. L'utilisateur lambda ne verra que ce qui le concerne ; le power user ou toi en tant que fondateur creusez pour accéder au reste.
+  </div>
+</div>
+
+</body>
+</html>
