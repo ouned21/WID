@@ -15,6 +15,7 @@ import { useAnalyticsStore } from '@/stores/analyticsStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { createClient } from '@/lib/supabase';
+import BackButton from '@/components/BackButton';
 
 type Period = 7 | 30 | 90;
 const PERIODS: { value: Period; label: string }[] = [
@@ -78,7 +79,10 @@ export default function DistributionPage() {
   }, [dailyHistory, profile?.id]);
 
   return (
-    <div className="pt-4 pb-8" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div className="pt-3 pb-8" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="px-4">
+        <BackButton label="Retour au profil" />
+      </div>
       <div className="flex items-center justify-between px-4">
         <h2 className="text-[28px] font-bold text-[#1c1c1e]">Statistiques</h2>
         {totalCompletions > 0 && (
