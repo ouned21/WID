@@ -33,8 +33,11 @@ export default function HouseholdPage() {
   return (
     <>
       <div className="text-center pt-8">
-        <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-[20px] text-[26px] font-bold text-white mb-3" style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)' }}>
-          🤖
+        <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-[20px] mb-3" style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)' }}>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
         </div>
         <h1 className="text-[22px] font-bold text-[#1c1c1e]">
           Bienvenue{profile?.display_name ? `, ${profile.display_name}` : ''} !

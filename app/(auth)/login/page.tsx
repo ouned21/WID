@@ -23,7 +23,7 @@ export default function LoginPage() {
     e.preventDefault();
     if (isLocked) return;
     clearError();
-    const result = await signIn(email, password);
+    const result = await signIn(email.trim().toLowerCase(), password);
     if (result.ok) {
       setFailCount(0);
       // Récupérer le profil frais pour savoir où rediriger
@@ -43,11 +43,14 @@ export default function LoginPage() {
   return (
     <>
       <div className="text-center pt-8">
-        <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-[20px] text-[32px] font-bold text-white mb-3" style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)' }}>
-          A
+        <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-[20px] mb-3" style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)' }}>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
         </div>
         <h1 className="text-[28px] font-bold text-[#1c1c1e]">Yova</h1>
-        <p className="text-[15px] text-[#8e8e93]">L&apos;agent qui planifie ton foyer</p>
+        <p className="text-[15px] text-[#8e8e93]">L&apos;équilibre du foyer, rendu visible.</p>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -68,9 +71,12 @@ export default function LoginPage() {
             <input
               type="email"
               required
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
+              className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc] lowercase"
               placeholder="votre@email.com"
             />
           </div>

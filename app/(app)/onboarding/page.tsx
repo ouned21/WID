@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import DeleteButton from '@/components/DeleteButton';
 import { useAuthStore } from '@/stores/authStore';
@@ -44,7 +44,7 @@ type Step =
   | 'equipment'  // Écran 1 : Sélection équipements
   | 'family'     // Écran 2 : Composition familiale
   | 'baseline'   // Écran 3 : Baseline émotionnelle (qui fait le plus ?)
-  | 'catalog'    // Écran 4 : Sélection tâches catalogue
+  | 'thinking'   // Écran 4 : Yova crée les tâches en silence
   | 'results';   // Écran 5 : Résultats
 
 type BaselineChoice = 'me' | 'partner' | 'balanced';
@@ -230,10 +230,11 @@ export default function OnboardingPage() {
       if (!hasKids) excludedCategories.add('children');
       if (!hasPets) excludedCategories.add('pets');
 
-      // Pré-sélection : max 3 tâches par catégorie parmi celles qui matchent les équipements
-      // → démarre avec ~20-30 tâches essentielles, l'utilisateur peut en ajouter
+      // Pré-sélection : 1 tâche macro par catégorie parmi celles qui matchent
+      // → démarre avec ~10-12 tâches essentielles. L'utilisateur affinera
+      // au fil de l'usage via /tasks/catalog (pas d'écran d'arbitrage ici).
       const equipIds = [...selectedEquipment];
-      const MAX_PER_CATEGORY = 3;
+      const MAX_PER_CATEGORY = 1;
       const countByCategory: Record<string, number> = {};
       const preSelected = new Set<string>();
       // Les templates sont déjà triés par sort_order → on prend les premiers par catégorie
@@ -256,6 +257,21 @@ export default function OnboardingPage() {
       setCatalogLoading(false);
     }
   }, [selectedEquipment, family]);
+
+  // Auto-déclenche la création une fois les templates chargés en thinking
+  const autoCreateTriggered = useRef(false);
+  useEffect(() => {
+    if (step !== 'thinking') {
+      autoCreateTriggered.current = false;
+      return;
+    }
+    if (catalogLoading || isCreating || householdCreating) return;
+    if (catalogTemplates.length === 0) return;
+    if (autoCreateTriggered.current) return;
+    autoCreateTriggered.current = true;
+    void createFromCatalog();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, catalogLoading, catalogTemplates.length, isCreating, householdCreating]);
 
   // ── Grouper le catalogue par catégorie ──
   const catalogGroups = useMemo(() => {
@@ -439,7 +455,7 @@ export default function OnboardingPage() {
   }, [householdId, userId, householdCreating, catalogTemplates, selectedTemplateIds, customTaskNames, family, fetchHousehold, fetchTasks, refreshProfile]);
 
   const handleFinish = useCallback(() => {
-    router.push('/planning');
+    router.push('/journal');
   }, [router]);
 
   const deleteTask = useCallback(async (taskId: string) => {
@@ -538,6 +554,13 @@ export default function OnboardingPage() {
     return (
       <div className="pt-4 pb-28">
         <div className="px-4 mb-6">
+          <button
+            onClick={() => setStep('equipment')}
+            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[14px] font-semibold mb-4 active:opacity-70"
+            style={{ background: 'rgba(0,122,255,0.10)', color: '#007aff' }}>
+            <svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M7 1L1 7L7 13" stroke="#007aff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            Retour
+          </button>
           <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 2 / 4</p>
           <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
             Qui vit<br />avec toi ?
@@ -666,7 +689,20 @@ export default function OnboardingPage() {
             </p>
           )}
           <button
-            onClick={() => setStep('baseline')}
+            onClick={() => {
+              // Foyer solo (aucun humain) → skip baseline, ça n'a pas de sens
+              // de comparer avec un partenaire inexistant. On fixe target à 100%.
+              if (validHumans === 0) {
+                if (userId) {
+                  const supabase = createClient();
+                  void supabase.from('profiles').update({ target_share_percent: 100 }).eq('id', userId);
+                }
+                setStep('thinking');
+                loadCatalogTemplates();
+              } else {
+                setStep('baseline');
+              }
+            }}
             disabled={hasUnnamedHuman}
             className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white disabled:opacity-40"
             style={{
@@ -676,7 +712,7 @@ export default function OnboardingPage() {
           >
             {validHumans > 0
               ? `Continuer (${validHumans} membre${validHumans > 1 ? 's' : ''}) →`
-              : 'Continuer sans membres →'}
+              : 'Continuer en solo →'}
           </button>
         </div>
       </div>
@@ -697,7 +733,7 @@ export default function OnboardingPage() {
         const supabase = createClient();
         await supabase.from('profiles').update({ target_share_percent: target }).eq('id', userId);
       }
-      setStep('catalog');
+      setStep('thinking');
       loadCatalogTemplates();
     };
 
@@ -705,7 +741,14 @@ export default function OnboardingPage() {
       <div className="min-h-screen flex flex-col" style={{
         background: 'linear-gradient(180deg, #0a1628 0%, #1a2f52 100%)',
       }}>
-        <div className="flex-1 flex flex-col justify-center px-6 py-12">
+        <div className="flex-1 flex flex-col justify-center px-6 py-12 relative">
+          <button
+            onClick={() => setStep('family')}
+            className="absolute top-6 left-4 flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[14px] font-semibold active:opacity-70"
+            style={{ background: 'rgba(255,255,255,0.1)', color: 'white' }}>
+            <svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M7 1L1 7L7 13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            Retour
+          </button>
           {/* Step indicator */}
           <p className="text-[12px] font-semibold uppercase tracking-[0.2em] mb-8 text-center"
             style={{ color: 'rgba(255,255,255,0.45)' }}>
@@ -752,146 +795,31 @@ export default function OnboardingPage() {
     );
   }
 
-  // ─── Écran 4 : Catalogue ───
-  if (step === 'catalog') {
-    const totalSelected = selectedTemplateIds.size + customTaskNames.length;
-
+  // ─── Écran 4 : Thinking (création silencieuse) ───
+  // Pas d'arbitrage par l'utilisateur : Yova crée ~12 tâches macro depuis les
+  // équipements et la famille. L'utilisateur affinera plus tard dans /tasks/catalog.
+  if (step === 'thinking') {
     return (
-      <div className="pt-4 pb-32">
-        <div className="px-4 mb-5">
-          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 4 / 4</p>
-          <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
-            Quelles tâches<br />veux-tu suivre ?
-          </h2>
-          <p className="text-[14px] text-[#8e8e93] mt-1">
-            On a pré-sélectionné selon tes équipements. Ajuste à ta guise.
-          </p>
-        </div>
-
-        {catalogLoading ? (
-          <div className="flex justify-center py-16">
-            <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[#e5e5ea] border-t-[#007aff]" />
+      <div className="min-h-screen flex flex-col" style={{
+        background: 'linear-gradient(180deg, #0a1628 0%, #1a2f52 100%)',
+      }}>
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+          <div className="h-16 w-16 rounded-full flex items-center justify-center mb-6"
+            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
+            <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-white/20 border-t-white" />
           </div>
-        ) : (
-          <>
-            {Object.entries(catalogGroups).map(([cat, templates]) => {
-              // En mode compact : montrer les tâches pré-sélectionnées + celles décochées
-              // (elles restent visibles pour pouvoir les re-cocher)
-              const visible = showAllTemplates
-                ? templates
-                : templates.filter((t) => shownTemplateIds.has(t.id));
-
-              // Ignorer les catégories sans tâches pertinentes
-              if (visible.length === 0) return null;
-
-              const { label, emoji } = SCORING_CAT_DISPLAY[cat] ?? { label: cat, emoji: '📌' };
-              return (
-                <div key={cat} className="mb-5">
-                  <p className="text-[13px] font-bold text-[#1c1c1e] mb-2 px-5">
-                    {emoji} {label}
-                  </p>
-                  <div className="flex flex-wrap gap-2 px-4">
-                    {visible.map((t) => {
-                      const sel = selectedTemplateIds.has(t.id);
-                      return (
-                        <button
-                          key={t.id}
-                          onClick={() => toggleTemplate(t.id)}
-                          className="rounded-2xl px-4 py-2.5 text-[13px] font-semibold transition-all active:scale-[0.95]"
-                          style={{
-                            background: sel ? 'linear-gradient(135deg, #007aff, #5856d6)' : 'white',
-                            color: sel ? 'white' : '#1c1c1e',
-                            boxShadow: sel
-                              ? '0 4px 12px rgba(0,122,255,0.25)'
-                              : '0 1px 4px rgba(0,0,0,0.06)',
-                          }}
-                        >
-                          {t.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Lien "voir toutes les tâches" */}
-            {!showAllTemplates && (
-              <div className="px-4 mb-4">
-                <button
-                  onClick={() => setShowAllTemplates(true)}
-                  className="text-[13px] font-semibold"
-                  style={{ color: '#007aff' }}
-                >
-                  + Voir toutes les tâches disponibles ({catalogTemplates.length - selectedTemplateIds.size} autres)
-                </button>
-              </div>
-            )}
-
-            {/* Tâche personnalisée */}
-            <div className="mx-4 mt-2 mb-4">
-              <p className="text-[13px] font-bold text-[#1c1c1e] mb-2">📌 Autre chose ?</p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={customTaskInput}
-                  onChange={(e) => setCustomTaskInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') addCustomTask(); }}
-                  placeholder="Ex : Arroser les plantes"
-                  className="flex-1 rounded-xl px-4 py-3 text-[14px] text-[#1c1c1e] outline-none"
-                  style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
-                />
-                <button
-                  onClick={addCustomTask}
-                  disabled={!customTaskInput.trim()}
-                  className="rounded-xl px-5 py-3 text-[20px] font-bold text-white disabled:opacity-40"
-                  style={{ background: '#007aff' }}
-                >
-                  +
-                </button>
-              </div>
-              {customTaskNames.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {customTaskNames.map((name, i) => (
-                    <div key={i}
-                      className="flex items-center gap-1 rounded-2xl px-3 py-2 text-[13px] font-semibold text-white"
-                      style={{ background: 'linear-gradient(135deg, #34c759, #30d158)' }}>
-                      <span>{name}</span>
-                      <button
-                        onClick={() => setCustomTaskNames((prev) => prev.filter((_, j) => j !== i))}
-                        className="ml-1 opacity-70 hover:opacity-100 text-[16px] leading-none"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
-        {error && (
-          <p className="px-4 text-[13px] text-[#ff3b30] mb-3">{error}</p>
-        )}
-
-        <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3"
-          style={{ background: 'linear-gradient(transparent, #f6f8ff 30%)' }}>
-          <button
-            onClick={createFromCatalog}
-            disabled={totalSelected === 0 || isCreating || householdCreating}
-            className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white disabled:opacity-40"
-            style={{
-              background: 'linear-gradient(135deg, #007aff, #5856d6)',
-              boxShadow: '0 8px 24px rgba(0,122,255,0.3)',
-            }}
-          >
-            {householdCreating
-              ? 'Préparation du foyer…'
+          <h2 className="text-[24px] font-black text-white text-center leading-tight mb-3">
+            Yova organise ton foyer…
+          </h2>
+          <p className="text-[14px] text-center max-w-[280px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
+            {catalogLoading
+              ? 'Analyse de ton foyer…'
               : isCreating
-              ? 'Création en cours…'
-              : `Créer ${totalSelected} tâche${totalSelected !== 1 ? 's' : ''} →`}
-          </button>
+              ? 'Création de tes tâches…'
+              : householdCreating
+              ? 'Préparation du foyer…'
+              : 'Presque prêt.'}
+          </p>
         </div>
       </div>
     );
@@ -905,126 +833,36 @@ export default function OnboardingPage() {
       return da - db;
     });
 
-    // Construire les cibles d'assignation : moi + membres fantômes
-    const assignTargets: { id: string; name: string; isPhantom: boolean }[] = [];
-    if (profile?.id) {
-      assignTargets.push({
-        id: profile.id,
-        name: profile.display_name?.split(' ')[0] ?? 'Moi',
-        isPhantom: false,
-      });
-    }
-    for (const m of allMembers) {
-      if (m.isPhantom) {
-        assignTargets.push({ id: m.id, name: m.display_name, isPhantom: true });
-      }
-    }
-
-    const assignedCount = Object.values(assignments).filter(Boolean).length;
-
     return (
       <div className="pt-4 pb-32">
         <div className="px-4 mb-6 text-center">
-          <div className="text-[52px] mb-3">✅</div>
+          <div className="text-[52px] mb-3">✨</div>
           <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
-            Yova a créé<br />{generatedTasks.length} tâche{generatedTasks.length !== 1 ? 's' : ''} pour ton foyer
+            C&apos;est prêt.
           </h2>
-          <p className="text-[13px] text-[#8e8e93] mt-2">
-            {assignTargets.length > 1
-              ? 'Tape un prénom pour assigner — ou continue sans.'
-              : 'Appuie sur la poubelle pour retirer une tâche.'}
+          <p className="text-[14px] text-[#8e8e93] mt-2 max-w-[300px] mx-auto leading-relaxed">
+            Yova a créé <strong className="text-[#1c1c1e]">{generatedTasks.length} tâche{generatedTasks.length !== 1 ? 's' : ''}</strong> pour ton foyer.
+            Tu ajusteras au fil de l&apos;usage.
           </p>
-          {assignTargets.length > 1 && (
-            <div className="mt-3 mx-auto max-w-[280px] rounded-xl px-3 py-2.5"
-              style={{ background: '#f0f6ff', border: '1px solid #d0e4ff' }}>
-              <p className="text-[12px] leading-relaxed" style={{ color: '#3a6fcc' }}>
-                💡 <span className="font-semibold">Assigner ≠ faire seul·e.</span> Qui y penserait en premier si l&apos;autre n&apos;était pas là ?
-              </p>
-            </div>
-          )}
         </div>
 
         <div className="px-4">
           <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            {sortedTasks.map((t, i) => {
-              const current = assignments[t.id] ?? null;
-              return (
-                <div
-                  key={t.id}
-                  className="px-4 py-3"
-                  style={i < sortedTasks.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}
-                >
-                  {/* Ligne 1 : nom + date + poubelle */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full flex-shrink-0 mt-0.5" style={{ background: t.category_color ?? '#8e8e93' }} />
-                    <p className="flex-1 text-[14px] font-medium text-[#1c1c1e] truncate">{t.name}</p>
-                    {t.next_due_at && (
-                      <p className="text-[11px] text-[#c7c7cc] flex-shrink-0">
-                        {new Date(t.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                      </p>
-                    )}
-                    <DeleteButton onDelete={() => deleteTask(t.id)} />
-                  </div>
-
-                  {/* Ligne 2 : assignation */}
-                  {assignTargets.length > 0 && (
-                    <div className="flex items-center gap-1.5 mt-2 ml-5 flex-wrap">
-                      {/* Label contextuel */}
-                      {!current ? (
-                        <span className="text-[11px] font-semibold mr-0.5" style={{ color: '#c7c7cc' }}>
-                          Assigner à →
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-semibold mr-0.5" style={{ color: '#34c759' }}>
-                          ✓
-                        </span>
-                      )}
-
-                      {assignTargets.map((target) => {
-                        const isSelected = current
-                          ? target.isPhantom
-                            ? 'phantomId' in current && current.phantomId === target.id
-                            : 'userId' in current && current.userId === target.id
-                          : false;
-                        const shortName = target.name.length > 9 ? target.name.slice(0, 8) + '…' : target.name;
-                        return (
-                          <button
-                            key={target.id}
-                            onClick={() => assignTask(t.id, isSelected ? null : target.isPhantom
-                              ? { phantomId: target.id }
-                              : { userId: target.id }
-                            )}
-                            className="rounded-full px-3 py-1 text-[12px] font-bold transition-all active:scale-95"
-                            style={isSelected ? {
-                              background: '#007aff',
-                              color: 'white',
-                              boxShadow: '0 2px 8px rgba(0,122,255,0.3)',
-                            } : {
-                              background: 'white',
-                              color: '#007aff',
-                              border: '1.5px solid #007aff',
-                            }}
-                          >
-                            {isSelected ? `✓ ${shortName}` : shortName}
-                          </button>
-                        );
-                      })}
-
-                      {/* Bouton désassigner */}
-                      {current && (
-                        <button
-                          onClick={() => assignTask(t.id, null)}
-                          className="rounded-full px-2 py-1 text-[11px] transition-all"
-                          style={{ color: '#c7c7cc', border: '1px solid #e5e5ea', background: 'white' }}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {sortedTasks.map((t, i) => (
+              <div
+                key={t.id}
+                className="px-4 py-3 flex items-center gap-3"
+                style={i < sortedTasks.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}
+              >
+                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: t.category_color ?? '#8e8e93' }} />
+                <p className="flex-1 text-[14px] font-medium text-[#1c1c1e] truncate">{t.name}</p>
+                {t.next_due_at && (
+                  <p className="text-[11px] text-[#c7c7cc] flex-shrink-0">
+                    {new Date(t.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
 
           {generatedTasks.length === 0 && (
@@ -1036,16 +874,6 @@ export default function OnboardingPage() {
 
         <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3"
           style={{ background: 'linear-gradient(transparent, #f6f8ff 30%)' }}>
-          {assignedCount > 0 && assignedCount < generatedTasks.length && (
-            <p className="text-center text-[12px] text-[#8e8e93] mb-2">
-              {assignedCount} / {generatedTasks.length} tâches assignées
-            </p>
-          )}
-          {assignedCount === generatedTasks.length && generatedTasks.length > 0 && (
-            <p className="text-center text-[12px] font-semibold mb-2" style={{ color: '#34c759' }}>
-              ✅ Toutes les tâches sont assignées !
-            </p>
-          )}
           <button
             onClick={handleFinish}
             className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white"
@@ -1054,7 +882,7 @@ export default function OnboardingPage() {
               boxShadow: '0 8px 24px rgba(0,122,255,0.3)',
             }}
           >
-            {assignedCount === 0 ? 'Voir mon planning →' : 'Voir mon planning →'}
+            Commencer avec Yova →
           </button>
         </div>
       </div>
