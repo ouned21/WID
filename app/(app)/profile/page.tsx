@@ -214,7 +214,11 @@ export default function ProfilePage() {
             <div>
               <p className="text-[20px] font-bold text-[#1c1c1e]">{profile?.display_name}</p>
               <p className="text-[12px] text-[#8e8e93]">
-                {profile?.role === 'admin' ? 'Administrateur' : 'Membre'} · {memberSince > 0 ? `Depuis ${memberSince} jour${memberSince > 1 ? 's' : ''}` : 'Nouveau membre'}
+                {profile?.role === 'admin' ? 'Administrateur' : 'Membre'}
+                {' · '}
+                {memberSince > 0
+                  ? `Depuis ${memberSince} jour${memberSince > 1 ? 's' : ''}`
+                  : profile?.role === 'admin' ? 'Fondateur du foyer' : 'Arrivé·e aujourd\'hui'}
               </p>
             </div>
           </div>
@@ -247,8 +251,11 @@ export default function ProfilePage() {
 
               {/* Code d'invitation */}
               <button onClick={handleCopyCode} className="w-full px-4 py-3 text-left">
-                <p className="text-[13px] text-[#8e8e93] mb-1">
-                  Code d&apos;invitation {copied && <span style={{ color: '#34c759' }}>— Copié !</span>}
+                <p className="text-[13px] text-[#8e8e93] mb-1 flex items-center gap-1.5">
+                  <span>Code d&apos;invitation</span>
+                  {copied
+                    ? <span style={{ color: '#34c759' }}>— Copié !</span>
+                    : <span className="text-[11px] text-[#c7c7cc]">· tap pour copier 📋</span>}
                 </p>
                 <p className="text-[22px] font-mono font-bold tracking-[0.3em]" style={{ color: '#007aff' }}>
                   {household.invite_code}
@@ -295,8 +302,9 @@ export default function ProfilePage() {
                           onClick={() => setLinkingPhantom(linkingPhantom === phantom.id ? null : phantom.id)}
                           className="text-[12px] font-medium px-2 py-1 rounded-lg"
                           style={{ color: '#007aff', background: linkingPhantom === phantom.id ? '#EEF4FF' : 'transparent' }}
+                          title="Associer ce fantôme à un membre ayant rejoint le foyer"
                         >
-                          Rattacher
+                          Associer
                         </button>
                       )}
                       <button
@@ -509,7 +517,7 @@ export default function ProfilePage() {
           <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
             <p className="text-[13px] font-semibold text-[#1c1c1e] mb-2">Jours où tu n&apos;es pas dispo</p>
             <div className="flex gap-1">
-              {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((letter, i) => {
+              {['Di', 'Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa'].map((letter, i) => {
                 const active = unavailableDays.includes(i);
                 return (
                   <button key={i} onClick={() => toggleUnavailableDay(i)}
@@ -602,13 +610,19 @@ export default function ProfilePage() {
             </div>
             <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
           </Link>
-          <Link href="/onboarding" className="flex items-center justify-between px-4 py-3">
+          <button
+            onClick={() => {
+              if (confirm('Relancer le tutoriel ?\n\nCela te fera repasser par les écrans d\'accueil. Tes tâches et ton foyer ne seront pas modifiés.')) {
+                router.push('/onboarding');
+              }
+            }}
+            className="w-full flex items-center justify-between px-4 py-3 text-left">
             <div className="flex items-center gap-3">
               <span className="text-[18px]">🏠</span>
-              <span className="text-[15px] text-[#1c1c1e]">Tutoriel / Onboarding</span>
+              <span className="text-[15px] text-[#1c1c1e]">Revoir le tutoriel</span>
             </div>
             <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -630,11 +644,17 @@ export default function ProfilePage() {
               className="w-full"
               style={{ accentColor: '#007aff' }}
             />
-            <div className="flex justify-between text-[11px] text-[#c7c7cc] mt-1">
-              <span>10%</span>
-              <span>50% (égalitaire)</span>
-              <span>90%</span>
-            </div>
+            {(() => {
+              const totalMembers = Math.max(1, members.length + phantomMembers.length);
+              const fairShare = Math.round(100 / totalMembers);
+              return (
+                <div className="flex justify-between text-[11px] text-[#c7c7cc] mt-1">
+                  <span>10%</span>
+                  <span>{fairShare}% (part égale{totalMembers > 1 ? `, foyer à ${totalMembers}` : ''})</span>
+                  <span>90%</span>
+                </div>
+              );
+            })()}
             <p className="text-[12px] text-[#8e8e93] mt-2">
               L&apos;app comparera votre répartition réelle à cet objectif et suggérera des échanges pour s&apos;en rapprocher.
             </p>
@@ -865,7 +885,7 @@ export default function ProfilePage() {
           <span>·</span>
           <a href="mailto:privacy@yova.app">Contact RGPD</a>
         </div>
-        <p className="text-[11px] text-[#c7c7cc] mt-2">Yova © {new Date().getFullYear()}</p>
+        <p className="text-[11px] text-[#c7c7cc] mt-2">Yova © {new Date().getFullYear()} · v{process.env.NEXT_PUBLIC_APP_VERSION ?? 'dev'}</p>
       </div>
     </div>
   );

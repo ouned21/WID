@@ -95,6 +95,7 @@ function TaskCard({ task, onComplete, onCompleteFor, onDelete, isCompleted, isAn
                 const c = scoreColor10(score10);
                 return (
                   <div className="flex flex-col items-end flex-shrink-0">
+                    <span className="text-[9px] text-[#8e8e93] uppercase tracking-wide leading-none mb-0.5">Charge</span>
                     <span className="text-[22px] font-black leading-none" style={{ color: c }}>{score10}</span>
                     <span className="text-[10px] text-[#c7c7cc]">/10</span>
                   </div>
@@ -170,9 +171,10 @@ function TaskCard({ task, onComplete, onCompleteFor, onDelete, isCompleted, isAn
               </button>
               {phantomMembers.length > 0 && (
                 <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowMemberPicker(!showMemberPicker); }}
-                  className="rounded-lg px-2 py-[5px] text-[12px] font-bold transition-all"
-                  style={{ background: showMemberPicker ? '#007aff' : '#e5e5ea', color: showMemberPicker ? 'white' : '#3c3c43' }}>
-                  👤
+                  className="rounded-lg px-2 py-[5px] text-[11px] font-semibold transition-all flex items-center gap-1"
+                  style={{ background: showMemberPicker ? '#007aff' : '#e5e5ea', color: showMemberPicker ? 'white' : '#3c3c43' }}
+                  aria-label="Loguer la tâche pour un membre sans compte">
+                  👻 Pour…
                 </button>
               )}
               <DeleteButton onDelete={() => { if (confirm('Supprimer cette tâche ?')) onDelete(task.id); }} size={30} />
@@ -209,7 +211,7 @@ function TaskSection({ title, tasks, onComplete, onCompleteFor, onDelete, comple
         <h3 className="text-[13px] font-semibold uppercase tracking-wide" style={{ color }}>{title}</h3>
         <span className="rounded-full min-w-[20px] text-center px-1.5 py-0.5 text-[11px] font-bold text-white" style={{ background: color }}>{visibleCount}</span>
       </div>
-      <div className="grid grid-cols-2 gap-2.5 px-3">
+      <div className="flex flex-col gap-2 px-4">
         {tasks.map((task) => (
           <TaskCard key={task.id} task={task} onComplete={onComplete} onCompleteFor={onCompleteFor} onDelete={onDelete} isCompleted={completedIds.has(task.id)} isAnimating={animatingIds.has(task.id)} allMembers={allMembers} />
         ))}
@@ -312,9 +314,24 @@ export default function TasksPage() {
               i
             </button>
           </div>
-          {totalTasks > 0 && (
-            <p className="text-[13px] text-[#8e8e93]">{totalTasks} tâche{totalTasks > 1 ? 's' : ''} active{totalTasks > 1 ? 's' : ''}</p>
-          )}
+          {totalTasks > 0 && (() => {
+            const n = (arr: TaskListItem[]) => arr.filter((t) => !completedIds.has(t.id)).length;
+            const overdue = n(sections.overdue);
+            const today = n(sections.today);
+            const week = n(sections.tomorrow) + n(sections.week);
+            const parts: string[] = [];
+            if (overdue > 0) parts.push(`${overdue} en retard`);
+            if (today > 0) parts.push(`${today} aujourd'hui`);
+            if (week > 0) parts.push(`${week} cette semaine`);
+            return (
+              <>
+                <p className="text-[13px] text-[#8e8e93]">{totalTasks} tâche{totalTasks > 1 ? 's' : ''} active{totalTasks > 1 ? 's' : ''}</p>
+                {parts.length > 0 && (
+                  <p className="text-[11px] text-[#c7c7cc] mt-0.5">{parts.join(' · ')}</p>
+                )}
+              </>
+            );
+          })()}
         </div>
         <Link href="/tasks/new"
           className="flex items-center gap-1 rounded-full px-4 py-2 text-[15px] font-semibold text-white"
@@ -397,22 +414,25 @@ export default function TasksPage() {
 
       {/* Filtres */}
       <div className="px-4 pb-2 space-y-2">
-        {/* Ligne 1 : Mes tâches / Toutes */}
-        <div className="flex gap-1.5">
-          <Chip label="Mes tâches" active={filters.assignment === 'mine'} onClick={() => setFilters({ assignment: 'mine' })} />
-          <Chip label="Toutes" active={filters.assignment === 'all'} onClick={() => setFilters({ assignment: 'all' })} />
+        {/* Portée : à qui appartiennent les tâches */}
+        <div>
+          <p className="text-[10px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-1 px-0.5">Portée</p>
+          <div className="flex gap-1.5">
+            <Chip label="Mes tâches" active={filters.assignment === 'mine'} onClick={() => setFilters({ assignment: 'mine' })} />
+            <Chip label="Tout le foyer" active={filters.assignment === 'all'} onClick={() => setFilters({ assignment: 'all' })} />
+          </div>
         </div>
-        {/* Ligne 2 : filtres par section */}
-        <div className="flex gap-1.5">
-          <Chip label="Toutes" active={sectionFilter === 'all'} onClick={() => setSectionFilter('all')} />
-          <Chip label="En retard" active={sectionFilter === 'overdue'} onClick={() => setSectionFilter('overdue')} color="#ff3b30" />
-          <Chip label="Aujourd'hui" active={sectionFilter === 'today'} onClick={() => setSectionFilter('today')} color="#007aff" />
-        </div>
-        {/* Ligne 3 */}
-        <div className="flex gap-1.5">
-          <Chip label="Demain" active={sectionFilter === 'tomorrow'} onClick={() => setSectionFilter('tomorrow')} color="#af52de" />
-          <Chip label="Semaine" active={sectionFilter === 'week'} onClick={() => setSectionFilter('week')} color="#5856d6" />
-          <Chip label="Plus tard" active={sectionFilter === 'later'} onClick={() => setSectionFilter('later')} />
+        {/* Horizon : quand la tâche est due */}
+        <div>
+          <p className="text-[10px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-1 px-0.5">Horizon</p>
+          <div className="flex gap-1.5 flex-wrap">
+            <Chip label="Tout" active={sectionFilter === 'all'} onClick={() => setSectionFilter('all')} />
+            <Chip label="En retard" active={sectionFilter === 'overdue'} onClick={() => setSectionFilter('overdue')} color="#ff3b30" />
+            <Chip label="Aujourd'hui" active={sectionFilter === 'today'} onClick={() => setSectionFilter('today')} color="#007aff" />
+            <Chip label="Demain" active={sectionFilter === 'tomorrow'} onClick={() => setSectionFilter('tomorrow')} color="#af52de" />
+            <Chip label="Semaine" active={sectionFilter === 'week'} onClick={() => setSectionFilter('week')} color="#5856d6" />
+            <Chip label="Plus tard" active={sectionFilter === 'later'} onClick={() => setSectionFilter('later')} />
+          </div>
         </div>
       </div>
 
