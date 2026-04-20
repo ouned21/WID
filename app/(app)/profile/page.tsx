@@ -18,6 +18,7 @@ export default function ProfilePage() {
   const [phantomName, setPhantomName] = useState('');
   const [linkingPhantom, setLinkingPhantom] = useState<string | null>(null); // phantomId en cours de rattachement
   const [linkTargetId, setLinkTargetId] = useState(''); // realProfileId sélectionné
+  const [dataOpen, setDataOpen] = useState(false);
 
   // Préférences explicites pour l'IA
   const [prefsLoaded, setPrefsLoaded] = useState(false);
@@ -715,134 +716,137 @@ export default function ProfilePage() {
         </button>
       </div>
 
-      {/* Mes données (RGPD) */}
+      {/* Mes données (RGPD) — accordéon pour économiser l'espace.
+          Toutes les actions restent accessibles (Art. 7/15/17/20 RGPD). */}
       <div className="mx-4">
-        <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Mes données</p>
         <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-
-          {/* Export des données */}
           <button
-            onClick={async () => {
-              try {
-                const res = await fetch('/api/user/export-data', { method: 'GET' });
-                if (!res.ok) {
-                  alert('Erreur lors de l\'export. Réessaie dans quelques instants.');
-                  return;
-                }
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                const today = new Date().toISOString().split('T')[0];
-                a.href = url;
-                a.download = `mes-donnees-yova-${today}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-              } catch (err) {
-                alert(`Erreur réseau : ${err instanceof Error ? err.message : 'inconnue'}`);
-              }
-            }}
-            className="w-full flex items-center justify-between px-4 py-3"
-            style={{ borderBottom: '0.5px solid var(--ios-separator)' }}
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-[18px]">📥</span>
-              <div className="text-left">
-                <p className="text-[15px] text-[#1c1c1e]">Télécharger mes données</p>
-                <p className="text-[12px] text-[#8e8e93]">Export JSON — Art. 20 RGPD</p>
-              </div>
+            onClick={() => setDataOpen(!dataOpen)}
+            className="w-full flex items-center gap-3 px-4 py-3 text-left"
+            style={dataOpen ? { borderBottom: '0.5px solid var(--ios-separator)' } : undefined}
+            aria-expanded={dataOpen}>
+            <span className="text-[18px]">🔒</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[15px] text-[#1c1c1e]">Mes données & vie privée</p>
+              <p className="text-[11px] text-[#8e8e93]">Export · consentement · suppression · RGPD</p>
             </div>
-            <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ transform: dataOpen ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s' }}>
+              <path d="M4 2l4 4-4 4" />
+            </svg>
           </button>
 
-          {/* Politique de confidentialité */}
-          <a
-            href="/legal/privacy"
-            className="flex items-center justify-between px-4 py-3"
-            style={{ borderBottom: '0.5px solid var(--ios-separator)' }}
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-[18px]">🔒</span>
-              <div>
-                <p className="text-[15px] text-[#1c1c1e]">Politique de confidentialité</p>
-                <p className="text-[12px] text-[#8e8e93]">Comment nous protégeons vos données</p>
-              </div>
-            </div>
-            <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
-          </a>
+          {dataOpen && (
+            <>
+              {/* Export des données (Art. 20) */}
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/user/export-data', { method: 'GET' });
+                    if (!res.ok) {
+                      alert('Erreur lors de l\'export. Réessaie dans quelques instants.');
+                      return;
+                    }
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    const today = new Date().toISOString().split('T')[0];
+                    a.href = url;
+                    a.download = `mes-donnees-yova-${today}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  } catch (err) {
+                    alert(`Erreur réseau : ${err instanceof Error ? err.message : 'inconnue'}`);
+                  }
+                }}
+                className="w-full flex items-center justify-between px-4 py-2.5"
+                style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+                <div className="flex items-center gap-3">
+                  <span className="text-[15px]">📥</span>
+                  <div className="text-left">
+                    <p className="text-[14px] text-[#1c1c1e]">Télécharger mes données</p>
+                    <p className="text-[11px] text-[#8e8e93]">Export JSON · Art. 20</p>
+                  </div>
+                </div>
+                <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
+              </button>
 
-          {/* Hébergement */}
-          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
-            <p className="text-[12px] text-[#8e8e93]">
-              Données hébergées par <strong>Supabase</strong> (EU — Frankfurt) · Traitées par <strong>Anthropic</strong> (US) pour l&apos;IA journal
-            </p>
-          </div>
+              {/* Politique de confidentialité */}
+              <a href="/legal/privacy"
+                className="flex items-center justify-between px-4 py-2.5"
+                style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+                <div className="flex items-center gap-3">
+                  <span className="text-[15px]">📄</span>
+                  <p className="text-[14px] text-[#1c1c1e]">Politique de confidentialité</p>
+                </div>
+                <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
+              </a>
 
-          {/* Retrait du consentement journal IA */}
-          <button
-            onClick={async () => {
-              if (!profile?.id) return;
-              const confirmed = confirm(
-                'Retirer ton consentement journal IA ?\n\nTu ne pourras plus utiliser le journal conversationnel tant que tu ne l\'auras pas réactivé. Tes données existantes ne sont pas supprimées.',
-              );
-              if (!confirmed) return;
-              const supabase = createClient();
-              await supabase
-                .from('profiles')
-                .update({ ai_journal_consent_at: null })
-                .eq('id', profile.id);
-              await refreshProfile();
-              alert('Consentement retiré. Le journal IA est désactivé.');
-            }}
-            className="w-full px-4 py-3 text-left"
-            style={{ borderBottom: '0.5px solid var(--ios-separator)', opacity: profile?.ai_journal_consent_at ? 1 : 0.4 }}
-            disabled={!profile?.ai_journal_consent_at}
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-[18px]">🤖</span>
-              <div>
-                <p className="text-[15px] text-[#1c1c1e]">
-                  {profile?.ai_journal_consent_at ? 'Retirer le consentement journal IA' : 'Consentement journal IA non donné'}
+              {/* Retrait du consentement IA (Art. 7) */}
+              <button
+                onClick={async () => {
+                  if (!profile?.id) return;
+                  const confirmed = confirm(
+                    'Retirer ton consentement journal IA ?\n\nTu ne pourras plus utiliser le journal conversationnel tant que tu ne l\'auras pas réactivé. Tes données existantes ne sont pas supprimées.',
+                  );
+                  if (!confirmed) return;
+                  const supabase = createClient();
+                  await supabase.from('profiles').update({ ai_journal_consent_at: null }).eq('id', profile.id);
+                  await refreshProfile();
+                  alert('Consentement retiré. Le journal IA est désactivé.');
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left"
+                style={{ borderBottom: '0.5px solid var(--ios-separator)', opacity: profile?.ai_journal_consent_at ? 1 : 0.4 }}
+                disabled={!profile?.ai_journal_consent_at}>
+                <span className="text-[15px]">🤖</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] text-[#1c1c1e]">
+                    {profile?.ai_journal_consent_at ? 'Retirer le consentement IA' : 'Consentement IA non donné'}
+                  </p>
+                  <p className="text-[11px] text-[#8e8e93]">
+                    {profile?.ai_journal_consent_at
+                      ? `Consenti le ${new Date(profile.ai_journal_consent_at).toLocaleDateString('fr-FR')} · Art. 7`
+                      : 'Active-le depuis le journal'}
+                  </p>
+                </div>
+              </button>
+
+              {/* Suppression compte (Art. 17) */}
+              <button
+                onClick={async () => {
+                  if (!confirm('Supprimer définitivement ton compte et toutes tes données ? Cette action est irréversible.')) return;
+                  if (!confirm('Dernière confirmation — toutes tes tâches, complétions et données seront effacées.')) return;
+                  try {
+                    const res = await fetch('/api/account/delete', { method: 'POST' });
+                    if (!res.ok) {
+                      const data = await res.json().catch(() => ({}));
+                      alert(`Erreur : ${data.message ?? data.error ?? 'inconnue'}`);
+                      return;
+                    }
+                    window.location.href = '/login';
+                  } catch (err) {
+                    alert(`Erreur réseau : ${err instanceof Error ? err.message : 'inconnue'}`);
+                  }
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left"
+                style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
+                <span className="text-[15px]">🗑️</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px]" style={{ color: '#ff3b30' }}>Supprimer mon compte</p>
+                  <p className="text-[11px] text-[#8e8e93]">Irréversible · Art. 17</p>
+                </div>
+              </button>
+
+              {/* Hébergement — mentions légales */}
+              <div className="px-4 py-2.5">
+                <p className="text-[11px] text-[#8e8e93] leading-relaxed">
+                  Hébergé par <strong>Supabase</strong> (EU · Frankfurt) · IA journal traitée par <strong>Anthropic</strong> (US)
                 </p>
-                <p className="text-[12px] text-[#8e8e93]">
-                  {profile?.ai_journal_consent_at
-                    ? `Consenti le ${new Date(profile.ai_journal_consent_at).toLocaleDateString('fr-FR')} — Art. 7 RGPD`
-                    : 'Accède au journal pour activer'}
-                </p>
               </div>
-            </div>
-          </button>
-
-          {/* Suppression du compte */}
-          <button
-            onClick={async () => {
-              if (!confirm('Supprimer définitivement ton compte et toutes tes données ? Cette action est irréversible.')) return;
-              if (!confirm('Dernière confirmation — toutes tes tâches, complétions et données seront effacées.')) return;
-
-              try {
-                const res = await fetch('/api/account/delete', { method: 'POST' });
-                if (!res.ok) {
-                  const data = await res.json().catch(() => ({}));
-                  alert(`Erreur : ${data.message ?? data.error ?? 'inconnue'}`);
-                  return;
-                }
-                // Compte supprimé — rediriger vers login
-                window.location.href = '/login';
-              } catch (err) {
-                alert(`Erreur réseau : ${err instanceof Error ? err.message : 'inconnue'}`);
-              }
-            }}
-            className="w-full px-4 py-3 text-left"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-[18px]">🗑️</span>
-              <div>
-                <p className="text-[15px]" style={{ color: '#ff3b30' }}>Supprimer mon compte et mes données</p>
-                <p className="text-[12px] text-[#8e8e93]">Action irréversible — Art. 17 RGPD</p>
-              </div>
-            </div>
-          </button>
+            </>
+          )}
         </div>
       </div>
 
