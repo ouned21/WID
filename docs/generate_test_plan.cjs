@@ -46,36 +46,49 @@ const intro = [
 const authOnboarding = [
   // Inscription
   ['1.1', 'Ouvrir wid-eight.vercel.app sur appareil A', 'Landing page s\'affiche sans erreur.', '', ''],
-  ['1.2', 'Cliquer "Commencer" / "S\'inscrire"', 'Redirige vers /register.', '', ''],
+  ['1.2', 'Cliquer "Commencer" / "S\'inscrire"', 'Redirige vers /register. Logo = SVG maison (plus de "A" lettre).', '', ''],
   ['1.3', 'Saisir email invalide (ex: "abc")', 'Message d\'erreur visible, inscription bloquée.', '', ''],
-  ['1.4', 'Saisir mot de passe trop court', 'Message d\'erreur, inscription bloquée.', '', ''],
-  ['1.5', 'S\'inscrire avec email+mdp valides', 'Compte créé, redirige vers création foyer ou onboarding.', '', ''],
-  ['1.6', 'Vérifier en BDD : ligne dans auth.users + profiles', 'Les deux existent, id cohérents.', '', ''],
+  ['1.4', 'Saisir mot de passe trop court', 'Critères non verts (8c / Maj / chiffre / spécial). Bouton désactivé.', '', ''],
+  ['1.5', 'Champ "Confirmer mot de passe"', 'Présent. Si différent du mdp : message rouge "ne correspondent pas" + bouton désactivé.', '', ''],
+  ['1.5b', 'Saisir email en MAJUSCULES', 'BDD stocke en minuscules (email.trim().toLowerCase()). Vérifier dans auth.users.', '', ''],
+  ['1.5c', 'Checkbox CGU non cochée', 'Bouton "Créer mon compte" désactivé.', '', ''],
+  ['1.6', 'S\'inscrire avec email+mdp valides + CGU + confirm', 'Compte créé. Écran "Compte créé" → bouton "Se connecter" (PAS de copie "email de confirmation").', '', ''],
+  ['1.6b', 'Vérifier en BDD : ligne dans auth.users + profiles', 'Les deux existent, id cohérents, email en lowercase.', '', ''],
   // Login
-  ['1.7', 'Se déconnecter puis retour /login', 'Page login accessible, champs vides.', '', ''],
-  ['1.8', 'Login avec mauvais mdp', 'Erreur claire affichée.', '', ''],
-  ['1.9', 'Login avec bonnes credentials', 'Retour sur /journal (Accueil = Journal) avec session active.', '', ''],
-  // Foyer
-  ['1.10', 'Création du foyer (étape after register)', 'Nom du foyer saisissable, validation OK.', '', ''],
-  ['1.11', 'Vérifier profiles.household_id rempli', 'Non null en BDD.', '', ''],
-  // Onboarding équipements
-  ['1.12', 'Étape 1/2 Équipements — voir les 29 items', 'Tous les équipements de onboarding_equipment s\'affichent.', '', ''],
-  ['1.13', 'Sélectionner 5-10 équipements variés', 'Chips changent d\'état visuellement (sélectionnés).', '', ''],
-  ['1.14', 'Désélectionner un équipement', 'Chip revient à l\'état non sélectionné.', '', ''],
-  ['1.15', 'Valider sans rien sélectionner', 'Soit bloqué, soit avertissement clair.', '', ''],
-  ['1.16', 'Valider avec sélection', 'Passe à l\'étape famille.', '', ''],
-  // Onboarding famille
-  ['1.17', 'Étape 2/2 Famille — ajouter 0 membre et valider', 'Foyer solo accepté, génération IA déclenchée.', '', ''],
-  ['1.18', 'Retour en arrière, ajouter 1 fantôme', 'Ajout OK, pas de limite (mode test = illimité).', '', ''],
-  ['1.19', 'Valider la famille', 'Écran "Yova analyse ton foyer" s\'affiche.', '', ''],
-  ['1.20', 'Écran thinking — attendre < 35s', 'Passe à l\'écran résultats avec 15-25 tâches.', '', ''],
-  ['1.21', 'Vérifier tâches générées par IA', 'Noms contextuels (ex: "Nettoyer filtre lave-vaisselle") — pas le fallback générique.', '', ''],
-  ['1.22', 'Consommation Anthropic vérifiable', 'Crédits consommés visibles sur console Anthropic.', '', ''],
-  ['1.23', 'Résultats : bouton supprimer (cercle rouge) sur tâche', 'Tâche disparaît instantanément de la liste.', '', ''],
-  ['1.24', 'Résultats : Valider / Continuer', 'Redirige vers /journal (Accueil par défaut).', '', ''],
-  // Edge case
-  ['1.25', 'Si Edge Function timeout > 35s', 'Fallback catalogue statique déclenché, 8-13 tâches créées. Jamais 0 tâche.', '', ''],
-  ['1.26', 'Déconnexion immédiate après onboarding', 'Retour login, reconnexion donne accès à l\'état créé.', '', ''],
+  ['1.7', 'Retour /login après création', 'Logo SVG maison (cohérent avec register).', '', ''],
+  ['1.8', 'Login avec mauvais mdp', 'Erreur claire affichée. Lockout après 5 tentatives.', '', ''],
+  ['1.9', 'Login avec bonnes credentials', 'Si foyer : redirige vers /journal (Accueil). Si pas de foyer : /onboarding.', '', ''],
+  // Création foyer (entre login et onboarding pour un nouveau compte)
+  ['1.10', 'Page "Bienvenue, X !" (création/rejoindre foyer)', 'Logo SVG maison. Bouton "Créer un foyer" bleu + "Rejoindre" blanc.', '', ''],
+  ['1.11', 'Créer un foyer', 'Nom saisissable. Validation → redirige vers /onboarding.', '', ''],
+  ['1.12', 'Vérifier profiles.household_id rempli', 'Non null en BDD.', '', ''],
+  // Onboarding : Étape 1/4 Équipements
+  ['1.13', 'ÉTAPE 1/4 — Équipements', 'Titre "Qu\'as-tu dans ton foyer ?". 29 équipements visibles, groupés par catégorie.', '', ''],
+  ['1.14', 'Sélectionner 5-10 équipements', 'Chips sélectionnés (bleu avec icône). Compteur "Continuer (N)" en bas.', '', ''],
+  ['1.15', 'Désélectionner', 'Chip redevient blanc. Compteur décrémente.', '', ''],
+  ['1.16', 'Valider', 'Passe à ÉTAPE 2/4.', '', ''],
+  // Onboarding : Étape 2/4 Famille
+  ['1.17', 'ÉTAPE 2/4 — Famille', 'Titre "Qui vit avec toi ?". Bouton retour visible en haut (pill bleu).', '', ''],
+  ['1.18', 'Tap retour', 'Retourne à l\'étape 1 avec équipements sauvegardés.', '', ''],
+  ['1.19', 'Ajouter 0 membre → Continuer en solo', 'Skip étape 3 (baseline) → passe directement à 4/4 thinking.', '', ''],
+  ['1.20', 'Ajouter 1 adulte "Barbara"', 'Carte membre apparaît. Input prénom requis.', '', ''],
+  ['1.21', 'Valider avec 1+ membre humain', 'Passe à ÉTAPE 3/4 (baseline).', '', ''],
+  // Onboarding : Étape 3/4 Baseline (skippée si solo)
+  ['1.22', 'ÉTAPE 3/4 — Baseline (si multi)', '3 options : "Moi clairement" / "Mon partenaire" / "C\'est équilibré". Bouton retour présent.', '', ''],
+  ['1.23', 'Choisir une option baseline', 'target_share_percent stocké (45/55/50). Passe à thinking.', '', ''],
+  // Onboarding : Étape 4/4 Thinking (auto-create)
+  ['1.24', 'ÉTAPE 4/4 — Thinking', 'Écran sombre avec spinner + "Yova organise ton foyer…". Auto-déclenche la création.', '', ''],
+  ['1.25', 'Création tâches', '~10-12 tâches macro créées (1 par catégorie pertinente). PAS 25-30.', '', ''],
+  ['1.26', 'Anthropic crédits consommés', 'Vérifier console Anthropic : crédits consommés (signe que Claude a tourné, pas fallback).', '', ''],
+  // Onboarding : écran results + consent
+  ['1.27', 'Écran "C\'est prêt"', '✨ + titre + liste simple des N tâches avec date. PAS de bouton delete ni assigner.', '', ''],
+  ['1.28', 'Carte consent IA journal', 'Carte "🔒 Un dernier point avant de lancer" visible. Détails dépliables.', '', ''],
+  ['1.29', 'CTA "Commencer avec Yova →" avant consent', 'Désactivé (opacité 40%) + message "Accepte le traitement IA pour continuer".', '', ''],
+  ['1.30', 'Cocher consent', 'CTA s\'active (opacité 100%, shadow bleu).', '', ''],
+  ['1.31', 'Tap CTA', 'Persist ai_journal_consent_at (BDD profiles) + redirige /journal. Aucun mur consent ensuite.', '', ''],
+  // Re-login test
+  ['1.32', 'Déconnexion depuis /profile', 'Retour /login.', '', ''],
+  ['1.33', 'Login à nouveau', 'Redirige vers /journal (foyer déjà créé). PAS de mur consent (déjà consenti). PAS de /onboarding.', '', ''],
 ];
 
 const dashboard = [

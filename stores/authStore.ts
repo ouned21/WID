@@ -110,13 +110,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
     const supabase = createClient();
 
-    const { error } = await supabase.auth.signUp({
+    // Timeout 15s pour éviter que le bouton reste coincé en "Création..."
+    // si Supabase hang (rate-limit, SMTP, réseau).
+    const signUpPromise = supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { display_name: displayName },
-      },
+      options: { data: { display_name: displayName } },
     });
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('TIMEOUT_15S')), 15000);
+    });
+
+    let error: { message: string } | null = null;
+    try {
+      const result = await Promise.race([signUpPromise, timeoutPromise]);
+      error = result.error as { message: string } | null;
+    } catch (e) {
+      const isTimeout = e instanceof Error && e.message === 'TIMEOUT_15S';
+      const msg = isTimeout
+        ? 'La création prend plus de temps que prévu. Vérifie ta connexion puis réessaie — si le problème persiste, ton compte est peut-être déjà créé, essaie de te connecter.'
+        : (e instanceof Error ? e.message : 'Erreur inconnue.');
+      set({ loading: false, error: msg });
+      return { ok: false, error: msg };
+    }
 
     set({ loading: false });
 
