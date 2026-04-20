@@ -99,8 +99,16 @@ export default function RegisterPage() {
                 {showPw ? 'Masquer' : 'Afficher'}
               </button>
             </div>
-            <input type={showPw ? 'text' : 'password'} required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)}
-              className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]" placeholder="8 caractères minimum" />
+            <input
+              type={showPw ? 'text' : 'password'}
+              required
+              minLength={8}
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
+              placeholder="8 caractères minimum"
+            />
             {password.length > 0 && (
               <div className="mt-2 space-y-1">
                 <div className="flex gap-1">
@@ -135,6 +143,7 @@ export default function RegisterPage() {
             <input
               type={showPw ? 'text' : 'password'}
               required
+              autoComplete="new-password"
               value={passwordConfirm}
               onChange={(e) => setPasswordConfirm(e.target.value)}
               className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
