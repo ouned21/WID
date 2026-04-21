@@ -210,6 +210,21 @@ export type ParsedCompletion = {
   confidence: number;                  // 0.0 à 1.0
 };
 
+/** Fait mémorisé par Yova sur un membre ou le foyer */
+export type AgentMemoryFact = {
+  id: string;
+  household_id: string;
+  about_user_id: string | null;
+  about_phantom_id: string | null;
+  fact_type: 'preference' | 'pattern' | 'context' | 'tension' | 'milestone';
+  content: string;
+  confidence: number;
+  source_journal_id: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 /** Log d'appel IA (pour tracking coûts et usage) */
 export type AiTokenUsage = {
   id: string;

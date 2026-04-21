@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import BackButton from '@/components/BackButton';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
+import { useMemoryStore, FACT_TYPE_EMOJI, FACT_TYPE_LABEL } from '@/stores/memoryStore';
 import { createClient } from '@/lib/supabase';
 
 type ParsedCompletion = {
@@ -54,6 +55,7 @@ export default function JournalPage() {
   const router = useRouter();
   const { profile, refreshProfile } = useAuthStore();
   const { fetchTasks } = useTaskStore();
+  const { facts, fetchMemory, invalidateFact } = useMemoryStore();
 
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -151,7 +153,12 @@ export default function JournalPage() {
     router.back();
   };
 
-  // Charger l'historique
+  // Charger la mémoire Yova
+  useEffect(() => {
+    if (profile?.household_id) fetchMemory(profile.household_id);
+  }, [profile?.household_id, fetchMemory]);
+
+  // Charger l'historique — délai après un résultat pour laisser la DB commiter
   useEffect(() => {
     async function loadHistory() {
       if (!profile?.id) return;
@@ -164,7 +171,13 @@ export default function JournalPage() {
         .limit(20);
       setHistory((data ?? []) as PastJournal[]);
     }
-    loadHistory();
+    if (result) {
+      // Attendre que la DB commite avant de recharger l'historique
+      const t = setTimeout(loadHistory, 1200);
+      return () => clearTimeout(t);
+    } else {
+      loadHistory();
+    }
   }, [profile?.id, result]);
 
   const send = async () => {
@@ -185,8 +198,30 @@ export default function JournalPage() {
       }
       setResult(data);
       setText('');
-      // Recharger les tâches car les complétions ont changé
-      if (profile?.household_id) await fetchTasks(profile.household_id);
+      // Recharger les tâches + extraire les faits mémoire (silencieux)
+      if (profile?.household_id) {
+        await fetchTasks(profile.household_id);
+        // Extraction mémoire en arrière-plan — ne bloque pas l'UX
+        const capturedText = text.trim();
+        const capturedHouseholdId = profile.household_id;
+        fetch('/api/ai/extract-memory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            journalId: data.journalId,
+            text: capturedText,
+            householdId: capturedHouseholdId,
+          }),
+        })
+          .then((r) => r.json())
+          .then((memRes) => {
+            // Recharger la mémoire après un délai pour laisser la DB commiter
+            if (memRes?.ok) {
+              setTimeout(() => fetchMemory(capturedHouseholdId), 800);
+            }
+          })
+          .catch(() => {});
+      }
     } catch (err) {
       setResult({ completions: [], unmatched: [], ai_response: 'Erreur réseau. Réessaye.', mood_tone: null, error: String(err) });
     } finally {
@@ -447,7 +482,7 @@ export default function JournalPage() {
             <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
               <div className="px-5 pt-4 pb-2">
                 <p className="text-[11px] font-bold text-[#34c759] uppercase tracking-wide">
-                  ✓ J&apos;ai noté
+                  ✓ Fait aujourd&apos;hui
                 </p>
               </div>
 
@@ -486,18 +521,46 @@ export default function JournalPage() {
             </div>
           )}
 
-          {/* Items non-tâches */}
-          {result.unmatched.length > 0 && (
-            <div className="rounded-2xl bg-white px-5 py-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-              <p className="text-[11px] font-bold text-[#ff9500] uppercase tracking-wide mb-2">
-                Hors foyer — pas enregistré
-              </p>
-              <div className="space-y-1">
-                {result.unmatched.map((u, i) => (
-                  <p key={i} className="text-[13px] text-[#8e8e93] italic">&laquo; {u} &raquo;</p>
-                ))}
+          {/* Items non-tâches — silencieux, capturés par extract-memory */}
+        </div>
+      )}
+
+      {/* ── Ce que Yova sait (mémoire longue) ── */}
+      {facts.length > 0 && (
+        <div className="mx-4">
+          <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">
+            Ce que Yova sait
+          </p>
+          <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+            {facts.slice(0, 10).map((fact, i) => (
+              <div
+                key={fact.id}
+                className="flex items-start gap-3 px-4 py-3"
+                style={i < Math.min(facts.length, 10) - 1 ? { borderBottom: '0.5px solid #f2f2f7' } : {}}
+              >
+                <span className="text-[16px] flex-shrink-0 mt-0.5">
+                  {FACT_TYPE_EMOJI[fact.fact_type]}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] text-[#1c1c1e] leading-snug">{fact.content}</p>
+                  <p className="text-[11px] text-[#c7c7cc] mt-0.5">{FACT_TYPE_LABEL[fact.fact_type]}</p>
+                </div>
+                <button
+                  onClick={() => invalidateFact(fact.id)}
+                  className="flex-shrink-0 text-[#c7c7cc] p-1 rounded-full hover:text-[#ff3b30] transition-colors"
+                  aria-label="Supprimer ce souvenir"
+                >
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
               </div>
-            </div>
+            ))}
+          </div>
+          {facts.length > 10 && (
+            <p className="text-center text-[12px] text-[#c7c7cc] mt-2">
+              +{facts.length - 10} souvenir{facts.length - 10 > 1 ? 's' : ''} de plus
+            </p>
           )}
         </div>
       )}
