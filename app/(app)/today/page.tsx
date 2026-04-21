@@ -2,17 +2,15 @@
 
 /**
  * Page "Aujourd'hui" — Sprint 5
- * Complétion rapide + indicateur d'équilibre hebdo + insight Yova.
+ * Complétion rapide + greeting Yova.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useFamilyStore } from '@/stores/familyStore';
-import { useMemoryStore } from '@/stores/memoryStore';
 import { filterTasks, splitTasksIntoSections } from '@/utils/taskSelectors';
-import { createClient } from '@/lib/supabase';
 import type { TaskListItem, PhantomMember } from '@/types/database';
 
 // ── Greeting contextuel ────────────────────────────────────────────────────
@@ -33,61 +31,6 @@ function buildGreeting(
   if (energyLevel === 'low') return `${timeGreet} ${firstName}. Je sens que c'est chargé. On prend ça doucement.`;
   if (energyLevel === 'high') return `${timeGreet} ${firstName} ! Bonne énergie. Voilà ce qui t'attend.`;
   return `${timeGreet} ${firstName}. Voici ce qui compte aujourd'hui.`;
-}
-
-// ── Insight Yova (client-side, pas d'appel API) ───────────────────────────
-
-type BalanceMember = { name: string; pct: number; isMe: boolean };
-
-/**
- * Règles d'insight (par priorité décroissante) :
- * 1. Déséquilibre réel entre ≥2 membres actifs
- * 2. Membre inactif cette semaine (0% avec données existantes)
- * 3. Fait "tension" en mémoire (jamais "context" — trop générique)
- * 4. Silence si rien d'actionnable
- */
-function buildYovaInsight(
-  balance: BalanceMember[],
-  allMembers: { name: string; isMe: boolean }[],
-  facts: { fact_type: string; content: string }[],
-): string | null {
-  // Au moins 2 membres dans le foyer
-  if (allMembers.length >= 2) {
-    const activeNames = balance.map(m => m.name);
-    const inactive = allMembers.filter(m => !activeNames.includes(m.name));
-
-    // Un membre actif, un ou plusieurs inactifs (0 complétion)
-    if (balance.length === 1 && inactive.length > 0) {
-      const names = inactive.map(m => m.name).join(', ');
-      if (balance[0].isMe) {
-        return `${names} n'a encore rien enregistré cette semaine — peut-être des choses gérées sans les noter ?`;
-      } else {
-        return `Aucune tâche enregistrée de ta part cette semaine — ${balance[0].name} porte tout pour l'instant.`;
-      }
-    }
-
-    // 2 membres actifs — déséquilibre fort
-    if (balance.length >= 2) {
-      const sorted = [...balance].sort((a, b) => b.pct - a.pct);
-      const gap = sorted[0].pct - sorted[1].pct;
-      if (gap > 25) {
-        const top = sorted[0];
-        const low = sorted[1];
-        return top.isMe
-          ? `Tu portes ${top.pct}% de la charge cette semaine — ${low.name} est à ${low.pct}%. C'est le moment d'en parler.`
-          : `${top.name} porte ${top.pct}% de la charge — pense à t'impliquer davantage.`;
-      }
-      if (gap <= 10) {
-        return `Bonne semaine — répartition équilibrée entre ${sorted.map(m => `${m.isMe ? 'toi' : m.name} (${m.pct}%)`).join(' et ')}.`;
-      }
-    }
-  }
-
-  // Fait tension en mémoire (actionnable, contrairement à context)
-  const tension = facts.find(f => f.fact_type === 'tension');
-  if (tension) return `Je me souviens : ${tension.content.toLowerCase()}.`;
-
-  return null; // Rien d'actionnable → pas d'insight
 }
 
 // ── Badge assignation ──────────────────────────────────────────────────────
@@ -187,149 +130,27 @@ function TodayTaskCard({
   );
 }
 
-// ── Barre d'équilibre ─────────────────────────────────────────────────────
-
-const BALANCE_COLORS = [
-  { bg: 'linear-gradient(90deg,#ff6b6b,#ff3030)', light: '#fff2f2', text: '#ff3b30' },
-  { bg: 'linear-gradient(90deg,#4ecdc4,#26b5ab)', light: '#f0fafa', text: '#26b5ab' },
-  { bg: 'linear-gradient(90deg,#a78bfa,#7c3aed)', light: '#f5f0ff', text: '#7c3aed' },
-  { bg: 'linear-gradient(90deg,#fb923c,#ea580c)', light: '#fff7ed', text: '#ea580c' },
-];
-
-function WeeklyBalanceBar({ balance }: { balance: BalanceMember[] }) {
-  if (balance.length === 0 || balance.every(m => m.pct === 0)) return null;
-
-  return (
-    <div>
-      {/* Barre segmentée */}
-      <div className="flex h-3 rounded-full overflow-hidden gap-0.5">
-        {balance.map((m, i) => (
-          m.pct > 0 ? (
-            <div
-              key={i}
-              className="transition-all duration-700 rounded-full"
-              style={{ width: `${m.pct}%`, background: BALANCE_COLORS[i % BALANCE_COLORS.length].bg }}
-            />
-          ) : null
-        ))}
-      </div>
-      {/* Légende */}
-      <div className="flex items-center gap-4 mt-2 flex-wrap">
-        {balance.map((m, i) => (
-          <div key={i} className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: BALANCE_COLORS[i % BALANCE_COLORS.length].bg }} />
-            <span className="text-[12px] text-[#3c3c43]">
-              {m.isMe ? 'Toi' : m.name}
-            </span>
-            <span className="text-[12px] font-bold" style={{ color: BALANCE_COLORS[i % BALANCE_COLORS.length].text }}>
-              {m.pct}%
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── Page principale ────────────────────────────────────────────────────────
 
 export default function TodayPage() {
   const { profile } = useAuthStore();
   const { tasks, loading: tasksLoading, fetchTasks, completeTask, filters } = useTaskStore();
   const { householdProfile, members: phantomMembers, loading: familyLoading, fetchFamily } = useFamilyStore();
-  const { facts, fetchMemory } = useMemoryStore();
 
   // Complétion rapide — état optimiste local
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
-  // Équilibre hebdomadaire
-  const [weeklyBalance, setWeeklyBalance] = useState<BalanceMember[]>([]);
-  const [allHouseholdMembers, setAllHouseholdMembers] = useState<{ name: string; isMe: boolean }[]>([]);
-  const [balanceLoaded, setBalanceLoaded] = useState(false);
 
   useEffect(() => {
     if (profile?.household_id) {
       fetchTasks(profile.household_id);
       fetchFamily(profile.household_id);
-      fetchMemory(profile.household_id);
     }
-  }, [profile?.household_id, fetchTasks, fetchFamily, fetchMemory]);
-
-  // ── Charger l'équilibre hebdo ──
-  const loadWeeklyBalance = useCallback(async () => {
-    if (!profile?.household_id || !profile?.id) return;
-    const supabase = createClient();
-
-    // Lundi de la semaine courante
-    const now = new Date();
-    const day = now.getDay(); // 0=dim
-    const diffToMon = day === 0 ? -6 : 1 - day;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() + diffToMon);
-    monday.setHours(0, 0, 0, 0);
-
-    const [{ data: completions }, { data: realMembers }] = await Promise.all([
-      supabase
-        .from('task_completions')
-        .select('completed_by, task_id')
-        .gte('completed_at', monday.toISOString()),
-      supabase
-        .from('profiles')
-        .select('id, display_name')
-        .eq('household_id', profile.household_id),
-    ]);
-
-    if (!completions || !realMembers || realMembers.length === 0) {
-      setBalanceLoaded(true);
-      return;
-    }
-
-    // Tous les membres du foyer (pour détecter les inactifs)
-    const allMembers = realMembers.map(m => ({
-      name: m.display_name?.split(' ')[0] ?? '?',
-      isMe: m.id === profile.id,
-    }));
-    setAllHouseholdMembers(allMembers);
-
-    // Complétion par membre
-    const countMap: Record<string, number> = {};
-    for (const c of completions) {
-      if (c.completed_by) countMap[c.completed_by] = (countMap[c.completed_by] ?? 0) + 1;
-    }
-
-    const total = Object.values(countMap).reduce((s, n) => s + n, 0);
-    if (total === 0) {
-      setBalanceLoaded(true);
-      return;
-    }
-
-    // Balance = seulement les membres avec ≥1 complétion (pour la barre)
-    const balance: BalanceMember[] = realMembers
-      .map(m => ({
-        name: m.display_name?.split(' ')[0] ?? '?',
-        pct: Math.round(((countMap[m.id] ?? 0) / total) * 100),
-        isMe: m.id === profile.id,
-      }))
-      .filter(m => m.pct > 0)
-      .sort((a, b) => b.pct - a.pct);
-
-    // Arrondir pour que le total soit exactement 100%
-    const sum = balance.reduce((s, m) => s + m.pct, 0);
-    if (balance.length > 0 && sum !== 100) balance[0].pct += 100 - sum;
-
-    setWeeklyBalance(balance);
-    setBalanceLoaded(true);
-  }, [profile?.household_id, profile?.id]);
-
-  useEffect(() => {
-    loadWeeklyBalance();
-  }, [loadWeeklyBalance]);
+  }, [profile?.household_id, fetchTasks, fetchFamily]);
 
   // ── Complétion rapide ──
   const handleComplete = async (taskId: string) => {
     setCompletedIds(prev => new Set(prev).add(taskId));
     await completeTask(taskId);
-    // Réactualiser le solde après complétion
-    setTimeout(loadWeeklyBalance, 800);
   };
 
   // ── Sections ──
@@ -342,7 +163,6 @@ export default function TodayPage() {
   const hour = new Date().getHours();
   const isCrisis = householdProfile?.crisis_mode_active ?? false;
   const greeting = buildGreeting(firstName, householdProfile?.energy_level, householdProfile?.current_life_events ?? [], isCrisis, hour);
-  const yovaInsight = buildYovaInsight(weeklyBalance, allHouseholdMembers, facts);
 
   const isLoading = (tasksLoading || familyLoading) && tasks.length === 0;
 
@@ -379,35 +199,15 @@ export default function TodayPage() {
         </Link>
       )}
 
-      {/* ── Bloc Yova : greeting + insight + équilibre ── */}
+      {/* ── Bloc Yova ── */}
       <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}>
-        {/* Greeting */}
-        <div className="flex items-start gap-3 px-4 pt-4 pb-3">
+        <div className="flex items-start gap-3 px-4 py-4">
           <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-[15px] font-bold text-white"
             style={{ background: 'rgba(255,255,255,0.15)' }}>Y</div>
           <p className="text-[15px] text-white/90 leading-relaxed flex-1">{greeting}</p>
         </div>
-
-        {/* Insight Yova — seulement si actionnable */}
-        {yovaInsight && (
-          <div className="mx-4 mb-3 px-3 py-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.07)' }}>
-            <p className="text-[13px] text-white/70 leading-relaxed">✦ {yovaInsight}</p>
-          </div>
-        )}
-
-        {/* Équilibre hebdo — seulement si 2+ membres actifs cette semaine */}
-        {balanceLoaded && weeklyBalance.length >= 2 && (
-          <div className="mx-4 mb-4 px-3 py-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }}>
-            <p className="text-[11px] font-semibold text-white/40 uppercase tracking-wide mb-2.5">
-              Cette semaine
-            </p>
-            <WeeklyBalanceBar balance={weeklyBalance} />
-          </div>
-        )}
-
-        {/* Lien journal */}
         <Link href="/journal"
-          className="mx-4 mb-4 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-semibold text-white transition-opacity active:opacity-70"
+          className="mx-4 mb-4 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-semibold text-white"
           style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)' }}>
           <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
             <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
