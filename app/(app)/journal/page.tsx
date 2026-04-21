@@ -220,6 +220,7 @@ export default function JournalPage() {
   const [isListening, setIsListening] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const textBeforeRecognitionRef = useRef(''); // texte dans la zone avant de démarrer le micro
   const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
 
   const toggleListening = () => {
@@ -236,6 +237,7 @@ export default function JournalPage() {
     recognition.continuous = true;
     recognition.interimResults = true;
     let finalTranscript = '';
+    textBeforeRecognitionRef.current = text; // snapshot du texte avant de démarrer
     recognition.onstart = () => setIsListening(true);
     recognition.onresult = (e: SpeechRecognitionEvent) => {
       let interim = '';
@@ -244,12 +246,11 @@ export default function JournalPage() {
         if (e.results[i].isFinal) finalTranscript += t + ' ';
         else interim = t;
       }
-      setText((prev) => {
-        const base = prev.replace(/\[…\]$/, '').trimEnd();
-        return finalTranscript
-          ? (base ? base + ' ' : '') + finalTranscript.trimEnd() + (interim ? ' ' + interim : '')
-          : (base ? base + ' ' : '') + interim;
-      });
+      // Toujours reconstruire depuis le texte de base : base + finals + interim courant
+      // Évite l'accumulation des résultats intermédiaires
+      const base = textBeforeRecognitionRef.current.trimEnd();
+      const finals = finalTranscript.trimEnd();
+      setText((base ? base + ' ' : '') + (finals ? finals + (interim ? ' ' + interim : '') : interim));
     };
     recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
       setIsListening(false);
