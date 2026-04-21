@@ -110,7 +110,7 @@ export type TaskCompletion = {
   note: string | null;
 };
 
-/** Membre fantôme — membre du foyer sans compte */
+/** Membre fantôme — membre du foyer sans compte (partenaire, enfant…) */
 export type PhantomMember = {
   id: string;
   household_id: string;
@@ -118,7 +118,41 @@ export type PhantomMember = {
   target_share_percent: number | null;
   created_by: string;
   linked_profile_id: string | null;
+  // ── Sprint 1 : fiches membres enrichies ──
+  member_type: 'adult' | 'child' | 'other';
+  birth_date: string | null;       // ISO date 'YYYY-MM-DD'
+  school_class: string | null;     // ex: 'CP', 'CE1', '6ème'
+  specifics: PhantomMemberSpecifics;
   created_at: string;
+};
+
+/** Données libres enrichies d'un membre fantôme */
+export type PhantomMemberSpecifics = {
+  allergies?: string[];
+  activities?: { name: string; day?: string; time?: string }[];
+  bedtime_routine?: string;
+  notes?: string;
+};
+
+/** Contexte vivant du foyer (énergie, événements, aides, mode crise) */
+export type HouseholdProfile = {
+  household_id: string;
+  energy_level: 'low' | 'medium' | 'high';
+  current_life_events: string[];
+  external_help: ExternalHelp[];
+  crisis_mode_active: boolean;
+  crisis_started_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Aide externe disponible pour le foyer */
+export type ExternalHelp = {
+  type: 'grandparent' | 'nanny' | 'au_pair' | 'cleaner' | 'other';
+  label?: string;    // libellé custom ex: 'Mamie Jacqueline'
+  freq?: string;     // ex: 'weekly', 'twice_a_week'
+  days?: string[];   // ex: ['lun', 'mer']
 };
 
 /** Type unifié pour l'UI — un membre est soit un vrai profil, soit un fantôme */

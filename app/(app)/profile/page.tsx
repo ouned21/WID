@@ -265,6 +265,26 @@ export default function ProfilePage() {
             </div>
           </div>
 
+          {/* Famille — lien vers la nouvelle page enrichie */}
+          <div className="mx-4">
+            <a
+              href="/family"
+              className="flex items-center justify-between px-4 py-3.5 rounded-xl bg-white mb-4"
+              style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-[22px]">👨‍👩‍👧</span>
+                <div>
+                  <p className="text-[15px] font-semibold text-[#1c1c1e]">Notre famille</p>
+                  <p className="text-[12px] text-[#8e8e93]">Membres, contraintes, énergie du foyer</p>
+                </div>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c7c7cc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </a>
+          </div>
+
           {/* Membres */}
           <div className="mx-4">
             <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">
