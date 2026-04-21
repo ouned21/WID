@@ -6,6 +6,22 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-21e] — Sprint 8 : Sonnet 4.6 + Qualité réponse Yova
+
+### Modifié
+- `app/api/ai/parse-journal/route.ts` — modèle Haiku → **Sonnet 4.6** (`claude-sonnet-4-6`)
+- `app/api/ai/parse-journal/route.ts` — prompt `ai_response` enrichi : inférences implicites, utilisation mémoire longue, contexte check-in du soir, spécificité obligatoire
+- `app/api/ai/parse-journal/route.ts` — matching tâche strict : même geste concret uniquement, sinon `auto_create` (fix "pliage de linge" → "Lancer une lessive")
+- `app/api/ai/parse-journal/route.ts` — garde-fou UUID : validation que le `task_id` retourné par le modèle existe réellement dans le foyer avant insertion
+- `utils/aiLogger.ts` — type `claude-sonnet-4-6` + commentaires coûts mis à jour
+
+### Pilier spec
+- Pilier 1 — Connaissance intime du foyer (mémoire utilisée dans la réponse)
+- Pilier 3 — Proactivité douce (réponse Yova qualitative et personnalisée)
+- Validé sur device réel Jonathan — 2026-04-21
+
+---
+
 ## [2026-04-21d] — Sprint 7 : Check-in du soir guidé
 
 ### Ajouté
