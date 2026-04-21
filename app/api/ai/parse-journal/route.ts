@@ -377,11 +377,20 @@ ${sanitizedText}
 5. **Attribution stricte** :
    - "j'ai fait X" → completed_by = UUID de ${userName}
    - "[Prénom] a fait X" → completed_by = UUID de ce membre
+   - "on a [Prénom] fait X" ou "on a, [Prénom] a fait X" → le sujet réel est [Prénom] → completed_by = UUID de ce membre (PAS de ${userName})
    - "on a fait X ensemble" → UNE entrée par personne (même task_id)
    - Personne inconnue → completed_by = null
-6. Extrait les durées si mentionnées.
-7. Confidence : 1.0 = certain, 0.5 = probable, 0.3 = incertain.
-8. Mood : happy | tired | overwhelmed | satisfied | frustrated | neutral.
+   - ⚠️ JAMAIS attribuer à ${userName} une action dont le sujet explicite est quelqu'un d'autre.
+6. **Tâches futures vs passées** :
+   - "j'ai fait X", "j'ai géré X", "hier j'ai..." → tâche accomplie → log avec completed_by
+   - "on va faire X", "je vais faire X", "il faudra X", "c'est pour demain" → tâche planifiée → auto_create SANS complétion (completed_by = null, note = "à faire")
+   - Ne log jamais une action au futur comme une action déjà faite.
+7. **Noms de tâches auto-créées** : court, naturel, infinitif, 2-4 mots max.
+   - BON : "Ranger l'appartement", "Préparer le dîner", "Faire les courses"
+   - MAUVAIS : "Préparer le rangement avant passage femme de ménage", "Effectuer le nettoyage complet du logement"
+9. Extrait les durées si mentionnées.
+10. Confidence : 1.0 = certain, 0.5 = probable, 0.3 = incertain.
+11. Mood : happy | tired | overwhelmed | satisfied | frustrated | neutral.
 9. **ai_response** — Rédige en français naturel, chaleureux et familier, comme une amie de confiance qui gère aussi un foyer. 2-3 phrases max. Règles STRICTES :
 
    a) **Sois spécifique** — cite quelque chose de précis de ce qu'il a raconté, jamais une formule générique. "Bien joué pour le pliage même si t'aimes pas ça !" > "Bien joué !" > "J'ai bien noté."

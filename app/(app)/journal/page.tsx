@@ -188,7 +188,7 @@ function ResultCard({ data }: { data: ParseResponse }) {
 
         <div className="px-4 py-2" style={{ borderTop: '0.5px solid #f2f2f7' }}>
           <p className="text-[11px] text-[#8e8e93]">
-            {project ? 'Visible dans ton planning.' : 'Compté dans ton score de la semaine.'}
+            {project ? 'Visible dans ton planning.' : 'Bien noté — Yova s\'en souvient.'}
           </p>
         </div>
       </div>
