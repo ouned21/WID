@@ -565,9 +565,18 @@ Réponds UNIQUEMENT avec ce JSON.`;
       ? parsed.project as ParsedProject
       : null;
 
+    // Si conversation multi-tours, raw_text = tous les messages utilisateur
+    // (pour que l'historique affiche la première phrase, pas la dernière)
+    const fullRawText = conversationHistory.length > 0
+      ? [
+          ...conversationHistory.filter((m) => m.role === 'user').map((m) => m.content),
+          text,
+        ].join('\n')
+      : text;
+
     // ─── Créer le journal (service role → bypass RLS) ─────────────────────
     const { data: journalRow, error: journalError } = await admin.from('user_journals').insert({
-      user_id: user.id, household_id: householdId, raw_text: text, input_method: inputMethod,
+      user_id: user.id, household_id: householdId, raw_text: fullRawText, input_method: inputMethod,
       parsed_completions: completions, unmatched_items: unmatched,
       ai_response: parsed.ai_response ?? null,
       tokens_input: usage.tokensInput, tokens_output: usage.tokensOutput, cost_usd: 0,
