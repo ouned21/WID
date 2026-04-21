@@ -215,6 +215,45 @@ export default function JournalPage() {
   // ── Check-in du soir ──
   const currentHour = new Date().getHours();
   const isEveningTime = currentHour >= 20 || currentHour < 4;
+
+  // ── Vocal STT ──
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+
+  const toggleListening = () => {
+    if (!isSpeechSupported) return;
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    const SR = (window.SpeechRecognition ?? window.webkitSpeechRecognition) as typeof SpeechRecognition;
+    const recognition = new SR();
+    recognition.lang = 'fr-FR';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    let finalTranscript = '';
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (e: SpeechRecognitionEvent) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalTranscript += t + ' ';
+        else interim = t;
+      }
+      setText((prev) => {
+        const base = prev.replace(/\[…\]$/, '').trimEnd();
+        return finalTranscript
+          ? (base ? base + ' ' : '') + finalTranscript.trimEnd() + (interim ? ' ' + interim : '')
+          : (base ? base + ' ' : '') + interim;
+      });
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => { setIsListening(false); finalTranscript = ''; };
+    recognitionRef.current = recognition;
+    recognition.start();
+  };
   const [checkinStep, setCheckinStep] = useState<0 | 1 | 2 | 3>(0);
   const [checkinAnswers, setCheckinAnswers] = useState<string[]>([]);
 
@@ -679,6 +718,18 @@ export default function JournalPage() {
         {/* Input */}
         {!isDone && (
           <div className="mt-2">
+            {/* Indicateur écoute */}
+            {isListening && (
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <div className="flex gap-0.5 items-center">
+                  {[0,1,2].map(i => (
+                    <div key={i} className="w-1 rounded-full bg-[#ff3b30] animate-bounce"
+                      style={{ height: `${8 + i * 4}px`, animationDelay: `${i * 0.15}s` }} />
+                  ))}
+                </div>
+                <span className="text-[12px] font-medium text-[#ff3b30]">Yova t'écoute… parle !</span>
+              </div>
+            )}
             <div className="flex gap-2 items-end">
               <textarea
                 value={text}
@@ -688,7 +739,9 @@ export default function JournalPage() {
                 rows={2}
                 disabled={sending}
                 placeholder={
-                  isEveningTime && checkinStep < 3 && !isDone
+                  isListening
+                    ? 'Parle, je transcris…'
+                    : isEveningTime && checkinStep < 3 && !isDone
                     ? 'Ta réponse…'
                     : convHistory.length > 0
                     ? 'Ta réponse…'
@@ -698,6 +751,34 @@ export default function JournalPage() {
                 style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
                 autoFocus
               />
+              {/* Bouton micro */}
+              {isSpeechSupported && (
+                <button
+                  onClick={toggleListening}
+                  disabled={sending}
+                  className="flex-shrink-0 w-[46px] h-[46px] rounded-2xl flex items-center justify-center transition-all duration-200 disabled:opacity-40"
+                  style={{
+                    background: isListening
+                      ? 'linear-gradient(135deg, #ff3b30, #ff6b6b)'
+                      : 'rgba(0,122,255,0.1)',
+                    boxShadow: isListening ? '0 2px 8px rgba(255,59,48,0.35)' : 'none',
+                  }}
+                  aria-label={isListening ? 'Arrêter la dictée' : 'Dicter à voix haute'}
+                >
+                  {isListening ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#ff3b30" stroke="none">
+                      <rect x="6" y="6" width="12" height="12" rx="2" />
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007aff" strokeWidth="2" strokeLinecap="round">
+                      <rect x="9" y="2" width="6" height="12" rx="3" />
+                      <path d="M5 10a7 7 0 0014 0" />
+                      <line x1="12" y1="19" x2="12" y2="22" />
+                      <line x1="9" y1="22" x2="15" y2="22" />
+                    </svg>
+                  )}
+                </button>
+              )}
               <button
                 onClick={isEveningTime && checkinStep < 3 && !isDone ? sendCheckin : send}
                 disabled={sending || text.trim().length < 2}
