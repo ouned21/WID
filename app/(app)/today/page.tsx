@@ -1,19 +1,20 @@
 'use client';
 
 /**
- * Page "Aujourd'hui" — Sprint 5
- * Complétion rapide + greeting Yova.
+ * Page "Aujourd'hui" — Sprint 6
+ * Complétion rapide + greeting Yova enrichi par la mémoire.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useFamilyStore } from '@/stores/familyStore';
+import { createClient } from '@/lib/supabase';
 import { filterTasks, splitTasksIntoSections } from '@/utils/taskSelectors';
-import type { TaskListItem, PhantomMember } from '@/types/database';
+import type { TaskListItem, PhantomMember, AgentMemoryFact } from '@/types/database';
 
-// ── Greeting contextuel ────────────────────────────────────────────────────
+// ── Greeting contextuel enrichi par la mémoire ─────────────────────────────
 
 function buildGreeting(
   firstName: string,
@@ -21,13 +22,29 @@ function buildGreeting(
   lifeEvents: string[],
   isCrisis: boolean,
   hour: number,
+  memoryFacts: AgentMemoryFact[],
 ): string {
   const timeGreet = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir';
   if (isCrisis) return `${timeGreet} ${firstName}. Mode crise activé — on fait le minimum vital, je suis là.`;
+
+  // Priorité 1 : un fait "tension" récent → Yova le reconnaît
+  const tension = memoryFacts.find((f) => f.fact_type === 'tension');
+  if (tension) {
+    return `${timeGreet} ${firstName}. Je me souviens — ${tension.content.charAt(0).toLowerCase()}${tension.content.slice(1)}. Comment tu vas aujourd'hui ?`;
+  }
+
+  // Priorité 2 : événement de vie du foyer
   if (lifeEvents.length > 0) {
     const ev = lifeEvents[0].toLowerCase();
     return `${timeGreet} ${firstName}. Tu traverses "${ev}" en ce moment — comment tu vas aujourd'hui ?`;
   }
+
+  // Priorité 3 : un fait "context" récent → Yova mentionne ce qu'elle sait
+  const context = memoryFacts.find((f) => f.fact_type === 'context');
+  if (context) {
+    return `${timeGreet} ${firstName}. Je pense à toi — ${context.content.charAt(0).toLowerCase()}${context.content.slice(1)}.`;
+  }
+
   if (energyLevel === 'low') return `${timeGreet} ${firstName}. Je sens que c'est chargé. On prend ça doucement.`;
   if (energyLevel === 'high') return `${timeGreet} ${firstName} ! Bonne énergie. Voilà ce qui t'attend.`;
   return `${timeGreet} ${firstName}. Voici ce qui compte aujourd'hui.`;
@@ -140,12 +157,28 @@ export default function TodayPage() {
   // Complétion rapide — état optimiste local
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
 
+  // Mémoire Yova — faits récents pour enrichir le greeting
+  const [memoryFacts, setMemoryFacts] = useState<AgentMemoryFact[]>([]);
+
+  const loadMemoryFacts = useCallback(async (householdId: string) => {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('agent_memory_facts')
+      .select('*')
+      .eq('household_id', householdId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    setMemoryFacts((data as AgentMemoryFact[]) ?? []);
+  }, []);
+
   useEffect(() => {
     if (profile?.household_id) {
       fetchTasks(profile.household_id);
       fetchFamily(profile.household_id);
+      loadMemoryFacts(profile.household_id);
     }
-  }, [profile?.household_id, fetchTasks, fetchFamily]);
+  }, [profile?.household_id, fetchTasks, fetchFamily, loadMemoryFacts]);
 
   // ── Complétion rapide ──
   const handleComplete = async (taskId: string) => {
@@ -162,7 +195,7 @@ export default function TodayPage() {
   const firstName = profile?.display_name?.split(' ')[0] ?? 'toi';
   const hour = new Date().getHours();
   const isCrisis = householdProfile?.crisis_mode_active ?? false;
-  const greeting = buildGreeting(firstName, householdProfile?.energy_level, householdProfile?.current_life_events ?? [], isCrisis, hour);
+  const greeting = buildGreeting(firstName, householdProfile?.energy_level, householdProfile?.current_life_events ?? [], isCrisis, hour, memoryFacts);
 
   const isLoading = (tasksLoading || familyLoading) && tasks.length === 0;
 
