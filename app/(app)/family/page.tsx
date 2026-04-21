@@ -145,11 +145,6 @@ export default function FamilyPage() {
   const [formData, setFormData] = useState<MemberFormData>(EMPTY_FORM);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  // Notes pour Yova — inline, auto-save au blur
-  const [contextNotes, setContextNotes] = useState('');
-  const [notesSaved, setNotesSaved] = useState(false);
-  const [notesChanged, setNotesChanged] = useState(false);
-
   // Observations Yova
   const [observations, setObservations] = useState<Observation[]>([]);
   const [obsLoading, setObsLoading] = useState(false);
@@ -194,12 +189,6 @@ export default function FamilyPage() {
       loadObservations(profile.household_id);
     }
   }, [profile?.household_id, fetchFamily, loadObservations]);
-
-  useEffect(() => {
-    if (householdProfile?.notes) {
-      setContextNotes(householdProfile.notes ?? '');
-    }
-  }, [householdProfile?.notes]);
 
   // ── Helpers formulaire ──
   const openAddForm = () => {
@@ -263,14 +252,6 @@ export default function FamilyPage() {
       ? current.filter((e) => e !== event)
       : [...current, event];
     await updateHouseholdProfile({ current_life_events: next });
-  };
-
-  const handleSaveNotes = async () => {
-    if (!notesChanged) return;
-    await updateHouseholdProfile({ notes: contextNotes.trim() || null });
-    setNotesChanged(false);
-    setNotesSaved(true);
-    setTimeout(() => setNotesSaved(false), 2000);
   };
 
   // ── Adults (profils réels) ──
@@ -444,32 +425,6 @@ export default function FamilyPage() {
           </div>
         </section>
       )}
-
-      {/* ── Notes pour Yova ── */}
-      <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.08)' }}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#f2f2f7]">
-          <div>
-            <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide">Notes pour Yova</p>
-            <p className="text-[12px] text-[#8e8e93] mt-0.5">Tout ce qui peut aider Yova à mieux vous connaître.</p>
-          </div>
-          {notesSaved && (
-            <span className="text-[13px] text-[#34c759] font-medium">Enregistré ✓</span>
-          )}
-          {saving && (
-            <span className="text-[13px] text-[#8e8e93]">…</span>
-          )}
-        </div>
-        <div className="px-4 py-3">
-          <textarea
-            value={contextNotes}
-            onChange={(e) => { setContextNotes(e.target.value); setNotesChanged(true); setNotesSaved(false); }}
-            onBlur={handleSaveNotes}
-            rows={4}
-            placeholder="Ex: On prépare un déménagement en juillet, les filles ont des examens en juin, Barbara commence un nouveau job en mai…"
-            className="w-full text-[15px] text-[#1c1c1e] bg-transparent outline-none resize-none placeholder:text-[#c7c7cc] leading-relaxed"
-          />
-        </div>
-      </div>
 
       {/* ── Ce que Yova a remarqué ⭐ ── */}
       {(obsLoading || observations.length > 0) && (
