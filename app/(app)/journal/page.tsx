@@ -214,7 +214,7 @@ export default function JournalPage() {
 
   // ── Check-in du soir ──
   const currentHour = new Date().getHours();
-  const isEveningTime = currentHour >= 15 || currentHour < 4; // TEST: à remettre à 20 avant merge
+  const isEveningTime = currentHour >= 14 || currentHour < 4; // TEST: à remettre à 20 avant merge
   const [checkinStep, setCheckinStep] = useState<0 | 1 | 2 | 3>(0);
   const [checkinAnswers, setCheckinAnswers] = useState<string[]>([]);
 
