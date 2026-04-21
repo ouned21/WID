@@ -561,7 +561,7 @@ export default function OnboardingPage() {
 
   // ─── Écran 2 : Famille ───
   if (step === 'family') {
-    const needsBirthdate = (type: FamilyMember['type']) => type === 'baby' || type === 'child' || type === 'teen';
+    const needsBirthdate = (type: FamilyMember['type']) => type !== 'pet';
     // Membres humains (pas animaux) — ceux qui deviennent des fantômes
     const humanMembers = family.filter((m) => m.type !== 'pet');
     const petMembers = family.filter((m) => m.type === 'pet');
