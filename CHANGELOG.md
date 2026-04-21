@@ -6,6 +6,23 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-21c] — Sprint 6 : Mémoire longue Yova
+
+### Ajouté
+- `supabase/migrations/20260421_sprint6_memory_long.sql` — extension pgvector + table `conversation_turns` (embeddings 1536 dims, RLS)
+- `app/api/ai/extract-memory/route.ts` — extraction auto de faits depuis le journal (Claude Haiku, 0-3 faits/journal, stockés dans `agent_memory_facts`)
+- `app/api/ai/parse-journal/route.ts` — appel fire-and-forget vers extract-memory après chaque journal réussi
+
+### Modifié
+- `app/(app)/today/page.tsx` — greeting Yova enrichi par les faits mémoire (tension → context → life events → énergie)
+
+### Pilier spec
+- Pilier 1 — Connaissance intime du foyer (Roadmap Mois 2)
+- Livrable : "Yova se souvient vraiment"
+- Validé sur device réel Jonathan — 2026-04-21
+
+---
+
 ## [2026-04-21b] — Sprint 5 : Détection de dérives + « Ce que Yova a remarqué »
 
 ### Ajouté
