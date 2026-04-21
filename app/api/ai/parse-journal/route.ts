@@ -235,20 +235,25 @@ export async function POST(request: NextRequest) {
 
   const householdId = profile.household_id;
 
-  const [tasksRes, membersRes, phantomsRes, categoriesRes, memoryRes] = await Promise.all([
+  const [tasksRes, membersRes, phantomsRes, categoriesRes, memoryRes, householdRes] = await Promise.all([
     supabase.from('household_tasks')
       .select('id, name, scoring_category, frequency, duration_estimate')
       .eq('household_id', householdId).eq('is_active', true),
     supabase.from('profiles').select('id, display_name').eq('household_id', householdId),
     supabase.from('phantom_members').select('id, display_name').eq('household_id', householdId),
     supabase.from('task_categories').select('id, name'),
-    // Mémoire longue : faits mémorisés sur le foyer
+    // Mémoire longue : faits mémorisés sur le foyer (complément au portrait narratif)
     supabase.from('agent_memory_facts')
       .select('fact_type, content, about_user_id')
       .eq('household_id', householdId)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
-      .limit(20),
+      .limit(10),
+    // Portrait narratif du foyer (Sprint 9)
+    supabase.from('households')
+      .select('yova_narrative')
+      .eq('id', householdId)
+      .maybeSingle(),
   ]);
 
   const tasks = tasksRes.data ?? [];
@@ -256,6 +261,7 @@ export async function POST(request: NextRequest) {
   const phantoms = phantomsRes.data ?? [];
   const categories = categoriesRes.data ?? [];
   const memoryFacts = memoryRes.data ?? [];
+  const yovaNarrative: string = householdRes.data?.yova_narrative ?? '';
 
   // Map category name → id pour créer des tâches
   const categoryIdMap = new Map<string, string>();
@@ -289,13 +295,16 @@ export async function POST(request: NextRequest) {
     ...phantoms.map((p: { id: string; display_name: string }) => `- [phantom:${p.id}] ${p.display_name} (fantôme)`),
   ].join('\n');
 
-  // Bloc mémoire longue — injecté dans le contexte Yova
-  const memoryBlock = memoryFacts.length > 0
-    ? `## Ce que Yova sait déjà sur ce foyer (mémoire longue)\n` +
-      memoryFacts.map((f: { fact_type: string; content: string }) =>
-        `[${f.fact_type}] ${f.content}`
-      ).join('\n')
-    : '';
+  // Portrait narratif (Sprint 9) — priorité sur les faits plats
+  // Le portrait est une synthèse vivante maintenue par Yova après chaque journal
+  const narrativeBlock = yovaNarrative
+    ? `## Portrait du foyer — ce que Yova sait\n${yovaNarrative}`
+    : memoryFacts.length > 0
+      ? `## Ce que Yova sait déjà sur ce foyer\n` +
+        memoryFacts.map((f: { fact_type: string; content: string }) =>
+          `[${f.fact_type}] ${f.content}`
+        ).join('\n')
+      : '';
 
   const prompt = `Tu es Yova, assistant IA spécialisé UNIQUEMENT dans la **logistique domestique et familiale** d'un foyer.
 
@@ -338,7 +347,7 @@ ${tasksListBlock}
 ## Membres
 ${membersBlock}
 ${prefsBlock}
-${memoryBlock ? '\n' + memoryBlock : ''}
+${narrativeBlock ? '\n' + narrativeBlock : ''}
 
 ${conversationHistory.length > 0 ? `## Échanges précédents dans cette session
 ${conversationHistory.map((m) => `${m.role === 'user' ? userName : 'Yova'} : "${m.content}"`).join('\n')}
@@ -362,7 +371,7 @@ ${sanitizedText}
    - Chaque tâche dans project.tasks est UNIQUE (une seule fois, frequency='once').
    - Ne crée PAS de tâches hors scope même sous prétexte de projet.
 
-2. Pour chaque action passée ("j'ai fait X") → matche une tâche existante UNIQUEMENT si c'est le même geste concret. Exemples de NON-MATCH : "plier le linge" ≠ "lancer une lessive" (même catégorie, gestes différents), "essuyer les vitres" ≠ "passer l'aspirateur" (même catégorie, gestes différents). En cas de doute → auto_create, jamais un faux match.
+2. **Détecte TOUTES les tâches mentionnées**, même celles faites hier ou avant-hier ("hier j'ai fait X", "ce matin j'ai..."). L'utilisateur raconte souvent des tâches passées — log-les toutes. Attention aux formulations naturelles : "j'avais des choses à faire (dont le pliage de linge)" = le pliage est une tâche à logger même s'il est mentionné entre parenthèses ou dans une liste. "j'avais X à faire et Y" = X et Y sont deux tâches distinctes à logger. Pour chaque action → matche une tâche existante UNIQUEMENT si c'est le même geste concret. Exemples de NON-MATCH : "plier le linge" ≠ "lancer une lessive" (même catégorie, gestes différents), "essuyer les vitres" ≠ "passer l'aspirateur" (même catégorie, gestes différents). En cas de doute → auto_create, jamais un faux match.
 3. Si une action ne correspond à AUCUNE tâche existante ET que c'est une vraie tâche récurrente → "auto_create".
 4. Dans "unmatched", mets uniquement les choses vraiment sans lien avec le foyer (loisirs, culture, sorties). Les émotions et frustrations liées aux tâches du foyer ("je déteste faire X", "c'est toujours moi qui...") sont précieuses — accueille-les chaleureusement dans ai_response, NE les mets PAS dans unmatched.
 5. **Attribution stricte** :
@@ -377,10 +386,11 @@ ${sanitizedText}
 
    a) **Sois spécifique** — cite quelque chose de précis de ce qu'il a raconté, jamais une formule générique. "Bien joué pour le pliage même si t'aimes pas ça !" > "Bien joué !" > "J'ai bien noté."
 
-   b) **Inférences implicites** — si l'utilisateur implique qu'il a accompli quelque chose sans le dire directement, nomme-le explicitement dans ta réponse. Exemples :
-      - "je l'ai laissée dormir plus longtemps ce matin" → il a géré les enfants seul ce matin pour qu'elle récupère → reconnais-le : "T'as géré les deux tout seul ce matin pour qu'elle dorme — c'est pas rien."
-      - "c'est toujours moi qui fais X" → charge mentale non reconnue → "C'est épuisant d'être le seul à y penser — j'ai bien retenu ça."
-      - "j'ai laissé X s'en occuper" → délégation intentionnelle → reconnais la décision.
+   b) **Inférences implicites — ACTIONS UNIQUEMENT** — infère seulement ce que l'utilisateur a fait concrètement, jamais le contexte situationnel. Exemples AUTORISÉS :
+      - "je l'ai laissée dormir plus longtemps ce matin" → action concrète : il a géré les enfants seul → "T'as géré les deux tout seul ce matin pour qu'elle dorme."
+      - "c'est toujours moi qui fais X" → charge mentale portée seul → reconnais-la.
+      Exemples INTERDITS :
+      - "le we avec les enfants, pas beaucoup de repos" → NE PAS dire "avec les enfants sur les bras" si ce n'est pas dit explicitement. C'est une supposition sur le contexte, pas une action.
 
    c) **Utilise la mémoire longue** — si un fait mémoire est directement lié à ce qu'il mentionne → incorpore-le naturellement dans la réponse ("Je me souviens que le pliage c'est vraiment pas ton truc — tu l'as fait quand même 💪").
 
@@ -779,6 +789,20 @@ Réponds UNIQUEMENT avec ce JSON.`;
           householdId,
         }),
       }).catch((e) => console.warn('[parse-journal] extract-memory fire-and-forget failed:', e));
+
+      // ─── Mise à jour portrait narratif — fire-and-forget (Sprint 9) ──────
+      const narrativeBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? (process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000');
+      fetch(`${narrativeBaseUrl}/api/ai/update-narrative`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          householdId,
+          journalText: fullRawText,
+          userName,
+        }),
+      }).catch((e) => console.warn('[parse-journal] update-narrative fire-and-forget failed:', e));
     }
 
     return NextResponse.json({
