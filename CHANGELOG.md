@@ -6,6 +6,24 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-21d] — Sprint 7 : Check-in du soir guidé
+
+### Ajouté
+- `app/(app)/journal/page.tsx` — mode check-in du soir (actif dès 20h) : 3 questions séquentielles collectées localement puis envoyées groupées à parse-journal
+- Indicateur de progression 3 points (bleu = actuel, vert = répondu, gris = à venir)
+- Fix UX : Q1 réinjectée dans le thread au premier envoi (ne disparaît plus)
+
+### Modifié
+- `app/(app)/journal/page.tsx` — `sendCheckin` : collecte 3 réponses sans appel API intermédiaire, combine en texte structuré `Question\nRéponse` × 3, envoie une seule requête parse-journal
+- `handleNewConversation` : reset de `checkinStep` et `checkinAnswers`
+
+### Pilier spec
+- Pilier 1 — Connaissance intime du foyer (Roadmap Mois 2)
+- Pilier 3 — Proactivité douce (Yova initie le bilan du soir)
+- Validé sur device réel Jonathan — 2026-04-21
+
+---
+
 ## [2026-04-21c] — Sprint 6 : Mémoire longue Yova
 
 ### Ajouté
