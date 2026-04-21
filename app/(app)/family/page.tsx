@@ -103,9 +103,10 @@ export default function FamilyPage() {
   const [formData, setFormData] = useState<MemberFormData>(EMPTY_FORM);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  // Contexte foyer
-  const [editingContext, setEditingContext] = useState(false);
+  // Notes pour Yova — inline, auto-save au blur
   const [contextNotes, setContextNotes] = useState('');
+  const [notesSaved, setNotesSaved] = useState(false);
+  const [notesChanged, setNotesChanged] = useState(false);
 
   // ── Init ──
   useEffect(() => {
@@ -185,8 +186,11 @@ export default function FamilyPage() {
   };
 
   const handleSaveNotes = async () => {
+    if (!notesChanged) return;
     await updateHouseholdProfile({ notes: contextNotes.trim() || null });
-    setEditingContext(false);
+    setNotesChanged(false);
+    setNotesSaved(true);
+    setTimeout(() => setNotesSaved(false), 2000);
   };
 
   // ── Adults (profils réels) ──
@@ -368,47 +372,22 @@ export default function FamilyPage() {
             <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide">Notes pour Yova</p>
             <p className="text-[12px] text-[#8e8e93] mt-0.5">Tout ce qui peut aider Yova à mieux vous connaître.</p>
           </div>
-          {!editingContext && (
-            <button onClick={() => setEditingContext(true)} className="text-[#007aff] text-[14px] font-medium">
-              Modifier
-            </button>
+          {notesSaved && (
+            <span className="text-[13px] text-[#34c759] font-medium">Enregistré ✓</span>
+          )}
+          {saving && (
+            <span className="text-[13px] text-[#8e8e93]">…</span>
           )}
         </div>
         <div className="px-4 py-3">
-          {editingContext ? (
-            <div className="space-y-3">
-              <textarea
-                value={contextNotes}
-                onChange={(e) => setContextNotes(e.target.value)}
-                rows={4}
-                placeholder="Ex: On est en période de travaux, les filles ont des examens en juin, Barbara commence un nouveau job en mai…"
-                className="w-full text-[15px] text-[#1c1c1e] bg-[#f9f9f9] rounded-xl px-3 py-2.5 outline-none resize-none placeholder:text-[#c7c7cc]"
-                style={{ border: '1px solid #e5e5ea' }}
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={handleSaveNotes}
-                  disabled={saving}
-                  className="flex-1 py-2.5 rounded-xl text-[15px] font-semibold text-white"
-                  style={{ background: '#007aff' }}
-                >
-                  {saving ? 'Enregistrement…' : 'Enregistrer'}
-                </button>
-                <button
-                  onClick={() => { setEditingContext(false); setContextNotes(householdProfile?.notes ?? ''); }}
-                  className="px-4 py-2.5 rounded-xl text-[15px] font-medium text-[#8e8e93] bg-[#f2f2f7]"
-                >
-                  Annuler
-                </button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-[15px] text-[#1c1c1e] leading-relaxed">
-              {householdProfile?.notes || (
-                <span className="text-[#c7c7cc]">Aucune note. Toucher &quot;Modifier&quot; pour ajouter.</span>
-              )}
-            </p>
-          )}
+          <textarea
+            value={contextNotes}
+            onChange={(e) => { setContextNotes(e.target.value); setNotesChanged(true); setNotesSaved(false); }}
+            onBlur={handleSaveNotes}
+            rows={4}
+            placeholder="Ex: On prépare un déménagement en juillet, les filles ont des examens en juin, Barbara commence un nouveau job en mai…"
+            className="w-full text-[15px] text-[#1c1c1e] bg-transparent outline-none resize-none placeholder:text-[#c7c7cc] leading-relaxed"
+          />
         </div>
       </div>
 
