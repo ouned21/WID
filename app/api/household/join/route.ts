@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
         household_id: household.id,
         role: 'member',
         joined_at: new Date().toISOString(),
-        onboarding_complete: false, // Passe par l'onboarding pour voir/ajuster ce que Jonathan a configuré
+        // onboarding déterminé par le proxy (count household_tasks > 0 → /dashboard sinon → /onboarding)
       })
       .eq('id', user.id);
 
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
         household_id: household.id,
         role: 'member',
         joined_at: new Date().toISOString(),
-        onboarding_complete: false, // Passe par l'onboarding pour voir/ajuster ce que Jonathan a configuré
+        // onboarding déterminé par le proxy (count household_tasks > 0 → /dashboard sinon → /onboarding)
       });
 
     if (insertError) {
