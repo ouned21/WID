@@ -8,7 +8,7 @@ const securityHeaders = [
   // Contrôle le Referer
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   // Désactive fonctionnalités non utilisées
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=(), payment=()' },
   // Force HTTPS — 2 ans, preload
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
   // Content Security Policy
