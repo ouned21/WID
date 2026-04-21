@@ -52,8 +52,10 @@ const authOnboarding = [
   ['1.5', 'Champ "Confirmer mot de passe"', 'Présent. Si différent du mdp : message rouge "ne correspondent pas" + bouton désactivé.', '', ''],
   ['1.5b', 'Saisir email en MAJUSCULES', 'BDD stocke en minuscules (email.trim().toLowerCase()). Vérifier dans auth.users.', '', ''],
   ['1.5c', 'Checkbox CGU non cochée', 'Bouton "Créer mon compte" désactivé.', '', ''],
+  ['1.5d', 'Autofill sur "Confirmer mot de passe"', 'Navigateur ne propose PAS le mdp précédent (autoComplete="new-password" sur les 2 champs).', '', ''],
   ['1.6', 'S\'inscrire avec email+mdp valides + CGU + confirm', 'Compte créé. Écran "Compte créé" → bouton "Se connecter" (PAS de copie "email de confirmation").', '', ''],
   ['1.6b', 'Vérifier en BDD : ligne dans auth.users + profiles', 'Les deux existent, id cohérents, email en lowercase.', '', ''],
+  ['1.6c', 'Edge : signup qui hang (simuler offline pendant 15s)', 'Au bout de 15s, bouton "Création..." se débloque + message erreur "La création prend plus de temps que prévu...". Pas de blocage infini.', '', ''],
   // Login
   ['1.7', 'Retour /login après création', 'Logo SVG maison (cohérent avec register).', '', ''],
   ['1.8', 'Login avec mauvais mdp', 'Erreur claire affichée. Lockout après 5 tentatives.', '', ''],
