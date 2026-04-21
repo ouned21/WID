@@ -86,10 +86,8 @@ function AssigneeBadge({
     }
   }
 
-  // Non assigné → tâche commune du foyer
-  return (
-    <span className="text-[11px] text-[#c7c7cc] font-medium">Foyer</span>
-  );
+  // Non assigné → rien (implicite)
+  return null;
 }
 
 // ── Mini task card ─────────────────────────────────────────────────────────
