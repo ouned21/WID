@@ -6,6 +6,20 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-21j] — Sprint 13 : Tags mémoire dynamiques + nettoyage famille
+
+### Modifié
+- `app/(app)/family/page.tsx` — "Ce qu'on traverse" : remplacement des options statiques (liste figée) par les faits extraits automatiquement par Yova (`fact_type: context/tension/milestone` depuis `agent_memory_facts`)
+- `app/(app)/family/page.tsx` — dismiss d'un tag = `is_active: false` en DB (Yova retire la situation résolue)
+- `app/(app)/family/page.tsx` — suppression section "Notes pour Yova" (textarea non validé, remplacé par le journal)
+- `app/(app)/family/page.tsx` — suppression `toggleLifeEvent` + `LIFE_EVENTS_OPTIONS` + états `contextNotes/notesSaved/notesChanged`
+
+### Pilier spec
+- Pilier 1 — Connaissance intime du foyer (Yova remplit, l'utilisateur valide)
+- Validé — 2026-04-21
+
+---
+
 ## [2026-04-21h] — Sprint 11 : Déduplication mémoire Yova
 
 ### Modifié
