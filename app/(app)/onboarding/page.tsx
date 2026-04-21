@@ -43,11 +43,8 @@ type TaskTemplate = {
 type Step =
   | 'equipment'  // Écran 1 : Sélection équipements
   | 'family'     // Écran 2 : Composition familiale
-  | 'baseline'   // Écran 3 : Baseline émotionnelle (qui fait le plus ?)
-  | 'thinking'   // Écran 4 : Yova crée les tâches en silence
-  | 'results';   // Écran 5 : Résultats
-
-type BaselineChoice = 'me' | 'partner' | 'balanced';
+  | 'thinking'   // Écran 3 : Yova crée les tâches en silence
+  | 'results';   // Écran 4 : Résultats
 
 // =============================================================================
 // CONSTANTS
@@ -125,9 +122,6 @@ export default function OnboardingPage() {
 
   // ── Famille ──
   const [family, setFamily] = useState<FamilyMember[]>([]);
-
-  // ── Baseline ──
-  const [baselineChoice, setBaselineChoice] = useState<BaselineChoice | null>(null);
 
   // ── Catalogue ──
   const [catalogTemplates, setCatalogTemplates] = useState<TaskTemplate[]>([]);
@@ -493,7 +487,7 @@ export default function OnboardingPage() {
     return (
       <div className="pt-4 pb-28">
         <div className="px-4 mb-6">
-          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 1 / 4</p>
+          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 1 / 3</p>
           <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
             Qu&apos;as-tu dans<br />ton foyer ?
           </h2>
@@ -577,7 +571,7 @@ export default function OnboardingPage() {
             <svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M7 1L1 7L7 13" stroke="#007aff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             Retour
           </button>
-          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 2 / 4</p>
+          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 2 / 3</p>
           <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
             Qui vit<br />avec toi ?
           </h2>
@@ -706,18 +700,8 @@ export default function OnboardingPage() {
           )}
           <button
             onClick={() => {
-              // Foyer solo (aucun humain) → skip baseline, ça n'a pas de sens
-              // de comparer avec un partenaire inexistant. On fixe target à 100%.
-              if (validHumans === 0) {
-                if (userId) {
-                  const supabase = createClient();
-                  void supabase.from('profiles').update({ target_share_percent: 100 }).eq('id', userId);
-                }
-                setStep('thinking');
-                loadCatalogTemplates();
-              } else {
-                setStep('baseline');
-              }
+              setStep('thinking');
+              loadCatalogTemplates();
             }}
             disabled={hasUnnamedHuman}
             className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white disabled:opacity-40"
@@ -735,83 +719,7 @@ export default function OnboardingPage() {
     );
   }
 
-  // ─── Écran 3 : Baseline émotionnelle ───
-  if (step === 'baseline') {
-    const OPTIONS: { value: BaselineChoice; emoji: string; label: string; sub: string; target: number }[] = [
-      { value: 'me',       emoji: '🙋',  label: 'Moi, clairement',         sub: 'Je gère l\'essentiel du foyer',   target: 45 },
-      { value: 'partner',  emoji: '🤷',  label: 'Mon partenaire',           sub: 'Il ou elle fait plus que moi',    target: 55 },
-      { value: 'balanced', emoji: '⚖️',  label: 'C\'est plutôt équilibré',  sub: 'On partage à peu près à égalité', target: 50 },
-    ];
-
-    const handleBaseline = async (choice: BaselineChoice, target: number) => {
-      setBaselineChoice(choice);
-      if (userId) {
-        const supabase = createClient();
-        await supabase.from('profiles').update({ target_share_percent: target }).eq('id', userId);
-      }
-      setStep('thinking');
-      loadCatalogTemplates();
-    };
-
-    return (
-      <div className="min-h-screen flex flex-col" style={{
-        background: 'linear-gradient(180deg, #0a1628 0%, #1a2f52 100%)',
-      }}>
-        <div className="flex-1 flex flex-col justify-center px-6 py-12 relative">
-          <button
-            onClick={() => setStep('family')}
-            className="absolute top-6 left-4 flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[14px] font-semibold active:opacity-70"
-            style={{ background: 'rgba(255,255,255,0.1)', color: 'white' }}>
-            <svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M7 1L1 7L7 13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            Retour
-          </button>
-          {/* Step indicator */}
-          <p className="text-[12px] font-semibold uppercase tracking-[0.2em] mb-8 text-center"
-            style={{ color: 'rgba(255,255,255,0.45)' }}>
-            Étape 3 / 4
-          </p>
-
-          {/* Question */}
-          <div className="text-center mb-10">
-            <div className="text-[52px] mb-5">🏠</div>
-            <h2 className="text-[26px] font-black text-white leading-tight mb-3">
-              En ce moment,<br />qui fait le plus<br />à la maison ?
-            </h2>
-            <p className="text-[14px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              Un tap. Pas de jugement.<br />C&apos;est le point de départ de ton score.
-            </p>
-          </div>
-
-          {/* Options */}
-          <div className="space-y-3">
-            {OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => handleBaseline(opt.value, opt.target)}
-                className="w-full rounded-2xl px-5 py-4 flex items-center gap-4 transition-transform active:scale-[0.97] text-left"
-                style={{
-                  background: 'rgba(255,255,255,0.1)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  backdropFilter: 'blur(10px)',
-                }}
-              >
-                <span className="text-[32px] flex-shrink-0">{opt.emoji}</span>
-                <div className="flex-1">
-                  <p className="text-[16px] font-bold text-white">{opt.label}</p>
-                  <p className="text-[12px] mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>{opt.sub}</p>
-                </div>
-                <svg width="7" height="12" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12">
-                  <path d="M1 1l5 5-5 5" />
-                </svg>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Écran 4 : Thinking (création silencieuse) ───
+  // ─── Écran 3 : Thinking (création silencieuse) ───
   // Pas d'arbitrage par l'utilisateur : Yova crée ~12 tâches macro depuis les
   // équipements et la famille. L'utilisateur affinera plus tard dans /tasks/catalog.
   if (step === 'thinking') {
