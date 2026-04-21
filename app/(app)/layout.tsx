@@ -69,7 +69,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isOnboarding = pathname.startsWith('/onboarding');
 
   // Ne pas afficher le FAB sur la page de création ni pendant l'onboarding
-  const showFab = !pathname.startsWith('/tasks/new') && !isOnboarding;
+  // FAB visible uniquement sur les pages orientées tâches — masqué sur /family et /journal
+  const showFab =
+    !pathname.startsWith('/tasks/new') &&
+    !isOnboarding &&
+    !pathname.startsWith('/family') &&
+    !pathname.startsWith('/journal');
 
   useEffect(() => {
     if (!isInitialized) initialize();

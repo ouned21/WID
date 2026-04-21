@@ -206,12 +206,13 @@ export default function TodayPage() {
         </div>
         <Link
           href="/journal"
-          className="mt-3.5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white/60 hover:text-white/90 transition-colors"
+          className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[14px] font-semibold text-white transition-opacity active:opacity-70"
+          style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)' }}
         >
-          Raconter ma journée
-          <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
-            <path d="M9 18l6-6-6-6" />
+          <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
           </svg>
+          Raconter ma journée à Yova
         </Link>
       </div>
 
@@ -236,7 +237,7 @@ export default function TodayPage() {
               {sections.overdue.length > 0 ? '🔥 À traiter' : '📋 Du jour'}
             </h2>
             <Link href="/tasks" className="text-[14px] text-[#007aff] font-medium">
-              Tout voir
+              Mes tâches
             </Link>
           </div>
           <div className="space-y-2">
