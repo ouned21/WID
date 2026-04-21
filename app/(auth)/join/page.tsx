@@ -87,7 +87,8 @@ function JoinPageInner() {
     await refreshProfile();
 
     setStep('done');
-    setTimeout(() => router.push('/today'), 1200);
+    // → Onboarding pour voir/ajuster ce que Jonathan a déjà configuré
+    setTimeout(() => router.push('/onboarding'), 1200);
   };
 
   // ── États ──
@@ -116,7 +117,7 @@ function JoinPageInner() {
           ✓
         </div>
         <h1 className="text-[28px] font-bold text-[#1c1c1e]">Bienvenue !</h1>
-        <p className="mt-2 text-[15px] text-[#8e8e93]">Tu rejoins le foyer de {preview?.inviterName}…</p>
+        <p className="mt-2 text-[15px] text-[#8e8e93]">Tu rejoins le foyer de {preview?.inviterName} — configuration en cours…</p>
       </div>
     );
   }

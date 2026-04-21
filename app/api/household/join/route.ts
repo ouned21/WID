@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
         household_id: household.id,
         role: 'member',
         joined_at: new Date().toISOString(),
-        onboarding_complete: true,
+        onboarding_complete: false, // Passe par l'onboarding pour voir/ajuster ce que Jonathan a configuré
       })
       .eq('id', user.id);
 
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
         household_id: household.id,
         role: 'member',
         joined_at: new Date().toISOString(),
-        onboarding_complete: true,
+        onboarding_complete: false, // Passe par l'onboarding pour voir/ajuster ce que Jonathan a configuré
       });
 
     if (insertError) {
