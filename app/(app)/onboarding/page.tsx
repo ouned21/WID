@@ -142,7 +142,7 @@ export default function OnboardingPage() {
   const [generatedTasks, setGeneratedTasks] = useState<{
     id: string; name: string; category_id: string;
     category_name?: string; category_icon?: string; category_color?: string;
-    next_due_at?: string | null;
+    next_due_at?: string | null; frequency?: string;
   }[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [householdCreating, setHouseholdCreating] = useState(false);
@@ -374,7 +374,7 @@ export default function OnboardingPage() {
         is_active: boolean; is_fixed_assignment: boolean; notifications_enabled: boolean;
         assigned_to: null; next_due_at: string;
       };
-      type CreatedMeta = { catId: string; cat: { id: string; name: string; icon: string; color_hex: string } | undefined; nextDueIso: string };
+      type CreatedMeta = { catId: string; cat: { id: string; name: string; icon: string; color_hex: string } | undefined; nextDueIso: string; frequency: string };
 
       const rowsToInsert: TaskRow[] = [];
       const metaByName: Record<string, CreatedMeta> = {};
@@ -398,7 +398,7 @@ export default function OnboardingPage() {
           is_active: true, is_fixed_assignment: false, notifications_enabled: true,
           assigned_to: null, next_due_at: nextDueIso,
         });
-        metaByName[t.name] = { catId, cat: catMap.get(catId), nextDueIso };
+        metaByName[t.name] = { catId, cat: catMap.get(catId), nextDueIso, frequency: freq };
       }
 
       for (const name of customTaskNames) {
@@ -414,7 +414,7 @@ export default function OnboardingPage() {
           is_active: true, is_fixed_assignment: false, notifications_enabled: true,
           assigned_to: null, next_due_at: nextDueIso,
         });
-        metaByName[name] = { catId: defaultCatId, cat: catMap.get(defaultCatId), nextDueIso };
+        metaByName[name] = { catId: defaultCatId, cat: catMap.get(defaultCatId), nextDueIso, frequency: 'weekly' };
       }
 
       // Appel API route (service role, contourne RLS)
@@ -454,6 +454,7 @@ export default function OnboardingPage() {
           category_icon: meta?.cat?.icon,
           category_color: meta?.cat?.color_hex,
           next_due_at: meta?.nextDueIso,
+          frequency: meta?.frequency ?? 'weekly',
         };
       });
 
@@ -821,11 +822,16 @@ export default function OnboardingPage() {
 
   // ─── Écran 5 : Résultats ───
   if (step === 'results') {
-    const sortedTasks = [...generatedTasks].sort((a, b) => {
-      const da = a.next_due_at ? new Date(a.next_due_at).getTime() : Infinity;
-      const db = b.next_due_at ? new Date(b.next_due_at).getTime() : Infinity;
-      return da - db;
-    });
+    const FREQ_LABEL: Record<string, string> = {
+      daily:       'Chaque jour',
+      weekly:      'Chaque semaine',
+      biweekly:    'Toutes les 2 sem.',
+      monthly:     'Chaque mois',
+      quarterly:   'Tous les 3 mois',
+      semiannual:  'Tous les 6 mois',
+      yearly:      'Chaque année',
+    };
+    const sortedTasks = [...generatedTasks].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 
     return (
       <div className="pt-4 pb-32">
@@ -835,8 +841,8 @@ export default function OnboardingPage() {
             C&apos;est prêt.
           </h2>
           <p className="text-[14px] text-[#8e8e93] mt-2 max-w-[300px] mx-auto leading-relaxed">
-            Yova a créé <strong className="text-[#1c1c1e]">{generatedTasks.length} tâche{generatedTasks.length !== 1 ? 's' : ''}</strong> pour ton foyer.
-            Tu ajusteras au fil de l&apos;usage.
+            Yova connaît <strong className="text-[#1c1c1e]">{generatedTasks.length} rythme{generatedTasks.length !== 1 ? 's' : ''}</strong> de ton foyer.
+            Elle s&apos;adaptera à mesure qu&apos;elle te connaîtra mieux.
           </p>
         </div>
 
@@ -850,11 +856,9 @@ export default function OnboardingPage() {
               >
                 <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: t.category_color ?? '#8e8e93' }} />
                 <p className="flex-1 text-[14px] font-medium text-[#1c1c1e] truncate">{t.name}</p>
-                {t.next_due_at && (
-                  <p className="text-[11px] text-[#c7c7cc] flex-shrink-0">
-                    {new Date(t.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                  </p>
-                )}
+                <p className="text-[11px] text-[#c7c7cc] flex-shrink-0">
+                  {FREQ_LABEL[t.frequency ?? 'weekly'] ?? 'Régulier'}
+                </p>
               </div>
             ))}
           </div>
