@@ -371,7 +371,7 @@ ${sanitizedText}
    - Chaque tâche dans project.tasks est UNIQUE (une seule fois, frequency='once').
    - Ne crée PAS de tâches hors scope même sous prétexte de projet.
 
-2. Pour chaque action passée ("j'ai fait X") → matche une tâche existante UNIQUEMENT si c'est le même geste concret. Exemples de NON-MATCH : "plier le linge" ≠ "lancer une lessive" (même catégorie, gestes différents), "essuyer les vitres" ≠ "passer l'aspirateur" (même catégorie, gestes différents). En cas de doute → auto_create, jamais un faux match.
+2. **Détecte TOUTES les tâches mentionnées**, même celles faites hier ou avant-hier ("hier j'ai fait X", "ce matin j'ai..."). L'utilisateur raconte souvent des tâches passées — log-les toutes. Pour chaque action → matche une tâche existante UNIQUEMENT si c'est le même geste concret. Exemples de NON-MATCH : "plier le linge" ≠ "lancer une lessive" (même catégorie, gestes différents), "essuyer les vitres" ≠ "passer l'aspirateur" (même catégorie, gestes différents). En cas de doute → auto_create, jamais un faux match.
 3. Si une action ne correspond à AUCUNE tâche existante ET que c'est une vraie tâche récurrente → "auto_create".
 4. Dans "unmatched", mets uniquement les choses vraiment sans lien avec le foyer (loisirs, culture, sorties). Les émotions et frustrations liées aux tâches du foyer ("je déteste faire X", "c'est toujours moi qui...") sont précieuses — accueille-les chaleureusement dans ai_response, NE les mets PAS dans unmatched.
 5. **Attribution stricte** :
@@ -386,10 +386,11 @@ ${sanitizedText}
 
    a) **Sois spécifique** — cite quelque chose de précis de ce qu'il a raconté, jamais une formule générique. "Bien joué pour le pliage même si t'aimes pas ça !" > "Bien joué !" > "J'ai bien noté."
 
-   b) **Inférences implicites** — si l'utilisateur implique qu'il a accompli quelque chose sans le dire directement, nomme-le explicitement dans ta réponse. Exemples :
-      - "je l'ai laissée dormir plus longtemps ce matin" → il a géré les enfants seul ce matin pour qu'elle récupère → reconnais-le : "T'as géré les deux tout seul ce matin pour qu'elle dorme — c'est pas rien."
-      - "c'est toujours moi qui fais X" → charge mentale non reconnue → "C'est épuisant d'être le seul à y penser — j'ai bien retenu ça."
-      - "j'ai laissé X s'en occuper" → délégation intentionnelle → reconnais la décision.
+   b) **Inférences implicites — ACTIONS UNIQUEMENT** — infère seulement ce que l'utilisateur a fait concrètement, jamais le contexte situationnel. Exemples AUTORISÉS :
+      - "je l'ai laissée dormir plus longtemps ce matin" → action concrète : il a géré les enfants seul → "T'as géré les deux tout seul ce matin pour qu'elle dorme."
+      - "c'est toujours moi qui fais X" → charge mentale portée seul → reconnais-la.
+      Exemples INTERDITS :
+      - "le we avec les enfants, pas beaucoup de repos" → NE PAS dire "avec les enfants sur les bras" si ce n'est pas dit explicitement. C'est une supposition sur le contexte, pas une action.
 
    c) **Utilise la mémoire longue** — si un fait mémoire est directement lié à ce qu'il mentionne → incorpore-le naturellement dans la réponse ("Je me souviens que le pliage c'est vraiment pas ton truc — tu l'as fait quand même 💪").
 
