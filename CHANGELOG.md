@@ -6,6 +6,32 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-21h] — Sprint 11 : Déduplication mémoire Yova
+
+### Modifié
+- `app/api/ai/extract-memory/route.ts` — déduplication par overlap de mots avant insertion (seuil 50% : fait très similaire ignoré)
+- `app/api/ai/extract-memory/route.ts` — désactivation (`is_active = false`) des anciens faits `tension`/`context` quand le modèle indique `replaces: true`
+- `app/api/ai/extract-memory/route.ts` — prompt renforcé : règles anti-doublon explicites, comparaison imposée avec la liste existante
+- `app/api/ai/extract-memory/route.ts` — sélection du champ `id` sur les faits existants (requis pour la désactivation)
+
+### Pilier spec
+- Pilier 1 — Connaissance intime du foyer (mémoire propre, sans redondance)
+- Validé sur device réel Jonathan — 2026-04-21
+
+---
+
+## [2026-04-21g] — Sprint 10 : Dictée vocale (fix PC)
+
+### Modifié
+- `app/(app)/journal/page.tsx` — fix micro PC : permission audio explicite via `getUserMedia` avant `recognition.start()` (résout le bouton silencieux)
+- `app/(app)/journal/page.tsx` — affichage visible de l'erreur micro (`speechError`) sous la zone de saisie
+
+### Pilier spec
+- Pilier 3 — Proactivité douce (saisie naturelle par la voix)
+- Validé sur device réel Jonathan — 2026-04-21
+
+---
+
 ## [2026-04-21f] — Sprint 9 : Portrait narratif Yova
 
 ### Ajouté

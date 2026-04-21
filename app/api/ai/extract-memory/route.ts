@@ -57,11 +57,11 @@ export async function POST(request: NextRequest) {
   // Charger les faits existants (pour éviter les doublons)
   const { data: existingFacts } = await admin
     .from('agent_memory_facts')
-    .select('content, fact_type')
+    .select('id, content, fact_type')
     .eq('household_id', householdId)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
-    .limit(30);
+    .limit(40);
 
   // Charger les membres pour le contexte
   const [membersRes, phantomsRes] = await Promise.all([
@@ -96,16 +96,23 @@ ${text.slice(0, 1000)}
 
 ## Ta mission
 Extrais entre 0 et 3 NOUVEAUX faits sur les membres ou le foyer qui méritent d'être mémorisés à long terme.
-Un fait est mémorisable s'il est :
-- Stable (pas juste vrai aujourd'hui)
+
+### Règles STRICTES anti-doublon
+1. Compare CHAQUE fait que tu envisages avec la liste "Faits déjà mémorisés" ci-dessus.
+2. Si un fait existant couvre déjà le même sujet avec la même signification → n'en crée PAS un nouveau. Retourne facts: [].
+3. Un fait n'est NOUVEAU que s'il apporte une information absente de la liste existante.
+4. Les types "tension" et "context" évoluent — si la situation a changé, indique "replaces": true dans le JSON pour qu'on désactive l'ancien.
+
+### Critères de mémorisation
+- Stable (pas juste vrai aujourd'hui, sauf tensions/milestones)
 - Personnel (révèle quelque chose sur un membre ou la dynamique du foyer)
 - Utile pour Yova dans ses prochaines interactions
 
-Types de faits :
+### Types de faits
 - preference : goût, aversion, habitude personnelle
 - pattern : comportement récurrent
 - context : situation actuelle du foyer (déménagement, travaux, événement)
-- tension : surcharge, stress, déséquilibre
+- tension : surcharge, stress, déséquilibre (transitoire)
 - milestone : événement marquant (nouveau job, naissance, rentrée scolaire)
 
 Retourne UNIQUEMENT ce JSON (sans markdown) :
@@ -116,12 +123,13 @@ Retourne UNIQUEMENT ce JSON (sans markdown) :
       "content": "Phrase courte et factuelle en français (max 100 chars)",
       "confidence": 0.7,
       "about_user_id": "uuid-du-membre-si-applicable-sinon-null",
-      "about_phantom_id": "uuid-du-fantôme-si-applicable-sinon-null"
+      "about_phantom_id": "uuid-du-fantôme-si-applicable-sinon-null",
+      "replaces": false
     }
   ]
 }
 
-Si aucun fait nouveau mérite d'être mémorisé → retourne { "facts": [] }`;
+Si aucun fait VRAIMENT nouveau → retourne { "facts": [] }`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -152,6 +160,7 @@ Si aucun fait nouveau mérite d'être mémorisé → retourne { "facts": [] }`;
       confidence: number;
       about_user_id: string | null;
       about_phantom_id: string | null;
+      replaces?: boolean;
     }> };
 
     try {
@@ -166,12 +175,58 @@ Si aucun fait nouveau mérite d'être mémorisé → retourne { "facts": [] }`;
     const facts = parsed.facts ?? [];
     if (facts.length === 0) return NextResponse.json({ ok: true, inserted: 0 });
 
+    // ── Déduplication par overlap de mots ───────────────────────────────────
+    // Évite les insertions si un fait très similaire existe déjà
+    function wordOverlap(a: string, b: string): number {
+      const words = (s: string) => new Set(
+        s.toLowerCase().split(/[\s,.''-]+/).filter((w) => w.length > 3)
+      );
+      const wa = words(a);
+      const wb = words(b);
+      if (wa.size === 0 || wb.size === 0) return 0;
+      let common = 0;
+      for (const w of wa) { if (wb.has(w)) common++; }
+      return common / Math.min(wa.size, wb.size);
+    }
+
+    const existingList = existingFacts ?? [];
+    // Types transitoires : on désactive l'ancien si le nouveau "remplace"
+    const TRANSIENT_TYPES = ['tension', 'context'];
+
     // Valider et insérer les faits
     const validTypes = ['preference', 'pattern', 'context', 'tension', 'milestone'];
-    const toInsert = facts
-      .filter((f) => validTypes.includes(f.fact_type) && f.content?.length > 3)
-      .slice(0, 3)
-      .map((f) => ({
+    const toInsert: Array<{
+      household_id: string;
+      about_user_id: string | null;
+      about_phantom_id: string | null;
+      fact_type: string;
+      content: string;
+      confidence: number;
+      source_journal_id: string | null;
+      is_active: boolean;
+    }> = [];
+
+    for (const f of facts) {
+      if (!validTypes.includes(f.fact_type) || !f.content || f.content.length <= 3) continue;
+
+      // Cherche un fait existant du même type très similaire
+      const similar = existingList.find(
+        (e) => e.fact_type === f.fact_type && wordOverlap(e.content, f.content) >= 0.5
+      );
+
+      if (similar) {
+        // Désactiver l'ancien fait pour les types transitoires si replaces = true
+        if (TRANSIENT_TYPES.includes(f.fact_type) && (f as { replaces?: boolean }).replaces && similar.id) {
+          await admin.from('agent_memory_facts').update({ is_active: false }).eq('id', similar.id);
+          console.log(`[extract-memory] Désactivation ancien fait transitoire: "${similar.content}"`);
+        } else {
+          console.log(`[extract-memory] Doublon ignoré: "${f.content}" ≈ "${similar.content}"`);
+          continue;
+        }
+      }
+
+      if (toInsert.length >= 3) break;
+      toInsert.push({
         household_id: householdId,
         about_user_id: f.about_user_id ?? null,
         about_phantom_id: f.about_phantom_id ?? null,
@@ -180,7 +235,8 @@ Si aucun fait nouveau mérite d'être mémorisé → retourne { "facts": [] }`;
         confidence: Math.min(1, Math.max(0, f.confidence ?? 0.8)),
         source_journal_id: journalId ?? null,
         is_active: true,
-      }));
+      });
+    }
 
     if (toInsert.length > 0) {
       const { error } = await admin.from('agent_memory_facts').insert(toInsert);
