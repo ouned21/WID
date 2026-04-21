@@ -69,17 +69,19 @@ const EMPTY_FORM: MemberFormData = {
   notes: '',
 };
 
-const LIFE_EVENTS_OPTIONS = [
-  'Déménagement',
-  'Nouveau job',
-  'Maladie',
-  'Deuil',
-  'Nouveau bébé',
-  'Séparation / divorce',
-  'Travaux à la maison',
-  'Période d\'exams',
-  'Vacances bientôt',
-];
+// ── Faits mémoire Yova (Ce qu'on traverse) ────────────────────────────────
+
+type MemoryFact = {
+  id: string;
+  fact_type: string;
+  content: string;
+};
+
+const FACT_TYPE_CONFIG: Record<string, { emoji: string; label: string; bg: string; color: string }> = {
+  context:   { emoji: '📍', label: 'Situation', bg: '#f0f7ff', color: '#007aff' },
+  tension:   { emoji: '⚡', label: 'Charge',    bg: '#fff8ec', color: '#ff9500' },
+  milestone: { emoji: '🌟', label: 'Événement', bg: '#f5f0ff', color: '#af52de' },
+};
 
 const ENERGY_LABELS: Record<string, string> = {
   low: '🔴 Très chargé',
@@ -145,9 +147,35 @@ export default function FamilyPage() {
   const [formData, setFormData] = useState<MemberFormData>(EMPTY_FORM);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
+  // Faits mémoire Yova (Ce qu'on traverse)
+  const [memoryFacts, setMemoryFacts] = useState<MemoryFact[]>([]);
+
   // Observations Yova
   const [observations, setObservations] = useState<Observation[]>([]);
   const [obsLoading, setObsLoading] = useState(false);
+
+  // ── Chargement faits mémoire ──
+  const loadMemoryFacts = useCallback(async (householdId: string) => {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('agent_memory_facts')
+      .select('id, fact_type, content')
+      .eq('household_id', householdId)
+      .eq('is_active', true)
+      .in('fact_type', ['context', 'tension', 'milestone'])
+      .order('created_at', { ascending: false })
+      .limit(12);
+    setMemoryFacts((data as MemoryFact[]) ?? []);
+  }, []);
+
+  const handleDismissFact = async (factId: string) => {
+    setMemoryFacts((prev) => prev.filter((f) => f.id !== factId));
+    const supabase = createClient();
+    await supabase
+      .from('agent_memory_facts')
+      .update({ is_active: false })
+      .eq('id', factId);
+  };
 
   // ── Observations : chargement + déclenchement détection ──
   const loadObservations = useCallback(async (householdId: string) => {
@@ -187,8 +215,9 @@ export default function FamilyPage() {
     if (profile?.household_id) {
       fetchFamily(profile.household_id);
       loadObservations(profile.household_id);
+      loadMemoryFacts(profile.household_id);
     }
-  }, [profile?.household_id, fetchFamily, loadObservations]);
+  }, [profile?.household_id, fetchFamily, loadObservations, loadMemoryFacts]);
 
   // ── Helpers formulaire ──
   const openAddForm = () => {
@@ -244,14 +273,6 @@ export default function FamilyPage() {
   const handleDeleteMember = async (id: string) => {
     const result = await removeMember(id);
     if (result.ok) setConfirmDeleteId(null);
-  };
-
-  const toggleLifeEvent = async (event: string) => {
-    const current = householdProfile?.current_life_events ?? [];
-    const next = current.includes(event)
-      ? current.filter((e) => e !== event)
-      : [...current, event];
-    await updateHouseholdProfile({ current_life_events: next });
   };
 
   // ── Adults (profils réels) ──
@@ -345,30 +366,45 @@ export default function FamilyPage() {
         </div>
       </div>
 
-      {/* ── Événements de vie ── */}
+      {/* ── Ce qu'on traverse (mémoire Yova) ── */}
       <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.08)' }}>
         <div className="px-4 py-3 border-b border-[#f2f2f7]">
-          <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide">Ce qu&apos;on traverse</p>
-          <p className="text-[12px] text-[#8e8e93] mt-0.5">Yova en tient compte pour adapter ses suggestions.</p>
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}>Y</div>
+            <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide">Ce qu&apos;on traverse</p>
+          </div>
+          <p className="text-[12px] text-[#8e8e93] mt-0.5 ml-7">Ce que Yova a retenu de vos conversations.</p>
         </div>
-        <div className="px-4 py-3 flex flex-wrap gap-2">
-          {LIFE_EVENTS_OPTIONS.map((event) => {
-            const selected = householdProfile?.current_life_events?.includes(event) ?? false;
-            return (
-              <button
-                key={event}
-                onClick={() => toggleLifeEvent(event)}
-                disabled={saving}
-                className="px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors"
-                style={{
-                  background: selected ? '#007aff' : '#f2f2f7',
-                  color: selected ? 'white' : '#1c1c1e',
-                }}
-              >
-                {event}
-              </button>
-            );
-          })}
+        <div className="px-4 py-3">
+          {memoryFacts.length === 0 ? (
+            <p className="text-[14px] text-[#c7c7cc] text-center py-2">
+              Yova n&apos;a encore rien noté — parle-lui au journal 💬
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {memoryFacts.map((fact) => {
+                const cfg = FACT_TYPE_CONFIG[fact.fact_type] ?? { emoji: '💡', label: '', bg: '#f2f2f7', color: '#8e8e93' };
+                return (
+                  <div
+                    key={fact.id}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium"
+                    style={{ background: cfg.bg, color: cfg.color }}
+                  >
+                    <span>{cfg.emoji}</span>
+                    <span>{fact.content}</span>
+                    <button
+                      onClick={() => handleDismissFact(fact.id)}
+                      className="ml-1 opacity-50 hover:opacity-100 transition-opacity leading-none"
+                      aria-label="Effacer"
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
