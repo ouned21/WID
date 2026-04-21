@@ -376,11 +376,11 @@ ${sanitizedText}
 4. Dans "unmatched", mets uniquement les choses vraiment sans lien avec le foyer (loisirs, culture, sorties). Les émotions et frustrations liées aux tâches du foyer ("je déteste faire X", "c'est toujours moi qui...") sont précieuses — accueille-les chaleureusement dans ai_response, NE les mets PAS dans unmatched.
 5. **Attribution stricte** :
    - "j'ai fait X" → completed_by = UUID de ${userName}
-   - "[Prénom] a fait X" → completed_by = UUID de ce membre
-   - "on a [Prénom] fait X" ou "on a, [Prénom] a fait X" → le sujet réel est [Prénom] → completed_by = UUID de ce membre (PAS de ${userName})
+   - "[Prénom] a fait X" → completed_by = UUID de ce membre (cherche le UUID dans la liste ## Membres)
+   - "on a [Prénom] fait X" ou "[Prénom] a un peu fait X" → le sujet réel est [Prénom] → completed_by = UUID de ce membre
    - "on a fait X ensemble" → UNE entrée par personne (même task_id)
    - Personne inconnue → completed_by = null
-   - ⚠️ JAMAIS attribuer à ${userName} une action dont le sujet explicite est quelqu'un d'autre.
+   - ⚠️ RÈGLE ABSOLUE : si le sujet grammatical de l'action est un autre membre (ex: "Barbara a cuisiné", "on a Barbara cuisiné"), completed_by = UUID de ce membre. JAMAIS completed_by = UUID de ${userName} dans ce cas. Si tu ne trouves pas l'UUID → completed_by = null, mais JAMAIS l'UUID de ${userName} par défaut.
 6. **Tâches futures → EXCLURE de auto_create** :
    - auto_create = UNIQUEMENT des actions accomplies aujourd'hui ou hier.
    - "on va faire X", "je vais faire X", "demain on range", "il faudra X", "c'est prévu" → NE PAS mettre dans auto_create. Yova les mentionne uniquement dans ai_response ("j'ai noté que demain c'est rangement").
