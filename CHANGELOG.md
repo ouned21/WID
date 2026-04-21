@@ -6,6 +6,24 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-21f] — Sprint 9 : Portrait narratif Yova
+
+### Ajouté
+- `supabase/migrations/20260421_sprint9_narrative.sql` — colonnes `yova_narrative` + `yova_narrative_updated_at` sur `households`
+- `app/api/ai/update-narrative/route.ts` — Haiku maintient un portrait vivant du foyer (3-6 phrases, réécrit après chaque journal)
+
+### Modifié
+- `app/api/ai/parse-journal/route.ts` — injection du portrait narratif dans le contexte Yova (priorité sur les faits plats)
+- `app/api/ai/parse-journal/route.ts` — fire-and-forget vers `update-narrative` après chaque journal réussi
+- `app/api/ai/parse-journal/route.ts` — fix : tâches dans parenthèses détectées ("j'avais X à faire (dont le pliage)")
+- `app/api/ai/parse-journal/route.ts` — fix : inférences limitées aux actions, pas au contexte situationnel
+
+### Pilier spec
+- Pilier 1 — Connaissance intime du foyer (portrait narratif vivant)
+- Validé sur device réel Jonathan — 2026-04-21
+
+---
+
 ## [2026-04-21e] — Sprint 8 : Sonnet 4.6 + Qualité réponse Yova
 
 ### Modifié
