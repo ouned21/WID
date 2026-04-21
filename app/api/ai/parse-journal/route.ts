@@ -362,7 +362,7 @@ ${sanitizedText}
    - Chaque tâche dans project.tasks est UNIQUE (une seule fois, frequency='once').
    - Ne crée PAS de tâches hors scope même sous prétexte de projet.
 
-2. Pour chaque action passée ("j'ai fait X") → matche une tâche existante (sémantique, pas juste mots-clés).
+2. Pour chaque action passée ("j'ai fait X") → matche une tâche existante UNIQUEMENT si c'est le même geste concret. Exemples de NON-MATCH : "plier le linge" ≠ "lancer une lessive" (même catégorie, gestes différents), "essuyer les vitres" ≠ "passer l'aspirateur" (même catégorie, gestes différents). En cas de doute → auto_create, jamais un faux match.
 3. Si une action ne correspond à AUCUNE tâche existante ET que c'est une vraie tâche récurrente → "auto_create".
 4. Dans "unmatched", mets uniquement les choses vraiment sans lien avec le foyer (loisirs, culture, sorties). Les émotions et frustrations liées aux tâches du foyer ("je déteste faire X", "c'est toujours moi qui...") sont précieuses — accueille-les chaleureusement dans ai_response, NE les mets PAS dans unmatched.
 5. **Attribution stricte** :
