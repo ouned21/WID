@@ -27,6 +27,7 @@ type ParseResponse = {
   clarification_question?: string;
   completions: ParsedCompletion[];
   auto_created?: AutoCreatedTask[];
+  project_created?: { type: string; name: string; reference_date: string; taskCount: number } | null;
   unmatched: string[];
   ai_response: string;
   mood_tone: string | null;
@@ -133,34 +134,62 @@ function TypingBubble() {
 }
 
 function ResultCard({ data }: { data: ParseResponse }) {
-  const allTasks = [
+  const regularTasks = [
     ...(data.completions ?? []).map((c) => ({ name: c.task_name, isNew: false })),
     ...(data.auto_created ?? []).map((t) => ({ name: t.name, isNew: true })),
   ];
-  if (allTasks.length === 0) return null;
+  const project = data.project_created ?? null;
+  if (regularTasks.length === 0 && !project) return null;
 
   return (
     <div className="mb-3 ml-10">
       <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-        <div className="px-4 pt-3 pb-1.5">
-          <p className="text-[11px] font-bold text-[#34c759] uppercase tracking-wide">✓ Fait aujourd&apos;hui</p>
-        </div>
-        {allTasks.map((t, i) => (
+
+        {/* Tâches normales (complétées aujourd'hui) */}
+        {regularTasks.length > 0 && (
+          <>
+            <div className="px-4 pt-3 pb-1.5">
+              <p className="text-[11px] font-bold text-[#34c759] uppercase tracking-wide">✓ Fait aujourd&apos;hui</p>
+            </div>
+            {regularTasks.map((t, i) => (
+              <div
+                key={i}
+                className="px-4 py-2.5 flex items-center gap-2.5"
+                style={{ borderTop: '0.5px solid #f2f2f7' }}
+              >
+                <span className="text-[14px]">{t.isNew ? '✨' : '✅'}</span>
+                <span className="flex-1 text-[13px] text-[#1c1c1e] font-medium">{t.name}</span>
+                {t.isNew && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                    style={{ background: '#EEF4FF', color: '#007aff' }}>Nouveau</span>
+                )}
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Tâches de projet créées */}
+        {project && (
           <div
-            key={i}
-            className="px-4 py-2.5 flex items-center gap-2.5"
-            style={{ borderTop: '0.5px solid #f2f2f7' }}
+            className="px-4 py-3 flex items-center gap-3"
+            style={regularTasks.length > 0 ? { borderTop: '0.5px solid #f2f2f7' } : {}}
           >
-            <span className="text-[14px]">{t.isNew ? '✨' : '✅'}</span>
-            <span className="flex-1 text-[13px] text-[#1c1c1e] font-medium">{t.name}</span>
-            {t.isNew && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                style={{ background: '#EEF4FF', color: '#007aff' }}>Nouveau</span>
-            )}
+            <span className="text-[22px]">📋</span>
+            <div className="flex-1">
+              <p className="text-[13px] font-semibold text-[#1c1c1e]">{project.name}</p>
+              <p className="text-[11px] text-[#8e8e93] mt-0.5">
+                {project.taskCount} tâche{project.taskCount > 1 ? 's' : ''} planifiée{project.taskCount > 1 ? 's' : ''} · échéance {new Date(project.reference_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+              style={{ background: '#EEF4FF', color: '#007aff' }}>Planning</span>
           </div>
-        ))}
+        )}
+
         <div className="px-4 py-2" style={{ borderTop: '0.5px solid #f2f2f7' }}>
-          <p className="text-[11px] text-[#8e8e93]">Compté dans ton score de la semaine.</p>
+          <p className="text-[11px] text-[#8e8e93]">
+            {project ? 'Visible dans ton planning.' : 'Compté dans ton score de la semaine.'}
+          </p>
         </div>
       </div>
     </div>
@@ -357,7 +386,7 @@ export default function JournalPage() {
       setMessages((prev) => [
         ...prev,
         { id: uid(), type: 'yova', content: data.ai_response, moodTone: data.mood_tone },
-        ...(((data.completions?.length ?? 0) > 0 || (data.auto_created?.length ?? 0) > 0)
+        ...((data.completions?.length ?? 0) > 0 || (data.auto_created?.length ?? 0) > 0 || data.project_created
           ? [{ id: uid(), type: 'result' as const, data }]
           : []),
       ]);
