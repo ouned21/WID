@@ -328,6 +328,10 @@ export default function OnboardingPage() {
     setFamily((prev) => prev.map((m) => (m.id === id ? { ...m, [field]: value } : m)));
   }, []);
 
+  const toggleFamilyMemberExpanded = useCallback((id: string) => {
+    setFamily((prev) => prev.map((m) => (m.id === id ? { ...m, expanded: !m.expanded } : m)));
+  }, []);
+
   const removeFamilyMember = useCallback((id: string) => {
     setFamily((prev) => prev.filter((m) => m.id !== id));
   }, []);
@@ -675,25 +679,24 @@ export default function OnboardingPage() {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {/* Toggle détails */}
-                      {!isPet && (
-                        <button
-                          onClick={() => updateFamilyMember(m.id, 'expanded', String(!isExpanded))}
-                          className="text-[11px] font-semibold px-2 py-1 rounded-lg transition-colors"
-                          style={{ background: isExpanded ? '#e8f4ff' : '#f2f2f7', color: isExpanded ? '#007aff' : '#8e8e93' }}
-                        >
-                          {isExpanded ? 'Moins' : '+ Détails'}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => removeFamilyMember(m.id)}
-                        className="text-[13px] text-[#ff3b30] font-medium"
-                      >
-                        Retirer
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => removeFamilyMember(m.id)}
+                      className="text-[13px] text-[#ff3b30] font-medium flex-shrink-0"
+                    >
+                      Retirer
+                    </button>
                   </div>
+
+                  {/* Toggle détails — sous la ligne principale */}
+                  {!isPet && (
+                    <button
+                      onClick={() => toggleFamilyMemberExpanded(m.id)}
+                      className="w-full text-center text-[12px] font-semibold py-1.5 border-t border-[#f0f2f8] transition-colors"
+                      style={{ color: isExpanded ? '#007aff' : '#8e8e93' }}
+                    >
+                      {isExpanded ? '▲ Moins de détails' : '▼ Ajouter des détails pour Yova'}
+                    </button>
+                  )}
 
                   {/* Détails optionnels (collapsible) */}
                   {!isPet && isExpanded && (
