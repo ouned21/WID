@@ -158,7 +158,7 @@ export default function JournalPage() {
     if (profile?.household_id) fetchMemory(profile.household_id);
   }, [profile?.household_id, fetchMemory]);
 
-  // Charger l'historique
+  // Charger l'historique — délai après un résultat pour laisser la DB commiter
   useEffect(() => {
     async function loadHistory() {
       if (!profile?.id) return;
@@ -171,7 +171,13 @@ export default function JournalPage() {
         .limit(20);
       setHistory((data ?? []) as PastJournal[]);
     }
-    loadHistory();
+    if (result) {
+      // Attendre que la DB commite avant de recharger l'historique
+      const t = setTimeout(loadHistory, 1200);
+      return () => clearTimeout(t);
+    } else {
+      loadHistory();
+    }
   }, [profile?.id, result]);
 
   const send = async () => {
@@ -196,15 +202,25 @@ export default function JournalPage() {
       if (profile?.household_id) {
         await fetchTasks(profile.household_id);
         // Extraction mémoire en arrière-plan — ne bloque pas l'UX
+        const capturedText = text.trim();
+        const capturedHouseholdId = profile.household_id;
         fetch('/api/ai/extract-memory', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             journalId: data.journalId,
-            text: text.trim(),
-            householdId: profile.household_id,
+            text: capturedText,
+            householdId: capturedHouseholdId,
           }),
-        }).then(() => fetchMemory(profile.household_id!)).catch(() => {});
+        })
+          .then((r) => r.json())
+          .then((memRes) => {
+            // Recharger la mémoire après un délai pour laisser la DB commiter
+            if (memRes?.ok) {
+              setTimeout(() => fetchMemory(capturedHouseholdId), 800);
+            }
+          })
+          .catch(() => {});
       }
     } catch (err) {
       setResult({ completions: [], unmatched: [], ai_response: 'Erreur réseau. Réessaye.', mood_tone: null, error: String(err) });
@@ -466,7 +482,7 @@ export default function JournalPage() {
             <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
               <div className="px-5 pt-4 pb-2">
                 <p className="text-[11px] font-bold text-[#34c759] uppercase tracking-wide">
-                  ✓ J&apos;ai noté
+                  ✓ Fait aujourd&apos;hui
                 </p>
               </div>
 
@@ -505,19 +521,7 @@ export default function JournalPage() {
             </div>
           )}
 
-          {/* Items non-tâches */}
-          {result.unmatched.length > 0 && (
-            <div className="rounded-2xl bg-white px-5 py-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-              <p className="text-[11px] font-bold text-[#ff9500] uppercase tracking-wide mb-2">
-                Hors foyer — pas enregistré
-              </p>
-              <div className="space-y-1">
-                {result.unmatched.map((u, i) => (
-                  <p key={i} className="text-[13px] text-[#8e8e93] italic">&laquo; {u} &raquo;</p>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Items non-tâches — silencieux, capturés par extract-memory */}
         </div>
       )}
 

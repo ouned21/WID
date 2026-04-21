@@ -339,16 +339,16 @@ ${sanitizedText}
 
 0. **VÉRIFIE LE SCOPE EN PREMIER.** Si tu détectes un sujet hors scope (relationnel/santé/juridique/psy/décision de vie/conseil général) → refused_scope: true, completions=[], auto_create=[], project=null, message de recadrage. NE GÉNÈRE AUCUN plan d'action, AUCUNE tâche, AUCUNE liste d'étapes. Point final.
 
-1. **Détection d'un projet logistique** (ex: "on déménage le 15 juin", "le bébé arrive en octobre", "on se marie en août", "on part 3 semaines en Italie en juillet", "on fait des travaux en septembre") :
+1. **Détection d'un projet logistique** (ex: "on déménage", "le bébé arrive", "on se marie", "on part en vacances", "on fait des travaux") :
    - Si la date cible est mentionnée ou déductible → remplis le champ "project" avec des tâches datées (days_before = jours avant la date pivot, négatif = après).
-   - Si pas de date mentionnée → ne remplis PAS project, mais demande la date dans ai_response.
+   - Si pas de date mentionnée → crée quand même 5-8 tâches génériques avec days_before=30 par défaut. Dans ai_response, mentionne qu'une date permettrait un meilleur échelonnement — NE BLOQUE PAS sur l'absence de date, NE POSE PAS de question à laquelle l'utilisateur ne peut pas répondre immédiatement.
    - 8–20 tâches maximum par projet, concrètes et actionnables uniquement.
    - Chaque tâche dans project.tasks est UNIQUE (une seule fois, frequency='once').
-   - Ne crée PAS de tâches hors scope même sous prétexte de projet (ex: "préparer une lettre d'adieu" = non).
+   - Ne crée PAS de tâches hors scope même sous prétexte de projet.
 
 2. Pour chaque action passée ("j'ai fait X") → matche une tâche existante (sémantique, pas juste mots-clés).
 3. Si une action ne correspond à AUCUNE tâche existante ET que c'est une vraie tâche récurrente → "auto_create".
-4. Dans "unmatched", mets les choses qui ne sont PAS des tâches (émotions, loisirs, événements ponctuels sans logistique).
+4. Dans "unmatched", mets uniquement les choses vraiment sans lien avec le foyer (loisirs, culture, sorties). Les émotions et frustrations liées aux tâches du foyer ("je déteste faire X", "c'est toujours moi qui...") sont précieuses — accueille-les chaleureusement dans ai_response, NE les mets PAS dans unmatched.
 5. **Attribution stricte** :
    - "j'ai fait X" → completed_by = UUID de ${userName}
    - "[Prénom] a fait X" → completed_by = UUID de ce membre
