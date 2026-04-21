@@ -382,7 +382,7 @@ ${sanitizedText}
    - Personne inconnue → completed_by = null
    - ⚠️ JAMAIS attribuer à ${userName} une action dont le sujet explicite est quelqu'un d'autre.
 6. **Tâches futures → EXCLURE de auto_create** :
-   - `auto_create` = UNIQUEMENT des actions accomplies aujourd'hui ou hier.
+   - auto_create = UNIQUEMENT des actions accomplies aujourd'hui ou hier.
    - "on va faire X", "je vais faire X", "demain on range", "il faudra X", "c'est prévu" → NE PAS mettre dans auto_create. Yova les mentionne uniquement dans ai_response ("j'ai noté que demain c'est rangement").
    - RÈGLE ABSOLUE : si le verbe est au futur ou à l'infinitif de projet → hors de auto_create.
 7. **Noms de tâches** : verbe infinitif + objet, STRICTEMENT 3 mots maximum, AUCUN contexte.
