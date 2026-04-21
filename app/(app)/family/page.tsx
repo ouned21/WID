@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import {
@@ -8,7 +8,8 @@ import {
   ageFromDate,
   type AddMemberPayload,
 } from '@/stores/familyStore';
-import type { PhantomMember } from '@/types/database';
+import { createClient } from '@/lib/supabase';
+import type { PhantomMember, Observation } from '@/types/database';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 
@@ -86,6 +87,47 @@ const ENERGY_LABELS: Record<string, string> = {
   high: '🟢 En forme',
 };
 
+// ── Carte d'observation Yova ───────────────────────────────────────────────
+
+const OBS_CONFIG: Record<string, { icon: string; label: string; bg: string; color: string }> = {
+  cooking_drift:        { icon: '🍳', label: 'Repas',        bg: '#fff8ec', color: '#ff9500' },
+  balance_drift:        { icon: '⚖️', label: 'Répartition',  bg: '#f0f7ff', color: '#007aff' },
+  journal_silence:      { icon: '💬', label: 'Journal',      bg: '#f5f0ff', color: '#af52de' },
+  task_overdue_cluster: { icon: '⏰', label: 'Retards',      bg: '#fff2f2', color: '#ff3b30' },
+};
+
+function ObservationCard({
+  observation,
+  onAcknowledge,
+}: {
+  observation: Observation;
+  onAcknowledge: (id: string) => void;
+}) {
+  const cfg = OBS_CONFIG[observation.type] ?? { icon: '💡', label: 'Note', bg: '#f2f2f7', color: '#8e8e93' };
+  const message = (observation.payload?.message as string) ?? '';
+
+  return (
+    <div
+      className="flex items-start gap-3 px-4 py-3.5 rounded-2xl"
+      style={{ background: cfg.bg, border: `1px solid ${cfg.color}22` }}
+    >
+      <span className="text-[22px] flex-shrink-0 mt-0.5">{cfg.icon}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-semibold uppercase tracking-wide" style={{ color: cfg.color }}>{cfg.label}</p>
+        <p className="text-[15px] text-[#1c1c1e] mt-0.5 leading-snug">{message}</p>
+      </div>
+      <button
+        onClick={() => onAcknowledge(observation.id)}
+        className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl mt-0.5 transition-opacity active:opacity-60"
+        style={{ background: cfg.color, color: 'white' }}
+        aria-label="Marquer comme lu"
+      >
+        OK
+      </button>
+    </div>
+  );
+}
+
 // ── Composant principal ────────────────────────────────────────────────────
 
 export default function FamilyPage() {
@@ -108,12 +150,50 @@ export default function FamilyPage() {
   const [notesSaved, setNotesSaved] = useState(false);
   const [notesChanged, setNotesChanged] = useState(false);
 
+  // Observations Yova
+  const [observations, setObservations] = useState<Observation[]>([]);
+  const [obsLoading, setObsLoading] = useState(false);
+
+  // ── Observations : chargement + déclenchement détection ──
+  const loadObservations = useCallback(async (householdId: string) => {
+    setObsLoading(true);
+    try {
+      // 1. Lance la détection (idempotente — ne réinsère pas les doublons)
+      await fetch('/api/agent/detect-observations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ household_id: householdId }),
+      });
+      // 2. Lit les observations non-acquittées
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('observations')
+        .select('*')
+        .eq('household_id', householdId)
+        .is('user_acknowledged_at', null)
+        .order('detected_at', { ascending: false });
+      setObservations((data as Observation[]) ?? []);
+    } finally {
+      setObsLoading(false);
+    }
+  }, []);
+
+  const handleAcknowledge = async (obsId: string) => {
+    setObservations((prev) => prev.filter((o) => o.id !== obsId));
+    const supabase = createClient();
+    await supabase
+      .from('observations')
+      .update({ user_acknowledged_at: new Date().toISOString() })
+      .eq('id', obsId);
+  };
+
   // ── Init ──
   useEffect(() => {
     if (profile?.household_id) {
       fetchFamily(profile.household_id);
+      loadObservations(profile.household_id);
     }
-  }, [profile?.household_id, fetchFamily]);
+  }, [profile?.household_id, fetchFamily, loadObservations]);
 
   useEffect(() => {
     if (householdProfile?.notes) {
@@ -390,6 +470,34 @@ export default function FamilyPage() {
           />
         </div>
       </div>
+
+      {/* ── Ce que Yova a remarqué ⭐ ── */}
+      {(obsLoading || observations.length > 0) && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold text-white flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}>Y</div>
+            <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Ce que Yova a remarqué</h2>
+          </div>
+
+          {obsLoading && observations.length === 0 ? (
+            <div className="rounded-2xl bg-white px-4 py-4 flex items-center gap-3" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.08)' }}>
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#e5e5ea] border-t-[#007aff] flex-shrink-0" />
+              <p className="text-[14px] text-[#8e8e93]">Yova analyse votre foyer…</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {observations.map((obs) => (
+                <ObservationCard
+                  key={obs.id}
+                  observation={obs}
+                  onAcknowledge={handleAcknowledge}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {error && (
         <div className="rounded-xl px-4 py-3 text-[14px]" style={{ background: '#fff2f2', color: '#ff3b30' }}>

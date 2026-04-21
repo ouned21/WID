@@ -242,6 +242,29 @@ export type AiTokenUsage = {
   created_at: string;
 };
 
+// ── Sprint 5 ──────────────────────────────────────────────────────────────
+
+/** Observation détectée par Yova (dérive douce, alerte constructive) */
+export type ObservationType =
+  | 'cooking_drift'
+  | 'balance_drift'
+  | 'journal_silence'
+  | 'task_overdue_cluster';
+
+export type ObservationSeverity = 'info' | 'notice' | 'alert';
+
+export type Observation = {
+  id: string;
+  household_id: string;
+  type: ObservationType;
+  severity: ObservationSeverity;
+  payload: Record<string, unknown>;
+  detected_at: string;
+  user_acknowledged_at: string | null;
+  user_action_taken: string | null;
+  created_at: string;
+};
+
 /** Patterns appris sur un utilisateur */
 export type UserPatterns = {
   id: string;
