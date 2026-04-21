@@ -55,8 +55,17 @@ function AssigneeBadge({
   currentUserId: string;
   phantomMembers: PhantomMember[];
 }) {
-  // Assigné à moi → rien (implicite, c'est ma tâche)
-  if (task.assigned_to === currentUserId) return null;
+  // Assigné à moi → badge "Moi" bleu
+  if (task.assigned_to === currentUserId) {
+    return (
+      <span
+        className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+        style={{ background: '#e8f4ff', color: '#007aff' }}
+      >
+        Moi
+      </span>
+    );
+  }
 
   // Assigné à un vrai membre (pas moi)
   if (task.assignee && task.assigned_to !== currentUserId) {
