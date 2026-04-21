@@ -141,6 +141,30 @@ export default function FamilyPage() {
     addMember, updateMember, removeMember, clearError,
   } = useFamilyStore();
 
+  // Invitation
+  const [showInviteSheet, setShowInviteSheet] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
+  const [inviteLink, setInviteLink] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const handleShowInvite = () => {
+    if (!inviteCode) return;
+    const base = typeof window !== 'undefined' ? window.location.origin : 'https://wid-eight.vercel.app';
+    setInviteLink(`${base}/join?code=${inviteCode}`);
+    setShowInviteSheet(true);
+    setCopied(false);
+  };
+
+  const handleCopyInvite = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // Fallback : sélectionner le texte
+    }
+  };
+
   // Formulaire membre
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
@@ -216,6 +240,14 @@ export default function FamilyPage() {
       fetchFamily(profile.household_id);
       loadObservations(profile.household_id);
       loadMemoryFacts(profile.household_id);
+      // Charger le code d'invitation depuis la table households
+      const supabase = createClient();
+      supabase
+        .from('households')
+        .select('invite_code')
+        .eq('id', profile.household_id)
+        .single()
+        .then(({ data }) => { if (data?.invite_code) setInviteCode(data.invite_code); });
     }
   }, [profile?.household_id, fetchFamily, loadObservations, loadMemoryFacts]);
 
@@ -462,6 +494,23 @@ export default function FamilyPage() {
         </section>
       )}
 
+      {/* ── Inviter un partenaire ── */}
+      {inviteCode && (
+        <button
+          onClick={handleShowInvite}
+          className="w-full rounded-2xl px-4 py-4 text-left flex items-center gap-3"
+          style={{ background: '#f0f7ff', border: '1.5px dashed #007aff' }}
+        >
+          <div className="w-10 h-10 rounded-full flex items-center justify-center text-[20px] flex-shrink-0" style={{ background: 'white' }}>
+            🔗
+          </div>
+          <div>
+            <p className="text-[16px] font-semibold text-[#007aff]">Inviter mon partenaire</p>
+            <p className="text-[13px] text-[#007aff] opacity-70 mt-0.5">Partager un lien pour qu&apos;il ou elle rejoigne le foyer</p>
+          </div>
+        </button>
+      )}
+
       {/* ── Ce que Yova a remarqué ⭐ ── */}
       {(obsLoading || observations.length > 0) && (
         <section>
@@ -507,6 +556,45 @@ export default function FamilyPage() {
           onSave={handleSaveMember}
           onClose={closeForm}
         />
+      )}
+
+      {/* ── Sheet invitation ── */}
+      {showInviteSheet && (
+        <div className="fixed inset-0 bg-black/40 flex items-end z-50" onClick={() => setShowInviteSheet(false)}>
+          <div
+            className="w-full bg-white rounded-t-3xl px-4 pt-5 pb-10 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center">
+              <div className="w-10 h-1 rounded-full bg-[#d1d1d6]" />
+            </div>
+            <div className="text-center">
+              <p className="text-[20px] font-bold text-[#1c1c1e]">Inviter votre partenaire</p>
+              <p className="text-[14px] text-[#8e8e93] mt-1">
+                Partagez ce lien — il suffit de l&apos;ouvrir pour rejoindre le foyer.
+              </p>
+            </div>
+            <div
+              className="rounded-xl px-4 py-3 flex items-center gap-2 break-all"
+              style={{ background: '#f2f2f7' }}
+            >
+              <span className="text-[13px] text-[#1c1c1e] flex-1 font-mono leading-relaxed">{inviteLink}</span>
+            </div>
+            <button
+              onClick={handleCopyInvite}
+              className="w-full py-3.5 rounded-xl text-[17px] font-semibold text-white transition-colors"
+              style={{ background: copied ? '#34c759' : '#007aff' }}
+            >
+              {copied ? '✓ Lien copié !' : 'Copier le lien'}
+            </button>
+            <button
+              onClick={() => setShowInviteSheet(false)}
+              className="w-full py-3.5 rounded-xl text-[17px] font-medium text-[#1c1c1e] bg-[#f2f2f7]"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ── Confirm suppression ── */}
