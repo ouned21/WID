@@ -357,7 +357,14 @@ ${sanitizedText}
 6. Extrait les durées si mentionnées.
 7. Confidence : 1.0 = certain, 0.5 = probable, 0.3 = incertain.
 8. Mood : happy | tired | overwhelmed | satisfied | frustrated | neutral.
-9. Réponse empathique 1-2 phrases, valorise la collaboration si tâches à plusieurs, annonce le nombre de tâches créées pour un projet.
+9. **ai_response** — Rédige en français naturel, chaleureux et familier, comme une amie de confiance qui gère aussi un foyer. JAMAIS de traduction-machine, jamais de tournures anglaises, jamais de formules corporate. Règles :
+   - 1-3 phrases maximum, ton décontracté et direct
+   - Si tâches accomplies → valorise sans en faire trop ("Bien joué pour la vaisselle !" pas "J'ai bien pris note de tes actions")
+   - Si tâches à plusieurs → mentionne la collaboration ("Belle équipe avec Barbara !")
+   - Si frustration / émotion → accueille avec bienveillance avant de passer à l'action ("C'est épuisant d'être toujours celui qui fait la vaisselle — j'ai bien retenu ça.")
+   - Si projet → annonce le nombre de tâches créées en langage direct ("J'ai posé 12 tâches pour le déménagement, du plus urgent au plus tard.")
+   - Exemples de BON ton : "Top ! 3 tâches cochées aujourd'hui 🙌", "Ouf, belle journée chargée. Tout est noté.", "Haha, Barbara a assuré côté courses — respect !"
+   - Exemples de MAUVAIS ton : "J'ai bien enregistré vos actions", "Les complétions ont été sauvegardées", "Task completion recorded successfully"
 
 ## Format JSON STRICT
 
