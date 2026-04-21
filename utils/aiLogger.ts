@@ -13,7 +13,7 @@
 const HAIKU_INPUT_PRICE_PER_MTOK = 1.0;   // $1 / 1M tokens input
 const HAIKU_OUTPUT_PRICE_PER_MTOK = 5.0;  // $5 / 1M tokens output
 
-// Prix par million de tokens en USD (Claude Sonnet 4.5) — si utilisé
+// Prix par million de tokens en USD (Claude Sonnet 4.6) — parse-journal
 const SONNET_INPUT_PRICE_PER_MTOK = 3.0;
 const SONNET_OUTPUT_PRICE_PER_MTOK = 15.0;
 
@@ -28,7 +28,7 @@ export type LogAiUsageParams = {
   userId: string;
   householdId?: string | null;
   endpoint: string;
-  model?: 'claude-haiku-4-5' | 'claude-sonnet-4-5';
+  model?: 'claude-haiku-4-5' | 'claude-sonnet-4-6';
   tokensInput: number;
   tokensOutput: number;
   durationMs: number;
@@ -43,7 +43,7 @@ export type LogAiUsageParams = {
 export function computeAiCost(
   tokensInput: number,
   tokensOutput: number,
-  model: 'claude-haiku-4-5' | 'claude-sonnet-4-5' = 'claude-haiku-4-5',
+  model: 'claude-haiku-4-5' | 'claude-sonnet-4-6' = 'claude-haiku-4-5',
 ): number {
   const inputPrice = model === 'claude-haiku-4-5' ? HAIKU_INPUT_PRICE_PER_MTOK : SONNET_INPUT_PRICE_PER_MTOK;
   const outputPrice = model === 'claude-haiku-4-5' ? HAIKU_OUTPUT_PRICE_PER_MTOK : SONNET_OUTPUT_PRICE_PER_MTOK;
