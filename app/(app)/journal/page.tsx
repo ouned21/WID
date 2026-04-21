@@ -231,10 +231,17 @@ export default function JournalPage() {
       return;
     }
     // Demande explicite de permission micro avant de démarrer
+    // On libère le stream immédiatement après — SpeechRecognition a besoin du micro libre
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      setSpeechError('Micro refusé — autorise l\'accès dans les paramètres du navigateur.');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+    } catch (err) {
+      const name = err instanceof Error ? err.name : String(err);
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        setSpeechError('Micro refusé — autorise l\'accès dans les paramètres du navigateur.');
+      } else {
+        setSpeechError(`Micro inaccessible (${name}) — vérifie qu'il est branché.`);
+      }
       return;
     }
     const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition;
