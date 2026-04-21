@@ -385,9 +385,11 @@ ${sanitizedText}
    - "j'ai fait X", "j'ai géré X", "hier j'ai..." → tâche accomplie → log avec completed_by
    - "on va faire X", "je vais faire X", "il faudra X", "c'est pour demain" → tâche planifiée → auto_create SANS complétion (completed_by = null, note = "à faire")
    - Ne log jamais une action au futur comme une action déjà faite.
-7. **Noms de tâches auto-créées** : court, naturel, infinitif, 2-4 mots max.
-   - BON : "Ranger l'appartement", "Préparer le dîner", "Faire les courses"
-   - MAUVAIS : "Préparer le rangement avant passage femme de ménage", "Effectuer le nettoyage complet du logement"
+7. **Noms de tâches auto-créées** : MAXIMUM 4 mots, infinitif, jamais de contexte.
+   - ✅ "Ranger l'appartement" — ✅ "Préparer le dîner" — ✅ "Faire les courses"
+   - ❌ "Préparer le rangement avant passage femme de ménage" (trop long, contexte inclus)
+   - ❌ "Effectuer le nettoyage complet" (trop formel)
+   - Le contexte ("avant la femme de ménage", "pour les enfants"…) va dans le champ "note", PAS dans le nom.
 9. Extrait les durées si mentionnées.
 10. Confidence : 1.0 = certain, 0.5 = probable, 0.3 = incertain.
 11. Mood : happy | tired | overwhelmed | satisfied | frustrated | neutral.
@@ -646,8 +648,9 @@ Réponds UNIQUEMENT avec ce JSON.`;
       const alreadyExists = tasks.some(t => isSimilarTask(t.name, item.name));
       if (alreadyExists) {
         // Retrouver la tâche existante et créer la complétion dessus
+        // Seulement si la tâche est accomplie aujourd'hui (completed_by != null)
         const existingTask = tasks.find(t => isSimilarTask(t.name, item.name));
-        if (existingTask) {
+        if (existingTask && item.completed_by !== null) {
           await admin.from('task_completions').insert({
             task_id: existingTask.id, household_id: householdId,
             completed_by: item.completed_by ?? user.id,
@@ -697,18 +700,21 @@ Réponds UNIQUEMENT avec ce JSON.`;
 
       if (!newTask?.id) continue;
 
-      // Créer la complétion immédiatement
-      await admin.from('task_completions').insert({
-        task_id: newTask.id, household_id: householdId,
-        completed_by: item.completed_by ?? user.id,
-        completed_by_phantom_id: item.completed_by_phantom_id ?? null,
-        completed_at: new Date().toISOString(),
-        duration_minutes: item.duration_minutes, note: item.note,
-        completion_method: 'journal', source_text: text,
-        confidence: 0.95, journal_id: journalRow?.id ?? null,
-      });
-
-      autoCreated.push({ name: item.name, task_id: newTask.id });
+      // Créer la complétion uniquement si la tâche est accomplie aujourd'hui
+      // completed_by = null → tâche planifiée pour le futur, pas de complétion immédiate
+      if (item.completed_by !== null) {
+        await admin.from('task_completions').insert({
+          task_id: newTask.id, household_id: householdId,
+          completed_by: item.completed_by ?? user.id,
+          completed_by_phantom_id: item.completed_by_phantom_id ?? null,
+          completed_at: new Date().toISOString(),
+          duration_minutes: item.duration_minutes, note: item.note,
+          completion_method: 'journal', source_text: text,
+          confidence: 0.95, journal_id: journalRow?.id ?? null,
+        });
+        autoCreated.push({ name: item.name, task_id: newTask.id });
+      }
+      // Si completed_by = null : tâche créée pour le futur, sans complétion (n'apparaît pas dans "Fait aujourd'hui")
     }
 
     // ─── Projet logistique : créer les tâches datées ─────────────────────
