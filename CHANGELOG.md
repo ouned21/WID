@@ -6,6 +6,27 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-21b] — Sprint 5 : Détection de dérives + « Ce que Yova a remarqué »
+
+### Ajouté
+- `supabase/migrations/20260421_sprint5_observations.sql` — table `observations` (type, severity, payload, acknowledged_at) + RLS
+- `types/database.ts` — types `Observation`, `ObservationType`, `ObservationSeverity`
+- `app/api/agent/detect-observations/route.ts` — API POST détection 4 patterns : `cooking_drift`, `balance_drift`, `journal_silence`, `task_overdue_cluster`
+- `app/(app)/family/page.tsx` — section « Ce que Yova a remarqué » avec cards colorées par sévérité + bouton acquittement
+
+### Modifié
+- `app/(app)/today/page.tsx` — suppression balance bar et métriques (❌ hors spec SPEC_V1_YOVA.md), page allégée conforme
+- `CLAUDE.md` — @-références auto-chargées vers SPEC_V1_YOVA.md et PROCESS_DEV.md (prévention dérive contexte)
+
+### Archivé
+- `feat/fairshare-poc` — branche archive du code balance/équité (réutilisable pour app FairShare future)
+
+### Pilier spec
+- Pilier 2 — Détection de dérives (Roadmap Mois 4)
+- Validé sur device réel Jonathan — 2026-04-21
+
+---
+
 ## [2026-04-21] — Pivot produit V1 « Le 3e adulte du foyer »
 
 ### Ajouté
