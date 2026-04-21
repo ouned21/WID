@@ -750,6 +750,22 @@ Réponds UNIQUEMENT avec ce JSON.`;
       },
     });
 
+    // ─── Extraction mémoire — fire-and-forget (ne bloque pas la réponse) ──
+    if (journalRow?.id && fullRawText.length > 20) {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000';
+      fetch(`${baseUrl}/api/ai/extract-memory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          journalId: journalRow.id,
+          text: fullRawText,
+          householdId,
+        }),
+      }).catch((e) => console.warn('[parse-journal] extract-memory fire-and-forget failed:', e));
+    }
+
     return NextResponse.json({
       journalId: journalRow?.id,
       completions,
