@@ -14,7 +14,7 @@ export default function HouseholdPage() {
   const [inviteCode, setInviteCode] = useState('');
 
   useEffect(() => { if (!isInitialized) initialize(); }, [isInitialized, initialize]);
-  useEffect(() => { if (profile?.household_id) router.push('/journal'); }, [profile?.household_id, router]);
+  useEffect(() => { if (profile?.household_id) router.push('/today'); }, [profile?.household_id, router]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault(); clearError();
@@ -27,7 +27,7 @@ export default function HouseholdPage() {
     e.preventDefault(); clearError();
     if (!inviteCode.trim()) return;
     const result = await joinHousehold(inviteCode.trim());
-    if (result.ok) router.push('/journal');
+    if (result.ok) router.push('/today');
   };
 
   return (

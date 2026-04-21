@@ -467,7 +467,7 @@ export default function OnboardingPage() {
         .eq('id', userId);
       await refreshProfile();
     }
-    router.push('/journal');
+    router.push('/today');
   }, [router, journalConsent, userId, profile?.ai_journal_consent_at, refreshProfile]);
 
   const deleteTask = useCallback(async (taskId: string) => {
