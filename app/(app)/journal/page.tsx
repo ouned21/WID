@@ -222,26 +222,12 @@ export default function JournalPage() {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
 
-  const toggleListening = async () => {
+  const toggleListening = () => {
     if (!isSpeechSupported) return;
     setSpeechError(null);
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
-      return;
-    }
-    // Demande explicite de permission micro avant de démarrer
-    // On libère le stream immédiatement après — SpeechRecognition a besoin du micro libre
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((t) => t.stop());
-    } catch (err) {
-      const name = err instanceof Error ? err.name : String(err);
-      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-        setSpeechError('Micro refusé — autorise l\'accès dans les paramètres du navigateur.');
-      } else {
-        setSpeechError(`Micro inaccessible (${name}) — vérifie qu'il est branché.`);
-      }
       return;
     }
     const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition;
@@ -267,13 +253,18 @@ export default function JournalPage() {
     };
     recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
       setIsListening(false);
-      if (e.error === 'not-allowed') setSpeechError('Micro refusé — autorise l\'accès dans Chrome.');
-      else if (e.error === 'no-speech') setSpeechError(null); // normal
+      if (e.error === 'not-allowed') setSpeechError('Micro refusé — clique sur le 🔒 et autorise le micro.');
+      else if (e.error === 'no-speech') setSpeechError(null); // silence normal
+      else if (e.error === 'audio-capture') setSpeechError('Aucun micro détecté — branche un micro et réessaie.');
       else setSpeechError('Erreur micro : ' + e.error);
     };
     recognition.onend = () => { setIsListening(false); finalTranscript = ''; };
     recognitionRef.current = recognition;
-    try { recognition.start(); } catch { setSpeechError('Impossible de démarrer le micro.'); }
+    try {
+      recognition.start();
+    } catch (err) {
+      setSpeechError('Impossible de démarrer : ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
   const [checkinStep, setCheckinStep] = useState<0 | 1 | 2 | 3>(0);
   const [checkinAnswers, setCheckinAnswers] = useState<string[]>([]);
