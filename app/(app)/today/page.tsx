@@ -11,7 +11,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useFamilyStore } from '@/stores/familyStore';
 import { filterTasks, splitTasksIntoSections } from '@/utils/taskSelectors';
-import type { TaskListItem } from '@/types/database';
+import type { TaskListItem, PhantomMember } from '@/types/database';
 
 // ── Greeting contextuel ────────────────────────────────────────────────────
 
@@ -44,13 +44,65 @@ function buildGreeting(
   return `${timeGreet} ${firstName}. Voici ce qui compte aujourd'hui.`;
 }
 
+// ── Badge assignation ──────────────────────────────────────────────────────
+
+function AssigneeBadge({
+  task,
+  currentUserId,
+  phantomMembers,
+}: {
+  task: TaskListItem;
+  currentUserId: string;
+  phantomMembers: PhantomMember[];
+}) {
+  // Assigné à moi → rien (implicite, c'est ma tâche)
+  if (task.assigned_to === currentUserId) return null;
+
+  // Assigné à un vrai membre (pas moi)
+  if (task.assignee && task.assigned_to !== currentUserId) {
+    const firstName = task.assignee.display_name.split(' ')[0];
+    return (
+      <span
+        className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+        style={{ background: '#f0f7ff', color: '#007aff' }}
+      >
+        {firstName}
+      </span>
+    );
+  }
+
+  // Assigné à un membre fantôme (enfant, autre)
+  if (task.assigned_to_phantom_id) {
+    const phantom = phantomMembers.find((m) => m.id === task.assigned_to_phantom_id);
+    if (phantom) {
+      return (
+        <span
+          className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+          style={{ background: '#f5f0ff', color: '#af52de' }}
+        >
+          {phantom.display_name.split(' ')[0]}
+        </span>
+      );
+    }
+  }
+
+  // Non assigné → tâche commune du foyer
+  return (
+    <span className="text-[11px] text-[#c7c7cc] font-medium">Foyer</span>
+  );
+}
+
 // ── Mini task card ─────────────────────────────────────────────────────────
 
 function TodayTaskCard({
   task,
+  currentUserId,
+  phantomMembers,
   onComplete,
 }: {
   task: TaskListItem;
+  currentUserId: string;
+  phantomMembers: PhantomMember[];
   onComplete: (id: string) => void;
 }) {
   const isOverdue =
@@ -87,9 +139,11 @@ function TodayTaskCard({
               {task.category.icon} {task.category.name}
             </span>
           )}
-          {task.assignee && (
-            <span className="text-[12px] text-[#8e8e93]">· {task.assignee.display_name}</span>
-          )}
+          <AssigneeBadge
+            task={task}
+            currentUserId={currentUserId}
+            phantomMembers={phantomMembers}
+          />
         </div>
       </div>
 
@@ -112,7 +166,7 @@ function TodayTaskCard({
 export default function TodayPage() {
   const { profile } = useAuthStore();
   const { tasks, loading: tasksLoading, fetchTasks, completeTask, filters } = useTaskStore();
-  const { householdProfile, loading: familyLoading, fetchFamily } = useFamilyStore();
+  const { householdProfile, members: phantomMembers, loading: familyLoading, fetchFamily } = useFamilyStore();
 
   useEffect(() => {
     if (profile?.household_id) {
@@ -242,7 +296,13 @@ export default function TodayPage() {
           </div>
           <div className="space-y-2">
             {urgentTasks.slice(0, 6).map((task) => (
-              <TodayTaskCard key={task.id} task={task} onComplete={handleComplete} />
+              <TodayTaskCard
+                key={task.id}
+                task={task}
+                currentUserId={profile?.id ?? ''}
+                phantomMembers={phantomMembers}
+                onComplete={handleComplete}
+              />
             ))}
             {urgentTasks.length > 6 && (
               <Link
