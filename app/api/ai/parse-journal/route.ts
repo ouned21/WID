@@ -225,19 +225,27 @@ export async function POST(request: NextRequest) {
 
   const householdId = profile.household_id;
 
-  const [tasksRes, membersRes, phantomsRes, categoriesRes] = await Promise.all([
+  const [tasksRes, membersRes, phantomsRes, categoriesRes, memoryRes] = await Promise.all([
     supabase.from('household_tasks')
       .select('id, name, scoring_category, frequency, duration_estimate')
       .eq('household_id', householdId).eq('is_active', true),
     supabase.from('profiles').select('id, display_name').eq('household_id', householdId),
     supabase.from('phantom_members').select('id, display_name').eq('household_id', householdId),
     supabase.from('task_categories').select('id, name'),
+    // Mémoire longue : faits mémorisés sur le foyer
+    supabase.from('agent_memory_facts')
+      .select('fact_type, content, about_user_id')
+      .eq('household_id', householdId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(20),
   ]);
 
   const tasks = tasksRes.data ?? [];
   const members = membersRes.data ?? [];
   const phantoms = phantomsRes.data ?? [];
   const categories = categoriesRes.data ?? [];
+  const memoryFacts = memoryRes.data ?? [];
 
   // Map category name → id pour créer des tâches
   const categoryIdMap = new Map<string, string>();
@@ -270,6 +278,14 @@ export async function POST(request: NextRequest) {
     ...members.map((m: { id: string; display_name: string }) => `- [${m.id}] ${m.display_name} (membre)`),
     ...phantoms.map((p: { id: string; display_name: string }) => `- [phantom:${p.id}] ${p.display_name} (fantôme)`),
   ].join('\n');
+
+  // Bloc mémoire longue — injecté dans le contexte Yova
+  const memoryBlock = memoryFacts.length > 0
+    ? `## Ce que Yova sait déjà sur ce foyer (mémoire longue)\n` +
+      memoryFacts.map((f: { fact_type: string; content: string }) =>
+        `[${f.fact_type}] ${f.content}`
+      ).join('\n')
+    : '';
 
   const prompt = `Tu es Yova, assistant IA spécialisé UNIQUEMENT dans la **logistique domestique et familiale** d'un foyer.
 
@@ -312,6 +328,7 @@ ${tasksListBlock}
 ## Membres
 ${membersBlock}
 ${prefsBlock}
+${memoryBlock ? '\n' + memoryBlock : ''}
 
 ## Ce que ${userName} raconte
 """
