@@ -373,14 +373,22 @@ ${sanitizedText}
 6. Extrait les durées si mentionnées.
 7. Confidence : 1.0 = certain, 0.5 = probable, 0.3 = incertain.
 8. Mood : happy | tired | overwhelmed | satisfied | frustrated | neutral.
-9. **ai_response** — Rédige en français naturel, chaleureux et familier, comme une amie de confiance qui gère aussi un foyer. JAMAIS de traduction-machine, jamais de tournures anglaises, jamais de formules corporate. Règles :
-   - 1-3 phrases maximum, ton décontracté et direct
-   - Si tâches accomplies → valorise sans en faire trop ("Bien joué pour la vaisselle !" pas "J'ai bien pris note de tes actions")
-   - Si tâches à plusieurs → mentionne la collaboration ("Belle équipe avec Barbara !")
-   - Si frustration / émotion → accueille avec bienveillance avant de passer à l'action ("C'est épuisant d'être toujours celui qui fait la vaisselle — j'ai bien retenu ça.")
-   - Si projet → annonce le nombre de tâches créées en langage direct ("J'ai posé 12 tâches pour le déménagement, du plus urgent au plus tard.")
-   - Exemples de BON ton : "Top ! 3 tâches cochées aujourd'hui 🙌", "Ouf, belle journée chargée. Tout est noté.", "Haha, Barbara a assuré côté courses — respect !"
-   - Exemples de MAUVAIS ton : "J'ai bien enregistré vos actions", "Les complétions ont été sauvegardées", "Task completion recorded successfully"
+9. **ai_response** — Rédige en français naturel, chaleureux et familier, comme une amie de confiance qui gère aussi un foyer. 2-3 phrases max. Règles STRICTES :
+
+   a) **Sois spécifique** — cite quelque chose de précis de ce qu'il a raconté, jamais une formule générique. "Bien joué pour le pliage même si t'aimes pas ça !" > "Bien joué !" > "J'ai bien noté."
+
+   b) **Inférences implicites** — si l'utilisateur implique qu'il a accompli quelque chose sans le dire directement, nomme-le explicitement dans ta réponse. Exemples :
+      - "je l'ai laissée dormir plus longtemps ce matin" → il a géré les enfants seul ce matin pour qu'elle récupère → reconnais-le : "T'as géré les deux tout seul ce matin pour qu'elle dorme — c'est pas rien."
+      - "c'est toujours moi qui fais X" → charge mentale non reconnue → "C'est épuisant d'être le seul à y penser — j'ai bien retenu ça."
+      - "j'ai laissé X s'en occuper" → délégation intentionnelle → reconnais la décision.
+
+   c) **Utilise la mémoire longue** — si un fait mémoire est directement lié à ce qu'il mentionne → incorpore-le naturellement dans la réponse ("Je me souviens que le pliage c'est vraiment pas ton truc — tu l'as fait quand même 💪").
+
+   d) **Check-in du soir** — si le texte est structuré comme un check-in (plusieurs questions/réponses sur la journée, le foyer, ce qui a été géré), conclus chaleureusement avec une note de fin de journée. Ex : "Bonne soirée, t'as bien géré aujourd'hui." Ne dis pas "bonne nuit" si l'heure n'est pas mentionnée.
+
+   e) **Ton** : décontracté, direct, jamais corporate, jamais traduction-machine.
+      - BON : "T'as même fait le pliage que tu détestes — et en plus le dîner 💪 Et laisser Barbara dormir ce matin, c'était la bonne décision."
+      - MAUVAIS : "J'ai bien enregistré tes actions. Barbara a bien géré Eva cette nuit."
 10. **Question de clarification** (usage très limité) : Si tu détectes un **projet logistique** (déménagement, mariage, travaux, vacances, bébé) sans date ET qu'il n'y a PAS déjà d'échanges précédents dans la session → tu PEUX retourner \`needs_clarification: true\` avec une question courte dans \`clarification_question\` (identique à \`ai_response\`). Dans ce cas, \`completions\`, \`auto_create\` et \`project\` doivent être vides. Si la conversation a déjà eu lieu (échanges précédents présents) → JAMAIS de needs_clarification, traite directement avec les infos disponibles. Pour les tâches simples, n'utilise JAMAIS needs_clarification.
 
 ## Format JSON STRICT
@@ -472,8 +480,8 @@ Réponds UNIQUEMENT avec ce JSON.`;
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2048,
+        model: 'claude-sonnet-4-5-20251022',
+        max_tokens: 3000,
         messages: [{ role: 'user', content: prompt }],
       }),
     });
@@ -538,7 +546,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
         parsed_completions: [], unmatched_items: [],
         ai_response: refusalMessage,
         tokens_input: usage.tokensInput, tokens_output: usage.tokensOutput, cost_usd: 0,
-        model_used: 'claude-haiku-4-5', processing_time_ms: Date.now() - startTime,
+        model_used: 'claude-sonnet-4-5', processing_time_ms: Date.now() - startTime,
         mood_tone: parsed.mood_tone ?? null,
       }).select('id').single();
       await logAiUsage(supabase as never, {
@@ -580,7 +588,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
       parsed_completions: completions, unmatched_items: unmatched,
       ai_response: parsed.ai_response ?? null,
       tokens_input: usage.tokensInput, tokens_output: usage.tokensOutput, cost_usd: 0,
-      model_used: 'claude-haiku-4-5', processing_time_ms: Date.now() - startTime,
+      model_used: 'claude-sonnet-4-5', processing_time_ms: Date.now() - startTime,
       mood_tone: parsed.mood_tone ?? null,
     }).select('id').single();
 
