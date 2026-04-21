@@ -25,7 +25,12 @@ type FamilyMember = {
   type: 'adult' | 'teen' | 'child' | 'baby' | 'pet';
   emoji: string;
   name: string;
-  birthdate?: string; // YYYY-MM-DD
+  birthdate?: string;   // YYYY-MM-DD
+  school_class?: string;
+  allergies?: string;   // virgule-séparé
+  activities?: string;  // virgule-séparé
+  notes?: string;
+  expanded?: boolean;   // UI : détails dépliés
 };
 
 type TaskTemplate = {
@@ -415,6 +420,12 @@ export default function OnboardingPage() {
           display_name: m.name.trim(),
           member_type: m.type === 'baby' || m.type === 'teen' ? 'child' : m.type,
           birth_date: m.birthdate ?? null,
+          school_class: m.school_class?.trim() || null,
+          specifics: {
+            allergies: m.allergies ? m.allergies.split(',').map((s) => s.trim()).filter(Boolean) : [],
+            activities: m.activities ? m.activities.split(',').map((s) => ({ name: s.trim() })).filter((a) => a.name) : [],
+            notes: m.notes?.trim() || undefined,
+          },
         }));
 
       const res = await fetch('/api/onboarding/create-tasks', {
@@ -626,55 +637,111 @@ export default function OnboardingPage() {
 
         {/* Liste des membres */}
         {family.length > 0 && (
-          <div className="mx-4 rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            {family.map((m, i) => {
+          <div className="mx-4 space-y-2">
+            {family.map((m) => {
               const isPet = m.type === 'pet';
               const isEmpty = !m.name.trim();
+              const isExpanded = m.expanded ?? false;
               return (
-                <div
-                  key={m.id}
-                  className="px-4 py-3 flex items-center gap-3"
-                  style={i < family.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}
-                >
-                  <span className="text-[28px]">{m.emoji}</span>
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={m.name}
-                        onChange={(e) => updateFamilyMember(m.id, 'name', e.target.value)}
-                        placeholder={isPet ? 'Nom (optionnel)' : 'Prénom *'}
-                        className="flex-1 text-[15px] font-semibold text-[#1c1c1e] bg-transparent outline-none"
-                      />
-                      {/* Indicateur erreur prénom manquant */}
-                      {!isPet && isEmpty && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
-                          style={{ background: '#fff2f2', color: '#ff3b30' }}>
-                          requis
-                        </span>
+                <div key={m.id} className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                  {/* Ligne principale */}
+                  <div className="px-4 py-3 flex items-center gap-3">
+                    <span className="text-[28px]">{m.emoji}</span>
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={m.name}
+                          onChange={(e) => updateFamilyMember(m.id, 'name', e.target.value)}
+                          placeholder={isPet ? 'Nom (optionnel)' : 'Prénom *'}
+                          className="flex-1 text-[15px] font-semibold text-[#1c1c1e] bg-transparent outline-none"
+                        />
+                        {!isPet && isEmpty && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
+                            style={{ background: '#fff2f2', color: '#ff3b30' }}>requis</span>
+                        )}
+                      </div>
+                      {needsBirthdate(m.type) && (
+                        <input
+                          type="date"
+                          value={m.birthdate ?? ''}
+                          onChange={(e) => updateFamilyMember(m.id, 'birthdate', e.target.value)}
+                          className="text-[12px] text-[#8e8e93] bg-transparent outline-none"
+                        />
+                      )}
+                      {isPet && (
+                        <p className="text-[10px]" style={{ color: '#8e8e93' }}>
+                          🐾 Utilisé pour les tâches animaux — pas un compte membre
+                        </p>
                       )}
                     </div>
-                    {needsBirthdate(m.type) && (
-                      <input
-                        type="date"
-                        value={m.birthdate ?? ''}
-                        onChange={(e) => updateFamilyMember(m.id, 'birthdate', e.target.value)}
-                        className="text-[12px] text-[#8e8e93] bg-transparent outline-none"
-                      />
-                    )}
-                    {/* Note animal */}
-                    {isPet && (
-                      <p className="text-[10px]" style={{ color: '#8e8e93' }}>
-                        🐾 Utilisé pour les tâches animaux — pas un compte membre
-                      </p>
-                    )}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Toggle détails */}
+                      {!isPet && (
+                        <button
+                          onClick={() => updateFamilyMember(m.id, 'expanded', String(!isExpanded))}
+                          className="text-[11px] font-semibold px-2 py-1 rounded-lg transition-colors"
+                          style={{ background: isExpanded ? '#e8f4ff' : '#f2f2f7', color: isExpanded ? '#007aff' : '#8e8e93' }}
+                        >
+                          {isExpanded ? 'Moins' : '+ Détails'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => removeFamilyMember(m.id)}
+                        className="text-[13px] text-[#ff3b30] font-medium"
+                      >
+                        Retirer
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => removeFamilyMember(m.id)}
-                    className="text-[13px] text-[#ff3b30] font-medium flex-shrink-0"
-                  >
-                    Retirer
-                  </button>
+
+                  {/* Détails optionnels (collapsible) */}
+                  {!isPet && isExpanded && (
+                    <div className="border-t border-[#f0f2f8] px-4 py-3 space-y-3">
+                      {(m.type === 'child' || m.type === 'teen') && (
+                        <div>
+                          <label className="text-[11px] text-[#8e8e93] font-semibold uppercase tracking-wide block mb-1">🏫 Classe</label>
+                          <input
+                            type="text"
+                            value={m.school_class ?? ''}
+                            onChange={(e) => updateFamilyMember(m.id, 'school_class', e.target.value)}
+                            placeholder="Ex : CP, CE2, 6ème, Terminale…"
+                            className="w-full text-[14px] text-[#1c1c1e] bg-[#f9f9f9] rounded-lg px-3 py-2 outline-none placeholder:text-[#c7c7cc]"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <label className="text-[11px] text-[#8e8e93] font-semibold uppercase tracking-wide block mb-1">⚠️ Allergies</label>
+                        <input
+                          type="text"
+                          value={m.allergies ?? ''}
+                          onChange={(e) => updateFamilyMember(m.id, 'allergies', e.target.value)}
+                          placeholder="Ex : arachides, gluten (virgule-séparées)"
+                          className="w-full text-[14px] text-[#1c1c1e] bg-[#f9f9f9] rounded-lg px-3 py-2 outline-none placeholder:text-[#c7c7cc]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-[#8e8e93] font-semibold uppercase tracking-wide block mb-1">🎯 Activités</label>
+                        <input
+                          type="text"
+                          value={m.activities ?? ''}
+                          onChange={(e) => updateFamilyMember(m.id, 'activities', e.target.value)}
+                          placeholder="Ex : danse le mercredi, foot le samedi"
+                          className="w-full text-[14px] text-[#1c1c1e] bg-[#f9f9f9] rounded-lg px-3 py-2 outline-none placeholder:text-[#c7c7cc]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-[#8e8e93] font-semibold uppercase tracking-wide block mb-1">💬 Note libre</label>
+                        <textarea
+                          value={m.notes ?? ''}
+                          onChange={(e) => updateFamilyMember(m.id, 'notes', e.target.value)}
+                          rows={2}
+                          placeholder="Tout ce qui peut être utile pour Yova…"
+                          className="w-full text-[14px] text-[#1c1c1e] bg-[#f9f9f9] rounded-lg px-3 py-2 outline-none resize-none placeholder:text-[#c7c7cc]"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

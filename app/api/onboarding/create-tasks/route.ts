@@ -102,7 +102,13 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json() as {
     taskRows: Record<string, unknown>[];
-    phantomMembers: { display_name: string; member_type?: string; birth_date?: string | null }[];
+    phantomMembers: {
+      display_name: string;
+      member_type?: string;
+      birth_date?: string | null;
+      school_class?: string | null;
+      specifics?: { allergies?: string[]; activities?: { name: string }[]; notes?: string };
+    }[];
     customSuggestions: string[];
   };
 
@@ -148,6 +154,8 @@ export async function POST(req: NextRequest) {
           display_name: m.display_name,
           member_type: m.member_type ?? 'child',
           birth_date: m.birth_date ?? null,
+          school_class: m.school_class ?? null,
+          specifics: m.specifics ?? {},
           created_by: user.id,
         }))
       );
