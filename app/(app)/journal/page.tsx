@@ -216,6 +216,7 @@ export default function JournalPage() {
   const [history, setHistory] = useState<PastJournal[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
 
   // Récap dimanche
   type WeeklyRecap = {
@@ -613,41 +614,25 @@ export default function JournalPage() {
         )}
       </div>
 
-      {/* ── Ce que Yova sait (mémoire longue) ── */}
+      {/* ── Mémoire Yova — lien discret vers le profil ── */}
       {facts.length > 0 && (
         <div className="mx-4">
-          <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">
-            Ce que Yova sait
-          </p>
-          <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-            {facts.slice(0, 10).map((fact, i) => (
-              <div
-                key={fact.id}
-                className="flex items-start gap-3 px-4 py-3"
-                style={i < Math.min(facts.length, 10) - 1 ? { borderBottom: '0.5px solid #f2f2f7' } : {}}
-              >
-                <span className="text-[16px] flex-shrink-0 mt-0.5">{FACT_TYPE_EMOJI[fact.fact_type]}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] text-[#1c1c1e] leading-snug">{fact.content}</p>
-                  <p className="text-[11px] text-[#c7c7cc] mt-0.5">{FACT_TYPE_LABEL[fact.fact_type]}</p>
-                </div>
-                <button
-                  onClick={() => invalidateFact(fact.id)}
-                  className="flex-shrink-0 text-[#c7c7cc] p-1 rounded-full hover:text-[#ff3b30] transition-colors"
-                  aria-label="Supprimer ce souvenir"
-                >
-                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
-          {facts.length > 10 && (
-            <p className="text-center text-[12px] text-[#c7c7cc] mt-2">
-              +{facts.length - 10} souvenir{facts.length - 10 > 1 ? 's' : ''} de plus
-            </p>
-          )}
+          <button
+            onClick={() => router.push('/profile')}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-white text-left"
+            style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-[16px]">✦</span>
+              <span className="text-[13px] text-[#3c3c43]">
+                Yova mémorise au fil de tes récits
+              </span>
+            </div>
+            <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1"
+              style={{ background: '#f2f2f7', color: '#8e8e93' }}>
+              {facts.length} fait{facts.length > 1 ? 's' : ''} →
+            </span>
+          </button>
         </div>
       )}
 
@@ -677,26 +662,56 @@ export default function JournalPage() {
               <p className="text-center text-[13px] text-[#c7c7cc] py-6">Aucun journal pour l&apos;instant.</p>
             ) : (
               <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-                {history.map((h, i) => (
-                  <div key={h.id} className="px-4 py-3"
-                    style={i < history.length - 1 ? { borderBottom: '0.5px solid var(--ios-separator)' } : {}}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] text-[#8e8e93]">
-                        {new Date(h.created_at).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} · {new Date(h.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                      {h.mood_tone && <span className="text-[14px]">{MOOD_EMOJI[h.mood_tone] ?? ''}</span>}
+                {history.map((h, i) => {
+                  const isExpanded = expandedHistoryId === h.id;
+                  const dateStr = new Date(h.created_at).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+                  const timeStr = new Date(h.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                  const preview = h.raw_text.length > 55 ? h.raw_text.slice(0, 55) + '…' : h.raw_text;
+
+                  return (
+                    <div key={h.id} style={i < history.length - 1 ? { borderBottom: '0.5px solid #f2f2f7' } : {}}>
+                      {/* Ligne compacte — toujours visible */}
+                      <button
+                        onClick={() => setExpandedHistoryId(isExpanded ? null : h.id)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                      >
+                        <span className="text-[15px] flex-shrink-0">
+                          {h.mood_tone ? (MOOD_EMOJI[h.mood_tone] ?? '💬') : '💬'}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] text-[#1c1c1e] truncate">{preview}</p>
+                          <p className="text-[11px] text-[#8e8e93] mt-0.5">{dateStr} · {timeStr}</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {h.parsed_completions.length > 0 && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                              style={{ background: '#e8fbe8', color: '#34c759' }}>
+                              ✓{h.parsed_completions.length}
+                            </span>
+                          )}
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#c7c7cc" strokeWidth="2"
+                            className="transition-transform"
+                            style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                            <polyline points="2,4 6,8 10,4" />
+                          </svg>
+                        </div>
+                      </button>
+
+                      {/* Détail déplié */}
+                      {isExpanded && (
+                        <div className="px-4 pb-4" style={{ borderTop: '0.5px solid #f2f2f7' }}>
+                          <p className="text-[13px] text-[#1c1c1e] leading-relaxed mt-3 mb-2">{h.raw_text}</p>
+                          {h.ai_response && (
+                            <div className="rounded-xl px-3 py-2.5"
+                              style={{ background: 'linear-gradient(135deg,rgba(102,126,234,0.08),rgba(118,75,162,0.08))' }}>
+                              <p className="text-[12px] text-[#3c3c43] leading-relaxed">🤖 {h.ai_response}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <p className="text-[13px] text-[#1c1c1e] mb-1">{h.raw_text}</p>
-                    {h.ai_response && (
-                      <p className="text-[12px] text-[#8e8e93] italic">→ {h.ai_response}</p>
-                    )}
-                    {h.parsed_completions.length > 0 && (
-                      <p className="text-[11px] text-[#34c759] mt-1">
-                        ✓ {h.parsed_completions.length} tâche{h.parsed_completions.length > 1 ? 's' : ''} enregistrée{h.parsed_completions.length > 1 ? 's' : ''}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </>

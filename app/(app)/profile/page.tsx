@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useHouseholdStore } from '@/stores/householdStore';
+import { useMemoryStore, FACT_TYPE_EMOJI, FACT_TYPE_LABEL } from '@/stores/memoryStore';
 import { createClient } from '@/lib/supabase';
 
 export default function ProfilePage() {
   const router = useRouter();
   const { profile, user, signOut, refreshProfile } = useAuthStore();
   const { household, members, phantomMembers, renameHousehold, rotateInviteCode, addPhantomMember, removePhantomMember, linkPhantomToReal } = useHouseholdStore();
+  const { facts, fetchMemory, invalidateFact } = useMemoryStore();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [copied, setCopied] = useState(false);
@@ -55,6 +57,11 @@ export default function ProfilePage() {
     }
     loadPrefs();
   }, [profile?.id]);
+
+  // Charger la mémoire Yova
+  useEffect(() => {
+    if (profile?.household_id) fetchMemory(profile.household_id);
+  }, [profile?.household_id, fetchMemory]);
 
   const savePrefs = async (overrides?: {
     hatedTasks?: string[];
@@ -302,6 +309,42 @@ export default function ProfilePage() {
               </svg>
             </a>
           </div>
+
+          {/* Ce que Yova sait — mémoire longue */}
+          {facts.length > 0 && (
+            <div className="mx-4">
+              <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">
+                Ce que Yova sait ({facts.length})
+              </p>
+              <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+                {facts.map((fact, i) => (
+                  <div
+                    key={fact.id}
+                    className="flex items-start gap-3 px-4 py-3"
+                    style={i < facts.length - 1 ? { borderBottom: '0.5px solid #f2f2f7' } : {}}
+                  >
+                    <span className="text-[16px] flex-shrink-0 mt-0.5">{FACT_TYPE_EMOJI[fact.fact_type]}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] text-[#1c1c1e] leading-snug">{fact.content}</p>
+                      <p className="text-[11px] text-[#c7c7cc] mt-0.5">{FACT_TYPE_LABEL[fact.fact_type]}</p>
+                    </div>
+                    <button
+                      onClick={() => invalidateFact(fact.id)}
+                      className="flex-shrink-0 text-[#c7c7cc] p-1 rounded-full hover:text-[#ff3b30] transition-colors"
+                      aria-label="Supprimer ce souvenir"
+                    >
+                      <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-[#c7c7cc] mt-2 px-1">
+                Ces informations aident Yova à personnaliser ses réponses. Tu peux en supprimer à tout moment.
+              </p>
+            </div>
+          )}
 
           {/* Membres */}
           <div className="mx-4">
