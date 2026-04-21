@@ -130,8 +130,10 @@ type ParsedProject = {
 };
 
 type ParsedResult = {
-  refused_scope?: boolean;     // true si sujet hors scope (santé, relationnel, juridique…)
-  refused_reason?: string;     // catégorie de refus pour logs
+  refused_scope?: boolean;       // true si sujet hors scope (santé, relationnel, juridique…)
+  refused_reason?: string;       // catégorie de refus pour logs
+  needs_clarification?: boolean; // true si Yova pose une question avant d'agir
+  clarification_question?: string; // identique à ai_response quand needs_clarification
   completions: ParsedCompletion[];
   auto_create: AutoCreateItem[];
   unmatched: string[];
@@ -196,12 +198,20 @@ export async function POST(request: NextRequest) {
     }, { status: 429 });
   }
 
-  let body: { text?: unknown; inputMethod?: unknown };
+  let body: { text?: unknown; inputMethod?: unknown; conversation_history?: unknown };
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: 'JSON invalide' }, { status: 400 }); }
 
   const text = typeof body.text === 'string' ? body.text.trim() : '';
   const inputMethod: 'text' | 'voice' = body.inputMethod === 'voice' ? 'voice' : 'text';
+
+  // Historique multi-tours — max 6 échanges (3 user + 3 assistant)
+  type HistoryMessage = { role: 'user' | 'assistant'; content: string };
+  const conversationHistory: HistoryMessage[] = Array.isArray(body.conversation_history)
+    ? (body.conversation_history as HistoryMessage[])
+        .filter((m) => m && typeof m.role === 'string' && typeof m.content === 'string')
+        .slice(-6)
+    : [];
   if (!text || text.length < 3 || text.length > 2000) {
     return NextResponse.json({ error: 'Texte requis (3 à 2000 caractères)' }, { status: 400 });
   }
@@ -330,10 +340,16 @@ ${membersBlock}
 ${prefsBlock}
 ${memoryBlock ? '\n' + memoryBlock : ''}
 
-## Ce que ${userName} raconte
+${conversationHistory.length > 0 ? `## Échanges précédents dans cette session
+${conversationHistory.map((m) => `${m.role === 'user' ? userName : 'Yova'} : "${m.content}"`).join('\n')}
+
+## ${userName} répond maintenant (traite tout ce contexte ensemble)
 """
 ${sanitizedText}
+"""` : `## Ce que ${userName} raconte
 """
+${sanitizedText}
+"""`}
 
 ## Ta mission
 
@@ -365,6 +381,7 @@ ${sanitizedText}
    - Si projet → annonce le nombre de tâches créées en langage direct ("J'ai posé 12 tâches pour le déménagement, du plus urgent au plus tard.")
    - Exemples de BON ton : "Top ! 3 tâches cochées aujourd'hui 🙌", "Ouf, belle journée chargée. Tout est noté.", "Haha, Barbara a assuré côté courses — respect !"
    - Exemples de MAUVAIS ton : "J'ai bien enregistré vos actions", "Les complétions ont été sauvegardées", "Task completion recorded successfully"
+10. **Question de clarification** (usage très limité) : Si tu détectes un **projet logistique** (déménagement, mariage, travaux, vacances, bébé) sans date ET qu'il n'y a PAS déjà d'échanges précédents dans la session → tu PEUX retourner \`needs_clarification: true\` avec une question courte dans \`clarification_question\` (identique à \`ai_response\`). Dans ce cas, \`completions\`, \`auto_create\` et \`project\` doivent être vides. Si la conversation a déjà eu lieu (échanges précédents présents) → JAMAIS de needs_clarification, traite directement avec les infos disponibles. Pour les tâches simples, n'utilise JAMAIS needs_clarification.
 
 ## Format JSON STRICT
 
@@ -372,6 +389,8 @@ ${sanitizedText}
 {
   "refused_scope": false,
   "refused_reason": null,
+  "needs_clarification": false,
+  "clarification_question": null,
   "completions": [
     {
       "task_id": "UUID-existant",
@@ -488,6 +507,24 @@ Réponds UNIQUEMENT avec ce JSON.`;
       return NextResponse.json({
         completions: [], auto_created: [], unmatched: [text],
         ai_response: "J'ai eu un souci de parsing. Réessaye dans une minute ?",
+      });
+    }
+
+    // ─── Clarification : Yova pose une question, aucune action créée ─────
+    if (parsed.needs_clarification === true) {
+      const question = parsed.clarification_question ?? parsed.ai_response ?? 'Une question ?';
+      await logAiUsage(supabase as never, {
+        userId: user.id, householdId, endpoint: 'parse-journal',
+        tokensInput: usage.tokensInput, tokensOutput: usage.tokensOutput,
+        durationMs: Date.now() - startTime, status: 'success',
+        metadata: { needs_clarification: true },
+      });
+      return NextResponse.json({
+        needs_clarification: true,
+        clarification_question: question,
+        completions: [], auto_created: [], unmatched: [], project_created: null,
+        ai_response: question,
+        mood_tone: parsed.mood_tone ?? null,
       });
     }
 
