@@ -212,6 +212,18 @@ export default function JournalPage() {
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // ── Check-in du soir ──
+  const currentHour = new Date().getHours();
+  const isEveningTime = currentHour >= 20 || currentHour < 4;
+  const [checkinStep, setCheckinStep] = useState<0 | 1 | 2 | 3>(0);
+  const [checkinAnswers, setCheckinAnswers] = useState<string[]>([]);
+
+  const CHECKIN_QUESTIONS = [
+    'Comment s\'est passée ta journée ?',
+    'Et le foyer — les enfants, la maison ?',
+    'Qu\'est-ce que t\'as géré aujourd\'hui, même en petit ?',
+  ];
+
   // Historique journaux
   const [history, setHistory] = useState<PastJournal[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -325,6 +337,76 @@ export default function JournalPage() {
     setConsentLoading(false);
   };
 
+  // ── Check-in : avance d'une étape ou envoie tout ──
+  const sendCheckin = async () => {
+    const trimmed = text.trim();
+    if (!trimmed || trimmed.length < 2 || sending) return;
+    setText('');
+
+    const newAnswers = [...checkinAnswers, trimmed];
+    const newStep = (checkinStep + 1) as 0 | 1 | 2 | 3;
+
+    // Affiche la réponse utilisateur
+    setMessages((prev) => [...prev, { id: uid(), type: 'user', content: trimmed }]);
+
+    if (newStep < 3) {
+      // Encore une question
+      setCheckinAnswers(newAnswers);
+      setCheckinStep(newStep);
+      setTimeout(() => {
+        setMessages((prev) => [
+          ...prev,
+          { id: uid(), type: 'yova', content: CHECKIN_QUESTIONS[newStep], isQuestion: true, moodTone: null },
+        ]);
+      }, 400);
+    } else {
+      // 3 réponses collectées → envoi groupé à parse-journal
+      setCheckinStep(3);
+      setCheckinAnswers(newAnswers);
+      setSending(true);
+      const typingId = uid();
+      setTimeout(() => {
+        setMessages((prev) => [...prev, { id: typingId, type: 'typing' }]);
+      }, 400);
+
+      const combinedText = newAnswers
+        .map((a, i) => `${CHECKIN_QUESTIONS[i]}\n${a}`)
+        .join('\n\n');
+
+      try {
+        const res = await fetch('/api/ai/parse-journal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: combinedText, inputMethod: 'text' }),
+        });
+        const data: ParseResponse = await res.json();
+        setMessages((prev) => prev.filter((m) => m.id !== typingId));
+        setMessages((prev) => [
+          ...prev,
+          { id: uid(), type: 'yova', content: data.ai_response ?? 'Merci pour ce check-in. Bonne nuit !', moodTone: data.mood_tone },
+          ...((data.completions?.length ?? 0) > 0 || (data.auto_created?.length ?? 0) > 0
+            ? [{ id: uid(), type: 'result' as const, data }]
+            : []),
+        ]);
+        setIsDone(true);
+        if (profile?.household_id) {
+          fetchTasks(profile.household_id);
+          const hid = profile.household_id;
+          fetch('/api/ai/extract-memory', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ journalId: data.journalId, text: combinedText, householdId: hid }),
+          }).catch(() => {});
+        }
+      } catch {
+        setMessages((prev) => prev.filter((m) => m.id !== typingId));
+        setMessages((prev) => [...prev, { id: uid(), type: 'yova', content: 'Erreur réseau. Réessaye.', moodTone: null }]);
+      } finally {
+        setSending(false);
+      }
+    }
+  };
+
   // ── Envoi d'un message ──
   const send = async () => {
     const trimmed = text.trim();
@@ -426,7 +508,9 @@ export default function JournalPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send();
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      isEveningTime && checkinStep < 3 && !isDone ? sendCheckin() : send();
+    }
   };
 
   const handleNewConversation = () => {
@@ -434,6 +518,8 @@ export default function JournalPage() {
     setConvHistory([]);
     setIsDone(false);
     setText('');
+    setCheckinStep(0);
+    setCheckinAnswers([]);
   };
 
   // ── Consentement non chargé ──
@@ -540,12 +626,35 @@ export default function JournalPage() {
       <div className="mx-4">
 
         {/* Message d'accueil Yova si conversation vide */}
-        {messages.length === 0 && (
+        {messages.length === 0 && !isDone && (
           <div className="mb-4">
-            <YovaBubble
-              content="Qu'est-ce que t'as géré aujourd'hui que personne n'a vu ? Dis-moi tout — je classe et ça compte dans ton score."
-              moodTone={null}
-            />
+            {isEveningTime ? (
+              <>
+                {/* ── Check-in du soir ── */}
+                <div className="flex items-center gap-2 mb-3 px-1">
+                  <span className="text-[18px]">🌙</span>
+                  <div>
+                    <p className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wide">Check-in du soir</p>
+                    <div className="flex gap-1 mt-1">
+                      {[0, 1, 2].map((i) => (
+                        <div key={i} className="h-1 w-6 rounded-full transition-all duration-300"
+                          style={{ background: i < checkinStep ? '#34c759' : i === checkinStep ? '#007aff' : '#e5e5ea' }} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <YovaBubble
+                  content={CHECKIN_QUESTIONS[checkinStep]}
+                  moodTone={null}
+                  isQuestion
+                />
+              </>
+            ) : (
+              <YovaBubble
+                content="Qu'est-ce que t'as géré aujourd'hui que personne n'a vu ? Dis-moi tout — je classe et ça compte dans ton score."
+                moodTone={null}
+              />
+            )}
           </div>
         )}
 
@@ -572,7 +681,9 @@ export default function JournalPage() {
                 rows={2}
                 disabled={sending}
                 placeholder={
-                  convHistory.length > 0
+                  isEveningTime && checkinStep < 3 && !isDone
+                    ? 'Ta réponse…'
+                    : convHistory.length > 0
                     ? 'Ta réponse…'
                     : 'J\'ai fait la vaisselle, préparé le dîner…'
                 }
@@ -581,8 +692,8 @@ export default function JournalPage() {
                 autoFocus
               />
               <button
-                onClick={send}
-                disabled={sending || text.trim().length < 3}
+                onClick={isEveningTime && checkinStep < 3 && !isDone ? sendCheckin : send}
+                disabled={sending || text.trim().length < 2}
                 className="flex-shrink-0 px-4 py-2.5 rounded-2xl text-[15px] font-semibold text-white disabled:opacity-40"
                 style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)', boxShadow: '0 2px 8px rgba(0,122,255,0.25)' }}
               >
