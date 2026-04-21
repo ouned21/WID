@@ -480,7 +480,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5-20251022',
+        model: 'claude-sonnet-4-6-20260301',
         max_tokens: 3000,
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -546,7 +546,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
         parsed_completions: [], unmatched_items: [],
         ai_response: refusalMessage,
         tokens_input: usage.tokensInput, tokens_output: usage.tokensOutput, cost_usd: 0,
-        model_used: 'claude-sonnet-4-5', processing_time_ms: Date.now() - startTime,
+        model_used: 'claude-sonnet-4-6', processing_time_ms: Date.now() - startTime,
         mood_tone: parsed.mood_tone ?? null,
       }).select('id').single();
       await logAiUsage(supabase as never, {
@@ -588,7 +588,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
       parsed_completions: completions, unmatched_items: unmatched,
       ai_response: parsed.ai_response ?? null,
       tokens_input: usage.tokensInput, tokens_output: usage.tokensOutput, cost_usd: 0,
-      model_used: 'claude-sonnet-4-5', processing_time_ms: Date.now() - startTime,
+      model_used: 'claude-sonnet-4-6', processing_time_ms: Date.now() - startTime,
       mood_tone: parsed.mood_tone ?? null,
     }).select('id').single();
 
