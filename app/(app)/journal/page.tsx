@@ -14,6 +14,7 @@ type ParsedCompletion = {
   task_id: string;
   task_name: string;
   completed_by: string | null;
+  completed_by_name?: string | null;
   duration_minutes: number | null;
   note: string | null;
   confidence: number;
@@ -133,10 +134,14 @@ function TypingBubble() {
   );
 }
 
-function ResultCard({ data }: { data: ParseResponse }) {
+function ResultCard({ data, currentUserName }: { data: ParseResponse; currentUserName?: string }) {
   const regularTasks = [
-    ...(data.completions ?? []).map((c) => ({ name: c.task_name, isNew: false })),
-    ...(data.auto_created ?? []).map((t) => ({ name: t.name, isNew: true })),
+    ...(data.completions ?? []).map((c) => ({
+      name: c.task_name,
+      isNew: false,
+      byName: c.completed_by_name && c.completed_by_name !== currentUserName ? c.completed_by_name : null,
+    })),
+    ...(data.auto_created ?? []).map((t) => ({ name: t.name, isNew: true, byName: null })),
   ];
   const project = data.project_created ?? null;
   if (regularTasks.length === 0 && !project) return null;
@@ -159,6 +164,10 @@ function ResultCard({ data }: { data: ParseResponse }) {
               >
                 <span className="text-[14px]">{t.isNew ? '✨' : '✅'}</span>
                 <span className="flex-1 text-[13px] text-[#1c1c1e] font-medium">{t.name}</span>
+                {t.byName && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full mr-1"
+                    style={{ background: '#FFF0F0', color: '#ff3b30' }}>{t.byName}</span>
+                )}
                 {t.isNew && (
                   <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
                     style={{ background: '#EEF4FF', color: '#007aff' }}>Nouveau</span>
@@ -722,7 +731,7 @@ export default function JournalPage() {
           if (msg.type === 'user') return <UserBubble key={msg.id} content={msg.content} />;
           if (msg.type === 'yova') return <YovaBubble key={msg.id} content={msg.content} moodTone={msg.moodTone} isQuestion={msg.isQuestion} />;
           if (msg.type === 'typing') return <TypingBubble key={msg.id} />;
-          if (msg.type === 'result') return <ResultCard key={msg.id} data={msg.data} />;
+          if (msg.type === 'result') return <ResultCard key={msg.id} data={msg.data} currentUserName={profile?.display_name ?? undefined} />;
           return null;
         })}
 

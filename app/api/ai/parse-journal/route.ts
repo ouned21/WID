@@ -381,15 +381,15 @@ ${sanitizedText}
    - "on a fait X ensemble" → UNE entrée par personne (même task_id)
    - Personne inconnue → completed_by = null
    - ⚠️ JAMAIS attribuer à ${userName} une action dont le sujet explicite est quelqu'un d'autre.
-6. **Tâches futures vs passées** :
-   - "j'ai fait X", "j'ai géré X", "hier j'ai..." → tâche accomplie → log avec completed_by
-   - "on va faire X", "je vais faire X", "il faudra X", "c'est pour demain" → tâche planifiée → auto_create SANS complétion (completed_by = null, note = "à faire")
-   - Ne log jamais une action au futur comme une action déjà faite.
-7. **Noms de tâches auto-créées** : MAXIMUM 4 mots, infinitif, jamais de contexte.
-   - ✅ "Ranger l'appartement" — ✅ "Préparer le dîner" — ✅ "Faire les courses"
-   - ❌ "Préparer le rangement avant passage femme de ménage" (trop long, contexte inclus)
-   - ❌ "Effectuer le nettoyage complet" (trop formel)
-   - Le contexte ("avant la femme de ménage", "pour les enfants"…) va dans le champ "note", PAS dans le nom.
+6. **Tâches futures → EXCLURE de auto_create** :
+   - `auto_create` = UNIQUEMENT des actions accomplies aujourd'hui ou hier.
+   - "on va faire X", "je vais faire X", "demain on range", "il faudra X", "c'est prévu" → NE PAS mettre dans auto_create. Yova les mentionne uniquement dans ai_response ("j'ai noté que demain c'est rangement").
+   - RÈGLE ABSOLUE : si le verbe est au futur ou à l'infinitif de projet → hors de auto_create.
+7. **Noms de tâches** : verbe infinitif + objet, STRICTEMENT 3 mots maximum, AUCUN contexte.
+   - ✅ "Ranger l'appartement" ✅ "Préparer le dîner" ✅ "Faire les courses" ✅ "Plier le linge"
+   - ❌ "Préparer le rangement avant passage femme de ménage" → trop long
+   - ❌ "Cuisiner pour les enfants" → contexte dans le nom
+   - Le contexte va dans "note" : {"name": "Préparer le dîner", "note": "pour les enfants"}
 9. Extrait les durées si mentionnées.
 10. Confidence : 1.0 = certain, 0.5 = probable, 0.3 = incertain.
 11. Mood : happy | tired | overwhelmed | satisfied | frustrated | neutral.
@@ -643,6 +643,12 @@ Réponds UNIQUEMENT avec ce JSON.`;
 
     for (const item of autoCreateItems) {
       if (!item.name || item.name.length < 2) continue;
+      // Garde-fou : tronque les noms trop longs à 4 mots (le modèle ignore parfois la contrainte)
+      const nameWords = item.name.trim().split(/\s+/);
+      if (nameWords.length > 4) {
+        item.name = nameWords.slice(0, 4).join(' ');
+        console.log('[parse-journal] Nom tâche tronqué:', item.name);
+      }
 
       // Déduplication : vérifie si une tâche similaire existe déjà
       const alreadyExists = tasks.some(t => isSimilarTask(t.name, item.name));
@@ -820,9 +826,15 @@ Réponds UNIQUEMENT avec ce JSON.`;
       }).catch((e) => console.warn('[parse-journal] update-narrative fire-and-forget failed:', e));
     }
 
+    // Enrichir les completions avec le display_name du membre pour l'affichage UI
+    const completionsWithNames = completions.map((comp) => ({
+      ...comp,
+      completed_by_name: comp.completed_by ? (memberNames.get(comp.completed_by) ?? null) : null,
+    }));
+
     return NextResponse.json({
       journalId: journalRow?.id,
-      completions,
+      completions: completionsWithNames,
       auto_created: autoCreated,
       unmatched,
       project_created: projectCreated,
