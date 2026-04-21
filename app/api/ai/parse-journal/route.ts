@@ -235,20 +235,25 @@ export async function POST(request: NextRequest) {
 
   const householdId = profile.household_id;
 
-  const [tasksRes, membersRes, phantomsRes, categoriesRes, memoryRes] = await Promise.all([
+  const [tasksRes, membersRes, phantomsRes, categoriesRes, memoryRes, householdRes] = await Promise.all([
     supabase.from('household_tasks')
       .select('id, name, scoring_category, frequency, duration_estimate')
       .eq('household_id', householdId).eq('is_active', true),
     supabase.from('profiles').select('id, display_name').eq('household_id', householdId),
     supabase.from('phantom_members').select('id, display_name').eq('household_id', householdId),
     supabase.from('task_categories').select('id, name'),
-    // Mémoire longue : faits mémorisés sur le foyer
+    // Mémoire longue : faits mémorisés sur le foyer (complément au portrait narratif)
     supabase.from('agent_memory_facts')
       .select('fact_type, content, about_user_id')
       .eq('household_id', householdId)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
-      .limit(20),
+      .limit(10),
+    // Portrait narratif du foyer (Sprint 9)
+    supabase.from('households')
+      .select('yova_narrative')
+      .eq('id', householdId)
+      .maybeSingle(),
   ]);
 
   const tasks = tasksRes.data ?? [];
@@ -256,6 +261,7 @@ export async function POST(request: NextRequest) {
   const phantoms = phantomsRes.data ?? [];
   const categories = categoriesRes.data ?? [];
   const memoryFacts = memoryRes.data ?? [];
+  const yovaNarrative: string = householdRes.data?.yova_narrative ?? '';
 
   // Map category name → id pour créer des tâches
   const categoryIdMap = new Map<string, string>();
@@ -289,13 +295,16 @@ export async function POST(request: NextRequest) {
     ...phantoms.map((p: { id: string; display_name: string }) => `- [phantom:${p.id}] ${p.display_name} (fantôme)`),
   ].join('\n');
 
-  // Bloc mémoire longue — injecté dans le contexte Yova
-  const memoryBlock = memoryFacts.length > 0
-    ? `## Ce que Yova sait déjà sur ce foyer (mémoire longue)\n` +
-      memoryFacts.map((f: { fact_type: string; content: string }) =>
-        `[${f.fact_type}] ${f.content}`
-      ).join('\n')
-    : '';
+  // Portrait narratif (Sprint 9) — priorité sur les faits plats
+  // Le portrait est une synthèse vivante maintenue par Yova après chaque journal
+  const narrativeBlock = yovaNarrative
+    ? `## Portrait du foyer — ce que Yova sait\n${yovaNarrative}`
+    : memoryFacts.length > 0
+      ? `## Ce que Yova sait déjà sur ce foyer\n` +
+        memoryFacts.map((f: { fact_type: string; content: string }) =>
+          `[${f.fact_type}] ${f.content}`
+        ).join('\n')
+      : '';
 
   const prompt = `Tu es Yova, assistant IA spécialisé UNIQUEMENT dans la **logistique domestique et familiale** d'un foyer.
 
@@ -338,7 +347,7 @@ ${tasksListBlock}
 ## Membres
 ${membersBlock}
 ${prefsBlock}
-${memoryBlock ? '\n' + memoryBlock : ''}
+${narrativeBlock ? '\n' + narrativeBlock : ''}
 
 ${conversationHistory.length > 0 ? `## Échanges précédents dans cette session
 ${conversationHistory.map((m) => `${m.role === 'user' ? userName : 'Yova'} : "${m.content}"`).join('\n')}
@@ -779,6 +788,20 @@ Réponds UNIQUEMENT avec ce JSON.`;
           householdId,
         }),
       }).catch((e) => console.warn('[parse-journal] extract-memory fire-and-forget failed:', e));
+
+      // ─── Mise à jour portrait narratif — fire-and-forget (Sprint 9) ──────
+      const narrativeBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? (process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000');
+      fetch(`${narrativeBaseUrl}/api/ai/update-narrative`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          householdId,
+          journalText: fullRawText,
+          userName,
+        }),
+      }).catch((e) => console.warn('[parse-journal] update-narrative fire-and-forget failed:', e));
     }
 
     return NextResponse.json({
