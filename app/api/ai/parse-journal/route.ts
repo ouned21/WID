@@ -597,8 +597,15 @@ Réponds UNIQUEMENT avec ce JSON.`;
     }
 
     // ─── Insérer les complétions sur tâches existantes ────────────────────
+    // Garde-fou : on valide que le task_id existe vraiment dans le foyer
+    // (évite les hallucinations de UUID par le modèle)
+    const validTaskIds = new Set(tasks.map((t) => t.id));
     for (const comp of completions) {
       if (!comp.task_id || comp.confidence < 0.3) continue;
+      if (!validTaskIds.has(comp.task_id)) {
+        console.warn('[parse-journal] task_id halluciné ignoré:', comp.task_id, comp.task_name);
+        continue;
+      }
       await admin.from('task_completions').insert({
         task_id: comp.task_id, household_id: householdId,
         completed_by: comp.completed_by ?? user.id,
