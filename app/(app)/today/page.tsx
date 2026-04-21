@@ -39,40 +39,55 @@ function buildGreeting(
 
 type BalanceMember = { name: string; pct: number; isMe: boolean };
 
+/**
+ * Règles d'insight (par priorité décroissante) :
+ * 1. Déséquilibre réel entre ≥2 membres actifs
+ * 2. Membre inactif cette semaine (0% avec données existantes)
+ * 3. Fait "tension" en mémoire (jamais "context" — trop générique)
+ * 4. Silence si rien d'actionnable
+ */
 function buildYovaInsight(
   balance: BalanceMember[],
+  allMembers: { name: string; isMe: boolean }[],
   facts: { fact_type: string; content: string }[],
-  urgentCount: number,
-): string {
-  // Déséquilibre fort
-  if (balance.length >= 2) {
-    const sorted = [...balance].sort((a, b) => b.pct - a.pct);
-    const gap = sorted[0].pct - sorted[1].pct;
-    if (gap > 25) {
-      const top = sorted[0];
-      const low = sorted[1];
-      if (top.isMe) {
-        return `Tu portes ${top.pct}% de la charge cette semaine — ${low.name} est à ${low.pct}%. C'est le moment d'en parler.`;
+): string | null {
+  // Au moins 2 membres dans le foyer
+  if (allMembers.length >= 2) {
+    const activeNames = balance.map(m => m.name);
+    const inactive = allMembers.filter(m => !activeNames.includes(m.name));
+
+    // Un membre actif, un ou plusieurs inactifs (0 complétion)
+    if (balance.length === 1 && inactive.length > 0) {
+      const names = inactive.map(m => m.name).join(', ');
+      if (balance[0].isMe) {
+        return `${names} n'a encore rien enregistré cette semaine — peut-être des choses gérées sans les noter ?`;
       } else {
-        return `${top.name} porte ${top.pct}% de la charge cette semaine — pense à t'impliquer.`;
+        return `Aucune tâche enregistrée de ta part cette semaine — ${balance[0].name} porte tout pour l'instant.`;
       }
     }
-    if (gap <= 10 && sorted[0].pct > 0) {
-      return `Bonne semaine — répartition équilibrée (${sorted.map(m => `${m.name} ${m.pct}%`).join(', ')}).`;
+
+    // 2 membres actifs — déséquilibre fort
+    if (balance.length >= 2) {
+      const sorted = [...balance].sort((a, b) => b.pct - a.pct);
+      const gap = sorted[0].pct - sorted[1].pct;
+      if (gap > 25) {
+        const top = sorted[0];
+        const low = sorted[1];
+        return top.isMe
+          ? `Tu portes ${top.pct}% de la charge cette semaine — ${low.name} est à ${low.pct}%. C'est le moment d'en parler.`
+          : `${top.name} porte ${top.pct}% de la charge — pense à t'impliquer davantage.`;
+      }
+      if (gap <= 10) {
+        return `Bonne semaine — répartition équilibrée entre ${sorted.map(m => `${m.isMe ? 'toi' : m.name} (${m.pct}%)`).join(' et ')}.`;
+      }
     }
   }
 
-  // Fact tension en mémoire
+  // Fait tension en mémoire (actionnable, contrairement à context)
   const tension = facts.find(f => f.fact_type === 'tension');
-  if (tension) return `Je me souviens : ${tension.content.toLowerCase()}. Garde ça en tête aujourd'hui.`;
+  if (tension) return `Je me souviens : ${tension.content.toLowerCase()}.`;
 
-  // Fact contexte en mémoire
-  const context = facts.find(f => f.fact_type === 'context');
-  if (context) return `Contexte : ${context.content}. Je l'intègre dans mes suggestions.`;
-
-  // Rien de spécial
-  if (urgentCount === 0) return `Aucune tâche urgente aujourd'hui — profite ou raconte ta journée pour que je note ce que tu as géré.`;
-  return `${urgentCount} tâche${urgentCount > 1 ? 's' : ''} à traiter. Raconte-moi ce que tu as fait en fin de journée.`;
+  return null; // Rien d'actionnable → pas d'insight
 }
 
 // ── Badge assignation ──────────────────────────────────────────────────────
@@ -228,6 +243,7 @@ export default function TodayPage() {
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   // Équilibre hebdomadaire
   const [weeklyBalance, setWeeklyBalance] = useState<BalanceMember[]>([]);
+  const [allHouseholdMembers, setAllHouseholdMembers] = useState<{ name: string; isMe: boolean }[]>([]);
   const [balanceLoaded, setBalanceLoaded] = useState(false);
 
   useEffect(() => {
@@ -267,7 +283,14 @@ export default function TodayPage() {
       return;
     }
 
-    // Complétion par membre (real seulement pour l'équilibre)
+    // Tous les membres du foyer (pour détecter les inactifs)
+    const allMembers = realMembers.map(m => ({
+      name: m.display_name?.split(' ')[0] ?? '?',
+      isMe: m.id === profile.id,
+    }));
+    setAllHouseholdMembers(allMembers);
+
+    // Complétion par membre
     const countMap: Record<string, number> = {};
     for (const c of completions) {
       if (c.completed_by) countMap[c.completed_by] = (countMap[c.completed_by] ?? 0) + 1;
@@ -279,6 +302,7 @@ export default function TodayPage() {
       return;
     }
 
+    // Balance = seulement les membres avec ≥1 complétion (pour la barre)
     const balance: BalanceMember[] = realMembers
       .map(m => ({
         name: m.display_name?.split(' ')[0] ?? '?',
@@ -318,7 +342,7 @@ export default function TodayPage() {
   const hour = new Date().getHours();
   const isCrisis = householdProfile?.crisis_mode_active ?? false;
   const greeting = buildGreeting(firstName, householdProfile?.energy_level, householdProfile?.current_life_events ?? [], isCrisis, hour);
-  const yovaInsight = buildYovaInsight(weeklyBalance, facts, urgentTasks.length);
+  const yovaInsight = buildYovaInsight(weeklyBalance, allHouseholdMembers, facts);
 
   const isLoading = (tasksLoading || familyLoading) && tasks.length === 0;
 
@@ -364,13 +388,15 @@ export default function TodayPage() {
           <p className="text-[15px] text-white/90 leading-relaxed flex-1">{greeting}</p>
         </div>
 
-        {/* Insight Yova */}
-        <div className="mx-4 mb-3 px-3 py-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.07)' }}>
-          <p className="text-[13px] text-white/70 leading-relaxed">✦ {yovaInsight}</p>
-        </div>
+        {/* Insight Yova — seulement si actionnable */}
+        {yovaInsight && (
+          <div className="mx-4 mb-3 px-3 py-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.07)' }}>
+            <p className="text-[13px] text-white/70 leading-relaxed">✦ {yovaInsight}</p>
+          </div>
+        )}
 
-        {/* Équilibre hebdo */}
-        {balanceLoaded && weeklyBalance.length > 0 && (
+        {/* Équilibre hebdo — seulement si 2+ membres actifs cette semaine */}
+        {balanceLoaded && weeklyBalance.length >= 2 && (
           <div className="mx-4 mb-4 px-3 py-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }}>
             <p className="text-[11px] font-semibold text-white/40 uppercase tracking-wide mb-2.5">
               Cette semaine
