@@ -346,8 +346,15 @@ export default function JournalPage() {
     const newAnswers = [...checkinAnswers, trimmed];
     const newStep = (checkinStep + 1) as 0 | 1 | 2 | 3;
 
-    // Affiche la réponse utilisateur
-    setMessages((prev) => [...prev, { id: uid(), type: 'user', content: trimmed }]);
+    // Affiche la question courante + la réponse utilisateur
+    // (Q1 était dans la zone "welcome" hors thread — on la réinjecte dans le thread au premier envoi)
+    setMessages((prev) => [
+      ...prev,
+      ...(checkinStep === 0
+        ? [{ id: uid(), type: 'yova' as const, content: CHECKIN_QUESTIONS[0], isQuestion: true, moodTone: null }]
+        : []),
+      { id: uid(), type: 'user', content: trimmed },
+    ]);
 
     if (newStep < 3) {
       // Encore une question
