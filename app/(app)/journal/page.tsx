@@ -218,17 +218,26 @@ export default function JournalPage() {
 
   // ── Vocal STT ──
   const [isListening, setIsListening] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
 
-  const toggleListening = () => {
+  const toggleListening = async () => {
     if (!isSpeechSupported) return;
+    setSpeechError(null);
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
       return;
     }
-    const SR = (window.SpeechRecognition ?? window.webkitSpeechRecognition) as typeof SpeechRecognition;
+    // Demande explicite de permission micro avant de démarrer
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setSpeechError('Micro refusé — autorise l\'accès dans les paramètres du navigateur.');
+      return;
+    }
+    const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     const recognition = new SR();
     recognition.lang = 'fr-FR';
     recognition.continuous = true;
@@ -249,10 +258,15 @@ export default function JournalPage() {
           : (base ? base + ' ' : '') + interim;
       });
     };
-    recognition.onerror = () => setIsListening(false);
+    recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
+      setIsListening(false);
+      if (e.error === 'not-allowed') setSpeechError('Micro refusé — autorise l\'accès dans Chrome.');
+      else if (e.error === 'no-speech') setSpeechError(null); // normal
+      else setSpeechError('Erreur micro : ' + e.error);
+    };
     recognition.onend = () => { setIsListening(false); finalTranscript = ''; };
     recognitionRef.current = recognition;
-    recognition.start();
+    try { recognition.start(); } catch { setSpeechError('Impossible de démarrer le micro.'); }
   };
   const [checkinStep, setCheckinStep] = useState<0 | 1 | 2 | 3>(0);
   const [checkinAnswers, setCheckinAnswers] = useState<string[]>([]);
@@ -728,6 +742,12 @@ export default function JournalPage() {
                   ))}
                 </div>
                 <span className="text-[12px] font-medium text-[#ff3b30]">Yova t'écoute… parle !</span>
+              </div>
+            )}
+            {/* Erreur micro */}
+            {speechError && (
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <span className="text-[12px] text-[#ff3b30]">⚠️ {speechError}</span>
               </div>
             )}
             <div className="flex gap-2 items-end">
