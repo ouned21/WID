@@ -417,7 +417,11 @@ export default function OnboardingPage() {
       // Appel API route (service role, contourne RLS)
       const phantomMembers = family
         .filter((m) => m.type !== 'pet' && m.name.trim())
-        .map((m) => ({ display_name: m.name.trim() }));
+        .map((m) => ({
+          display_name: m.name.trim(),
+          member_type: m.type === 'baby' || m.type === 'teen' ? 'child' : m.type,
+          birth_date: m.birthdate ?? null,
+        }));
 
       const res = await fetch('/api/onboarding/create-tasks', {
         method: 'POST',

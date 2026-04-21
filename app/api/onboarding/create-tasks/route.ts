@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json() as {
     taskRows: Record<string, unknown>[];
-    phantomMembers: { display_name: string }[];
+    phantomMembers: { display_name: string; member_type?: string; birth_date?: string | null }[];
     customSuggestions: string[];
   };
 
@@ -143,7 +143,13 @@ export async function POST(req: NextRequest) {
     );
     if (toCreate.length > 0) {
       await admin.from('phantom_members').insert(
-        toCreate.map((m) => ({ household_id: householdId, display_name: m.display_name, created_by: user.id }))
+        toCreate.map((m) => ({
+          household_id: householdId,
+          display_name: m.display_name,
+          member_type: m.member_type ?? 'child',
+          birth_date: m.birth_date ?? null,
+          created_by: user.id,
+        }))
       );
     }
   }
