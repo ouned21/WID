@@ -374,13 +374,12 @@ ${sanitizedText}
 2. **Détecte TOUTES les tâches mentionnées**, même celles faites hier ou avant-hier ("hier j'ai fait X", "ce matin j'ai..."). L'utilisateur raconte souvent des tâches passées — log-les toutes. Attention aux formulations naturelles : "j'avais des choses à faire (dont le pliage de linge)" = le pliage est une tâche à logger même s'il est mentionné entre parenthèses ou dans une liste. "j'avais X à faire et Y" = X et Y sont deux tâches distinctes à logger. Pour chaque action → matche une tâche existante UNIQUEMENT si c'est le même geste concret. Exemples de NON-MATCH : "plier le linge" ≠ "lancer une lessive" (même catégorie, gestes différents), "essuyer les vitres" ≠ "passer l'aspirateur" (même catégorie, gestes différents). En cas de doute → auto_create, jamais un faux match.
 3. Si une action ne correspond à AUCUNE tâche existante ET que c'est une vraie tâche récurrente → "auto_create".
 4. Dans "unmatched", mets uniquement les choses vraiment sans lien avec le foyer (loisirs, culture, sorties). Les émotions et frustrations liées aux tâches du foyer ("je déteste faire X", "c'est toujours moi qui...") sont précieuses — accueille-les chaleureusement dans ai_response, NE les mets PAS dans unmatched.
-5. **Attribution stricte** :
+5. **Règle fondamentale — ce journal est celui de ${userName} uniquement** :
+   - Log UNIQUEMENT les actions faites par ${userName} ou par "on" ensemble.
+   - "[Prénom] a fait X" (sujet explicitement un autre membre) → NE PAS mettre dans completions ni auto_create. Mentionne-le dans ai_response ("Barbara a assuré la cuisine — bien joué à elle !") mais n'en fais pas une complétion.
+   - "on a fait X ensemble" → completed_by = UUID de ${userName} (une seule entrée)
    - "j'ai fait X" → completed_by = UUID de ${userName}
-   - "[Prénom] a fait X" → completed_by = UUID de ce membre (cherche le UUID dans la liste ## Membres)
-   - "on a [Prénom] fait X" ou "[Prénom] a un peu fait X" → le sujet réel est [Prénom] → completed_by = UUID de ce membre
-   - "on a fait X ensemble" → UNE entrée par personne (même task_id)
-   - Personne inconnue → completed_by = null
-   - ⚠️ RÈGLE ABSOLUE : si le sujet grammatical de l'action est un autre membre (ex: "Barbara a cuisiné", "on a Barbara cuisiné"), completed_by = UUID de ce membre. JAMAIS completed_by = UUID de ${userName} dans ce cas. Si tu ne trouves pas l'UUID → completed_by = null, mais JAMAIS l'UUID de ${userName} par défaut.
+   - Toutes les completions et auto_create ont completed_by = UUID de ${userName} ou null (jamais l'UUID d'un autre membre).
 6. **Tâches futures → EXCLURE de auto_create** :
    - auto_create = UNIQUEMENT des actions accomplies aujourd'hui ou hier.
    - "on va faire X", "je vais faire X", "demain on range", "il faudra X", "c'est prévu" → NE PAS mettre dans auto_create. Yova les mentionne uniquement dans ai_response ("j'ai noté que demain c'est rangement").
@@ -629,7 +628,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
       }
       await admin.from('task_completions').insert({
         task_id: comp.task_id, household_id: householdId,
-        completed_by: comp.completed_by ?? user.id,
+        completed_by: user.id, // toujours l'auteur du journal — jamais un autre membre
         completed_by_phantom_id: comp.completed_by_phantom_id ?? null,
         completed_at: new Date().toISOString(),
         duration_minutes: comp.duration_minutes, note: comp.note,
@@ -826,15 +825,9 @@ Réponds UNIQUEMENT avec ce JSON.`;
       }).catch((e) => console.warn('[parse-journal] update-narrative fire-and-forget failed:', e));
     }
 
-    // Enrichir les completions avec le display_name du membre pour l'affichage UI
-    const completionsWithNames = completions.map((comp) => ({
-      ...comp,
-      completed_by_name: comp.completed_by ? (memberNames.get(comp.completed_by) ?? null) : null,
-    }));
-
     return NextResponse.json({
       journalId: journalRow?.id,
-      completions: completionsWithNames,
+      completions,
       auto_created: autoCreated,
       unmatched,
       project_created: projectCreated,
