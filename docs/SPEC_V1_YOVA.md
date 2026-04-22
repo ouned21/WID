@@ -346,7 +346,6 @@ Suppression de toute la dette V0 incompatible avec la spec :
 ### Prochains sprints (à prioriser avec Jonathan)
 - **TTS Yova** : Yova répond à voix haute (ElevenLabs ou Web Speech TTS) — Mois 3 roadmap
 - **Consolidation de tâches chevauchantes** ⭐ (issu retours sprint 12) : Yova détecte quand une sous-tâche de projet ("Faire les courses pour le déjeuner") recoupe une tâche récurrente existante ("Faire les courses" mercredi) et propose proactivement : *« Tu as déjà les courses mer. 29, je groupe avec le déjeuner dimanche pour que tu y ailles qu'une fois ? »*. Pilier 3 "Proactivité douce" pur. Dépend de : mémoire longue (sprint 6 ✅) + logique de similarité sémantique sur les noms de tâches. Mois 3-4 roadmap.
-- **Router projet actif pendant le check-in du soir** (bug UX sprint 12) : actuellement le router `detectProjectIntent` ne fire qu'à la fin des 3 questions check-in (sur le texte combiné). Si l'user tape un prompt projet à Q1, il est stocké comme réponse émotionnelle et la décomposition n'arrive qu'après Q2+Q3. Fix : intercepter à chaque step si intent projet détecté. Petit ticket (<1 jour).
 - **CTA check-in ne doit pas réapparaître après complétion** (bug UX pré-existant) : la CTA "Check-in du soir" sur /today reste visible même après avoir complété les 3 questions. Vérifier `last_journal_at` ou `last_checkin_at` avant de l'afficher. Petit ticket (<1 jour).
 - **Anticipations parentales** : jobs anniv enfants, vacances scolaires, rdv récurrents — Mois 4-5
 - **Mode crise automatique** : activation auto sur signal dérive sévère (V2) — Mois 5
