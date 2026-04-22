@@ -6,6 +6,38 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-22e] — Sprint 11 : Nettoyage V1
+
+### Supprimé (alignement spec V1 "zéro charge mentale")
+- `app/(app)/tasks/` (page.tsx, new, [id], assign, catalog, rebalance, recap, archived, log) — CRUD V0 avec scoring 4 axes
+- `app/(app)/planning/` — remplacé par `/week` (déjà en place)
+- `app/(app)/dashboard/`, `app/(app)/distribution/` — hors ADN V1 (score d'équité, analytics)
+- `components/DeleteButton.tsx` (hard delete) et `components/ViewToggle.tsx` (liste/planning) — composants orphelins
+- `app/(app)/layout.tsx` — FAB `+`, popup quick-add, brouillon localStorage `yova_task_draft`
+- `utils/pushNotifications.ts` — `scheduleDraftReminders` + `checkDraftReminder` (pointaient vers `/tasks/new`)
+- `app/(app)/journal/page.tsx` — widget "Bilan de la semaine" dimanche (barres % par membre basées sur `mental_load_score`) = score d'équité explicitement hors V1
+
+### Modifié
+- `app/(app)/layout.tsx` — `NAV_ITEMS.matches` nettoyé : `/today` ne matche plus `/tasks` et `/planning`
+- `proxy.ts` — post-onboarding redirige vers `/today` (avant : `/dashboard`)
+- `public/sw.js` — url par défaut des push `/today` (avant : `/tasks/recap`)
+- `app/(app)/error.tsx` — bouton "Accueil" → `/today`
+- `app/(app)/admin/catalog/page.tsx` — gate `profile.role === 'admin'` côté client (en plus du 403 API), redirect cassé `/dashboard` → `/today`
+- `app/(app)/week/page.tsx` — empty state 7 j amélioré : si des tâches existent hors fenêtre → "N tâches à venir plus tard" + CTA bascule vue Mois
+
+### Conservé en DB
+- Colonnes `mental_load_score`, `time_weight`, `physical_weight`, `mental_weight`, `impact_weight` sur `household_tasks` — historique préservé, plus d'affichage user-facing
+- `utils/taskScoring.ts` + `utils/distributionAnalytics.ts` — encore utilisés par API routes (parse-journal, enrich-templates)
+
+### Pourquoi
+L'app exposait toujours du CRUD V0 (FAB, `/tasks` avec scoring, `/planning`, `/dashboard`, `/distribution`) en contradiction avec la spec V1 « pas de gestion, Yova porte la charge ». Le sprint 10 (micro-actions via `TaskActionsSheet`) a rendu ces surfaces redondantes. Ce sprint supprime la dette V0 pour aligner l'app sur ses 3 onglets (Aujourd'hui · Parler à Yova · Foyer) et ses 4 piliers.
+
+### Piliers spec
+- Pilier 3 — Proactivité douce (l'user ajuste via sheet, il ne gère pas une todo-list)
+- Pilier 4 — Mode crise (moins de surfaces = moins de charge cognitive)
+
+---
+
 ## [2026-04-22d] — Sprint micro-actions tâches (+ undo toast)
 
 ### Ajouté (en plus de 22c)

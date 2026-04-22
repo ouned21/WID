@@ -67,7 +67,7 @@ self.addEventListener('push', (event) => {
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     tag: data.tag || 'yova-notification',
-    data: { url: data.url || '/tasks/recap' },
+    data: { url: data.url || '/today' },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
