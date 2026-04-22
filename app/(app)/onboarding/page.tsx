@@ -574,8 +574,13 @@ export default function OnboardingPage() {
       const data = await res.json() as { tasks?: { id: string }[]; error?: string };
       if (!res.ok) throw new Error(data.error ?? `Erreur ${res.status}`);
 
-      await fetchHousehold(hid);
-      await fetchTasks(hid);
+      // Rafraîchir le profil (household_id potentiellement mis à jour par create-tasks)
+      await refreshProfile();
+
+      // Fire-and-forget : /today chargera ses propres données au montage
+      // Ne PAS await ces appels — évite de bloquer indéfiniment la navigation
+      void fetchHousehold(hid);
+      void fetchTasks(hid);
 
       setTaskCount(data.tasks?.length ?? payload.taskRows.length);
       // Garantit 3s minimum sur le generating screen quelle que soit la vitesse DB
