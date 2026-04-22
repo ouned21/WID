@@ -29,7 +29,7 @@ export default function AppError({
           Réessayer
         </button>
         <a
-          href="/dashboard"
+          href="/today"
           className="rounded-xl px-5 py-3 text-[15px] font-semibold text-[#007aff]"
           style={{ background: '#e5f0ff' }}
         >

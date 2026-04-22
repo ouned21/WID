@@ -347,15 +347,40 @@ export default function WeekPage() {
       )}
 
       {/* ── Vide ── */}
-      {totalCount === 0 && (
-        <div className="rounded-2xl bg-white px-4 py-12 text-center" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.06)' }}>
-          <p className="text-[40px] mb-2">✨</p>
-          <p className="text-[17px] font-semibold text-[#1c1c1e]">
-            {viewMode === 'week' ? 'Semaine tranquille' : 'Mois tranquille'}
-          </p>
-          <p className="text-[14px] text-[#8e8e93] mt-1">Aucune tâche planifiée</p>
-        </div>
-      )}
+      {totalCount === 0 && (() => {
+        // En vue semaine, compter les tâches existantes hors fenêtre 7j
+        const sevenDaysFromNow = getSevenDaysFromNow();
+        const futureCount = viewMode === 'week'
+          ? tasks.filter((t) => t.next_due_at && new Date(t.next_due_at) >= sevenDaysFromNow).length
+          : 0;
+        return (
+          <div className="rounded-2xl bg-white px-4 py-12 text-center" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.06)' }}>
+            <p className="text-[40px] mb-2">✨</p>
+            <p className="text-[17px] font-semibold text-[#1c1c1e]">
+              {viewMode === 'week' ? 'Rien cette semaine' : 'Mois tranquille'}
+            </p>
+            {viewMode === 'week' && futureCount > 0 ? (
+              <>
+                <p className="text-[14px] text-[#8e8e93] mt-1">
+                  {futureCount} tâche{futureCount > 1 ? 's' : ''} à venir plus tard
+                </p>
+                <button
+                  onClick={() => setViewMode('month')}
+                  className="mt-4 inline-flex items-center gap-1 rounded-full px-4 py-2 text-[13px] font-semibold text-white"
+                  style={{ background: '#007aff' }}
+                >
+                  Voir le mois
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
+                </button>
+              </>
+            ) : (
+              <p className="text-[14px] text-[#8e8e93] mt-1">Aucune tâche planifiée</p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── Projets à venir (semaine uniquement) ── */}
       {projectTasks.length > 0 && (

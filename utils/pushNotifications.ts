@@ -2,8 +2,8 @@
  * Notifications Push Web pour Yova.
  *
  * - Demande la permission au premier lancement
- * - Programme une notification quotidienne à 21h (récap du soir)
- * - Rappelle les brouillons non finalisés
+ * - Programme une notification quotidienne à 21h (check-in du soir → /journal)
+ * - Bilan hebdo dimanche 9h (→ /journal)
  */
 
 const RECAP_HOUR = 21;
@@ -71,31 +71,14 @@ export function scheduleEveningRecap(): void {
 
   setTimeout(() => {
     sendNotification(
-      '🤖 Qu\'est-ce que t\'as géré aujourd\'hui ?',
-      'Dis-le à Yova en une phrase — ça compte dans ton score.',
+      '🌙 Check-in du soir',
+      'Raconte ta journée à Yova — ça prend 2 minutes.',
       '/journal',
     );
 
     // Reprogrammer pour le lendemain
     scheduleEveningRecap();
   }, delay);
-}
-
-/**
- * Vérifie s'il y a un brouillon non finalisé et envoie un rappel.
- * À appeler aux moments stratégiques (12h, 17h).
- */
-export function checkDraftReminder(): void {
-  if (!canNotify()) return;
-
-  const draft = localStorage.getItem('yova_task_draft');
-  if (draft && draft.trim()) {
-    sendNotification(
-      'Tâche en brouillon',
-      `Tu n'as pas finalisé « ${draft} ». Envie de la créer ?`,
-      `/tasks/new?draft=${encodeURIComponent(draft)}`,
-    );
-  }
 }
 
 /**
@@ -124,27 +107,4 @@ export function scheduleWeeklyRecap(): void {
     // Reprogrammer pour la semaine suivante
     scheduleWeeklyRecap();
   }, delay);
-}
-
-/**
- * Programme les rappels de brouillon aux moments stratégiques.
- */
-export function scheduleDraftReminders(): void {
-  if (!canNotify()) return;
-
-  const now = new Date();
-  const reminders = [
-    { hour: 12, minute: 15 }, // midi
-    { hour: 17, minute: 30 }, // fin de journée
-  ];
-
-  for (const r of reminders) {
-    const target = new Date();
-    target.setHours(r.hour, r.minute, 0, 0);
-
-    if (now < target) {
-      const delay = target.getTime() - now.getTime();
-      setTimeout(() => checkDraftReminder(), delay);
-    }
-  }
 }

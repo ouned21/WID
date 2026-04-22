@@ -285,7 +285,18 @@ Remplace le formulaire multi-étapes + catalogue statique.
 
 ---
 
-## ✅ État actuel du build (2026-04-22)
+## ✅ État actuel du build (2026-04-22 — sprint 11 inclus)
+
+### Sprint 11 — Nettoyage V1 (2026-04-22e)
+Suppression de toute la dette V0 incompatible avec la spec :
+- Routes retirées : `/tasks` (et toutes ses sous-routes CRUD), `/planning`, `/dashboard`, `/distribution`
+- FAB `+` + popup quick-add retirés de `layout.tsx` (l'ajout de tâches passe uniquement par *Parler à Yova*)
+- Composants `DeleteButton`, `ViewToggle` supprimés (plus d'utilisateurs)
+- Widget "Bilan de la semaine" dimanche dans `/journal` retiré (barres % par membre = score d'équité, hors spec)
+- `/admin/catalog` gate renforcée `profile.role === 'admin'`
+- Colonnes scoring conservées en DB (historique), plus aucun affichage user-facing
+- `/week` empty state 7 j : affiche "N tâches à venir plus tard" + CTA bascule Mois
+- Redirections post-onboarding et notifications push repointées vers `/today`
 
 ### Implémenté et livré
 

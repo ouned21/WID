@@ -64,7 +64,7 @@ function timeAgo(iso: string): string {
 
 export default function AdminCatalogPage() {
   const router = useRouter();
-  const { user, isInitialized } = useAuthStore();
+  const { user, profile, isInitialized } = useAuthStore();
   const [data, setData] = useState<AdminData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,9 +89,10 @@ export default function AdminCatalogPage() {
 
   useEffect(() => {
     if (!isInitialized) return;
-    if (!user) { router.push('/dashboard'); return; }
+    if (!user) { router.push('/today'); return; }
+    if (profile && profile.role !== 'admin') { router.push('/today'); return; }
     fetchData();
-  }, [isInitialized, user, router, fetchData]);
+  }, [isInitialized, user, profile, router, fetchData]);
 
   const handleDelete = async (promotionId: string, name: string) => {
     if (!confirm(`Rejeter "${name}" du catalogue ? Le template sera supprimé.`)) return;

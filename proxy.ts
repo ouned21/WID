@@ -7,7 +7,7 @@ import { NextResponse, type NextRequest } from 'next/server';
  *
  * - Pas connecte -> /login
  * - Connecte sans foyer -> /household
- * - Connecte avec foyer -> /tasks (si sur /login ou /register ou /household)
+ * - Connecte avec foyer -> /today (si sur /login ou /register ou /household)
  */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -77,7 +77,7 @@ export async function proxy(request: NextRequest) {
         .eq('is_active', true);
 
       const url = request.nextUrl.clone();
-      url.pathname = (count ?? 0) === 0 ? '/onboarding' : '/dashboard';
+      url.pathname = (count ?? 0) === 0 ? '/onboarding' : '/today';
       return NextResponse.redirect(url);
     }
   }
