@@ -80,7 +80,7 @@ export default function OnboardingPage() {
   const [finishing, setFinishing]           = useState(false);
 
   const chatRef  = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const userId      = profile?.id;
   const householdId = profile?.household_id;
 
@@ -459,21 +459,35 @@ export default function OnboardingPage() {
                 </div>
               )}
 
-              {/* Text input */}
-              <div className="flex gap-2">
-                <input
+              {/* Text input — Entrée = envoyer, Shift+Entrée = nouvelle ligne */}
+              <div className="flex gap-2 items-end">
+                <textarea
                   ref={inputRef}
-                  type="text"
+                  rows={1}
                   value={textInput}
-                  onChange={e => setTextInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') void sendMessage(textInput); }}
-                  placeholder={isThinking ? 'Yova réfléchit…' : 'Répondre…'}
+                  onChange={e => {
+                    setTextInput(e.target.value);
+                    // Auto-resize
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      void sendMessage(textInput);
+                      // Reset height
+                      if (inputRef.current) inputRef.current.style.height = 'auto';
+                    }
+                  }}
+                  placeholder={isThinking ? 'Yova réfléchit…' : 'Répondre… (Shift+↵ pour aller à la ligne)'}
                   disabled={isThinking}
-                  className="flex-1 rounded-2xl px-4 py-3 text-[15px] outline-none disabled:opacity-50"
+                  className="flex-1 rounded-2xl px-4 py-3 text-[15px] outline-none disabled:opacity-50 resize-none"
                   style={{
                     background: 'white',
                     boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
                     color: '#1c1c1e',
+                    lineHeight: '1.4',
+                    overflow: 'hidden',
                   }}
                 />
                 <button
