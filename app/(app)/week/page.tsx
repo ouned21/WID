@@ -11,6 +11,7 @@ import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { TaskActionsSheet } from '@/components/TaskActionsSheet';
 import { UndoToast } from '@/components/UndoToast';
+import { createClient } from '@/lib/supabase';
 import type { TaskListItem, HouseholdMember } from '@/types/database';
 
 type ViewMode = 'week' | 'month';
@@ -312,13 +313,36 @@ export default function WeekPage() {
 
   // Sprint 13 — lookup des parents (pour chip "Projet : X")
   // Une tâche est un parent si son id apparaît comme parent_project_id d'une autre.
+  // Certains parents peuvent être archivés (is_active=false) et donc absents du
+  // store — on fetch leur nom séparément pour ne pas perdre le chip sur leurs enfants.
+  const [archivedParentTitles, setArchivedParentTitles] = useState<Map<string, string>>(new Map());
   const parentIdToTitle = useMemo(() => {
     const parentIds = new Set<string>();
     for (const t of tasks) if (t.parent_project_id) parentIds.add(t.parent_project_id);
     const map = new Map<string, string>();
     for (const t of tasks) if (parentIds.has(t.id)) map.set(t.id, t.name);
+    for (const [id, title] of archivedParentTitles) {
+      if (!map.has(id)) map.set(id, title);
+    }
     return map;
-  }, [tasks]);
+  }, [tasks, archivedParentTitles]);
+
+  useEffect(() => {
+    const referenced = new Set<string>();
+    for (const t of tasks) if (t.parent_project_id) referenced.add(t.parent_project_id);
+    const activeParents = new Set(tasks.filter((t) => referenced.has(t.id)).map((t) => t.id));
+    const missing = [...referenced].filter((id) => !activeParents.has(id) && !archivedParentTitles.has(id));
+    if (missing.length === 0) return;
+    const supabase = createClient();
+    supabase.from('household_tasks').select('id, name').in('id', missing).then(({ data }) => {
+      if (!data || data.length === 0) return;
+      setArchivedParentTitles((prev) => {
+        const next = new Map(prev);
+        for (const row of data) next.set(row.id as string, row.name as string);
+        return next;
+      });
+    });
+  }, [tasks, archivedParentTitles]);
 
   const projectInfoFor = (task: TaskListItem): { parentId: string; title: string } | null => {
     // Enfant → chip label = nom du parent.
