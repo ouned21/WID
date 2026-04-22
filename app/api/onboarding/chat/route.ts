@@ -162,8 +162,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': ANTHROPIC_API_KEY,
@@ -176,6 +180,7 @@ export async function POST(req: NextRequest) {
         messages,
       }),
     });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const errText = await response.text();
@@ -237,7 +242,7 @@ export async function POST(req: NextRequest) {
           is_fixed_assignment: false,
           notifications_enabled: true,
           assigned_to:        null,
-          next_due_at:        t.next_due_at        || now.toISOString(),
+          next_due_at:        (t.next_due_at && !isNaN(Date.parse(t.next_due_at))) ? t.next_due_at : now.toISOString(),
         }));
 
         return NextResponse.json({

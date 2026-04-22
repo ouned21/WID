@@ -303,6 +303,7 @@ export default function TodayPage() {
   const handlePostpone = async (taskId: string) => {
     setPostponedIds(prev => new Set(prev).add(taskId));
     await updateTask(taskId, { next_due_at: tomorrowISO() });
+    if (profile?.household_id) fetchTasks(profile.household_id);
   };
 
   // ── Données ──

@@ -209,7 +209,7 @@ export async function POST(request: NextRequest) {
   type HistoryMessage = { role: 'user' | 'assistant'; content: string };
   const conversationHistory: HistoryMessage[] = Array.isArray(body.conversation_history)
     ? (body.conversation_history as HistoryMessage[])
-        .filter((m) => m && typeof m.role === 'string' && typeof m.content === 'string')
+        .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
         .slice(-6)
     : [];
   if (!text || text.length < 3 || text.length > 2000) {

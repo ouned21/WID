@@ -173,6 +173,7 @@ export default function FamilyPage() {
 
   // Faits mémoire Yova (Ce qu'on traverse)
   const [memoryFacts, setMemoryFacts] = useState<MemoryFact[]>([]);
+  const [confirmDismissFactId, setConfirmDismissFactId] = useState<string | null>(null);
 
   // Observations Yova
   const [observations, setObservations] = useState<Observation[]>([]);
@@ -192,7 +193,14 @@ export default function FamilyPage() {
     setMemoryFacts((data as MemoryFact[]) ?? []);
   }, []);
 
-  const handleDismissFact = async (factId: string) => {
+  const handleDismissFact = (factId: string) => {
+    setConfirmDismissFactId(factId);
+  };
+
+  const handleConfirmDismissFact = async () => {
+    if (!confirmDismissFactId) return;
+    const factId = confirmDismissFactId;
+    setConfirmDismissFactId(null);
     setMemoryFacts((prev) => prev.filter((f) => f.id !== factId));
     const supabase = createClient();
     await supabase
@@ -317,10 +325,6 @@ export default function FamilyPage() {
     if (result.ok) setConfirmDeleteId(null);
   };
 
-  // ── Adults (profils réels) ──
-  const { members: realMembers } = useAuthStore() as unknown as { members: undefined };
-  void realMembers; // non utilisé directement ici
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -350,7 +354,7 @@ export default function FamilyPage() {
         </button>
       </div>
 
-      <h1 className="text-[28px] font-bold text-[#1c1c1e]">Notre famille</h1>
+      <h1 className="text-[28px] font-bold text-[#1c1c1e]">Notre foyer</h1>
 
       {/* ── Mode crise ── */}
       <button
@@ -602,6 +606,32 @@ export default function FamilyPage() {
               className="w-full py-3.5 rounded-xl text-[17px] font-medium text-[#1c1c1e] bg-[#f2f2f7]"
             >
               Fermer
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirm effacement fait mémoire ── */}
+      {confirmDismissFactId && (
+        <div className="fixed inset-0 bg-black/40 flex items-end z-50" onClick={() => setConfirmDismissFactId(null)}>
+          <div
+            className="w-full bg-white rounded-t-3xl px-4 pt-5 pb-10 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-[17px] font-semibold text-[#1c1c1e] text-center">Effacer ce souvenir ?</p>
+            <p className="text-[14px] text-[#8e8e93] text-center">Yova ne s&apos;en souviendra plus.</p>
+            <button
+              onClick={handleConfirmDismissFact}
+              className="w-full py-3.5 rounded-xl text-[17px] font-semibold text-white"
+              style={{ background: '#ff3b30' }}
+            >
+              Effacer
+            </button>
+            <button
+              onClick={() => setConfirmDismissFactId(null)}
+              className="w-full py-3.5 rounded-xl text-[17px] font-medium text-[#1c1c1e] bg-[#f2f2f7]"
+            >
+              Annuler
             </button>
           </div>
         </div>

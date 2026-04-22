@@ -217,9 +217,18 @@ export default function JournalPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [convHistory, setConvHistory] = useState<HistoryMessage[]>([]);
   const [isDone, setIsDone] = useState(false);
-  const [text, setText] = useState('');
+  const [text, setText] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    return localStorage.getItem('yova_journal_draft') ?? '';
+  });
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // ── Draft localStorage ──
+  useEffect(() => {
+    if (text) localStorage.setItem('yova_journal_draft', text);
+    else localStorage.removeItem('yova_journal_draft');
+  }, [text]);
 
   // ── Check-in du soir ──
   const currentHour = new Date().getHours();
