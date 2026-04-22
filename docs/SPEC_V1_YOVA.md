@@ -362,6 +362,7 @@ Suppression de toute la dette V0 incompatible avec la spec :
   - **Règle silencieuse** (choix produit Jonathan sprint 13) : pas de confirmation user dans le chat — Yova applique, l'user corrige dans `/family` si besoin. Log dans `agent_memory_facts` même si écrit en structuré (trace audit).
   - **Ambiguïté prénom** : si 2 membres portent le même prénom (ex: 2 Eva), skip — `agent_memory_facts` narratif only.
   - **Ajout parallèle** : backfill migration ou bouton admin pour lier les tâches orphelines (parent_project_id = null alors que leur nom évoque un projet) aux bons projets — identifié sprint 13 sur data legacy pré-sprint-12.
+  - **Bonus anti-doublon projet** (issu démo sprint 13, 2 "Déjeuner dimanche" créés en parallèle) : avant de décomposer, `decomposeProjectCore` check s'il existe déjà un projet parent actif avec un titre similaire (fuzzy match + window < 14 jours). Si oui, Yova répond *« Tu as déjà un 'Déjeuner dimanche' prévu le 26. Tu veux le remplacer ou j'ajoute à côté ? »* avec 2 boutons (stateful comme le pending_question sprint 12). Pas de re-décomposition silencieuse.
   - **Tests** : Haiku prompts "l'anniv d'Eva c'est le 13 mai" / "Tina rentre en CE1 en septembre" / "Eva est allergique aux arachides" → champs mis à jour en DB.
   - **Critère succès** : 3 tests device (birth_date / school_class / allergies) où la fiche membre reflète le fait < 5 s après envoi du journal, sans naviguer sur `/family`.
   - **Durée estimée** : 2-3 jours.
