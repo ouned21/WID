@@ -1,8 +1,14 @@
 'use client';
 
 /**
- * Page "Aujourd'hui" — Sprint 6
- * Complétion rapide + greeting Yova enrichi par la mémoire.
+ * Page "Aujourd'hui" — Sprint 2 (refactor spec V1)
+ *
+ * Structure spec :
+ * 1. Banner crise (si mode crise ON)
+ * 2. Card "Maintenant" — 1 tâche urgente épinglée
+ * 3. À faire aujourd'hui — 3-5 items max, durée + "Report demain"
+ * 4. Sur le radar — collapsible, anticipations
+ * 5. Check-in du soir — CTA Parler à Yova (visible après 20h uniquement)
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -12,9 +18,17 @@ import { useTaskStore } from '@/stores/taskStore';
 import { useFamilyStore } from '@/stores/familyStore';
 import { createClient } from '@/lib/supabase';
 import { filterTasks, splitTasksIntoSections } from '@/utils/taskSelectors';
-import type { TaskListItem, PhantomMember, AgentMemoryFact } from '@/types/database';
+import type { TaskListItem, AgentMemoryFact } from '@/types/database';
 
-// ── Greeting contextuel enrichi par la mémoire ─────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+const DURATION_LABEL: Record<string, string> = {
+  very_short: '5 min',
+  short:      '15 min',
+  medium:     '30 min',
+  long:       '1h',
+  very_long:  '2h+',
+};
 
 function buildGreeting(
   firstName: string,
@@ -24,68 +38,96 @@ function buildGreeting(
   hour: number,
   memoryFacts: AgentMemoryFact[],
 ): string {
-  const timeGreet = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir';
-  if (isCrisis) return `${timeGreet} ${firstName}. Mode crise activé — on fait le minimum vital, je suis là.`;
-
-  // Priorité 1 : un fait "tension" récent → Yova le reconnaît
+  if (isCrisis) return `Mode crise — on fait l'essentiel, je suis là.`;
   const tension = memoryFacts.find((f) => f.fact_type === 'tension');
-  if (tension) {
-    return `${timeGreet} ${firstName}. Je me souviens — ${tension.content.charAt(0).toLowerCase()}${tension.content.slice(1)}. Comment tu vas aujourd'hui ?`;
-  }
-
-  // Priorité 2 : événement de vie du foyer
-  if (lifeEvents.length > 0) {
-    const ev = lifeEvents[0].toLowerCase();
-    return `${timeGreet} ${firstName}. Tu traverses "${ev}" en ce moment — comment tu vas aujourd'hui ?`;
-  }
-
-  // Priorité 3 : un fait "context" récent → Yova mentionne ce qu'elle sait
+  if (tension) return `Je me souviens — ${tension.content.charAt(0).toLowerCase()}${tension.content.slice(1)}.`;
+  if (lifeEvents.length > 0) return `Tu traverses "${lifeEvents[0].toLowerCase()}" — comment tu vas ?`;
   const context = memoryFacts.find((f) => f.fact_type === 'context');
-  if (context) {
-    return `${timeGreet} ${firstName}. Je pense à toi — ${context.content.charAt(0).toLowerCase()}${context.content.slice(1)}.`;
-  }
-
-  if (energyLevel === 'low') return `${timeGreet} ${firstName}. Je sens que c'est chargé. On prend ça doucement.`;
-  if (energyLevel === 'high') return `${timeGreet} ${firstName} ! Bonne énergie. Voilà ce qui t'attend.`;
-  return `${timeGreet} ${firstName}. Voici ce qui compte aujourd'hui.`;
+  if (context) return `${context.content.charAt(0).toLowerCase()}${context.content.slice(1)}.`;
+  if (energyLevel === 'low') return `C'est chargé en ce moment. On prend ça doucement.`;
+  if (hour < 10) return `Belle journée qui commence, ${firstName}.`;
+  if (hour < 18) return `Voici ce qui compte aujourd'hui.`;
+  return `Bonsoir ${firstName}. Voilà où tu en es.`;
 }
 
-// ── Badge assignation ──────────────────────────────────────────────────────
-
-function AssigneeBadge({
-  task, currentUserId, phantomMembers,
-}: {
-  task: TaskListItem;
-  currentUserId: string;
-  phantomMembers: PhantomMember[];
-}) {
-  if (task.assigned_to === currentUserId) {
-    return <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: '#e8f4ff', color: '#007aff' }}>Moi</span>;
-  }
-  if (task.assignee && task.assigned_to !== currentUserId) {
-    return <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: '#f0f7ff', color: '#007aff' }}>{task.assignee.display_name.split(' ')[0]}</span>;
-  }
-  if (task.assigned_to_phantom_id) {
-    const phantom = phantomMembers.find(m => m.id === task.assigned_to_phantom_id);
-    if (phantom) {
-      return <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: '#f5f0ff', color: '#af52de' }}>{phantom.display_name.split(' ')[0]}</span>;
-    }
-  }
-  return null;
+function tomorrowISO(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(8, 0, 0, 0);
+  return d.toISOString();
 }
 
-// ── Carte tâche avec complétion rapide ─────────────────────────────────────
+// ── Card "Maintenant" ──────────────────────────────────────────────────────
 
-function TodayTaskCard({
-  task, currentUserId, phantomMembers, onComplete, justCompleted,
+function CardMaintenant({
+  task, onComplete, onPostpone, justCompleted,
 }: {
   task: TaskListItem;
-  currentUserId: string;
-  phantomMembers: PhantomMember[];
   onComplete: (id: string) => void;
+  onPostpone: (id: string) => void;
   justCompleted: boolean;
 }) {
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{
+      background: justCompleted
+        ? 'linear-gradient(135deg, #34c759, #30d158)'
+        : 'linear-gradient(135deg, #007aff, #5856d6)',
+      boxShadow: justCompleted
+        ? '0 4px 20px rgba(52,199,89,0.35)'
+        : '0 4px 20px rgba(0,122,255,0.35)',
+      transition: 'all 0.4s ease',
+    }}>
+      <div className="px-4 pt-4 pb-3">
+        <p className="text-[11px] font-semibold text-white/60 uppercase tracking-wider mb-1">Maintenant</p>
+        <p className="text-[20px] font-bold text-white leading-snug"
+          style={{ textDecoration: justCompleted ? 'line-through' : 'none', opacity: justCompleted ? 0.7 : 1 }}>
+          {task.name}
+        </p>
+        {task.duration_estimate && !justCompleted && (
+          <p className="text-[13px] text-white/60 mt-0.5">
+            ⏱ {DURATION_LABEL[task.duration_estimate] ?? task.duration_estimate}
+          </p>
+        )}
+        {justCompleted && (
+          <p className="text-[15px] text-white mt-1 font-medium">✓ Fait !</p>
+        )}
+      </div>
+      {!justCompleted && (
+        <div className="flex gap-2 px-4 pb-4">
+          <button
+            onClick={() => onComplete(task.id)}
+            className="flex-1 py-2.5 rounded-xl text-[15px] font-bold text-white active:scale-95 transition-transform"
+            style={{ background: 'rgba(255,255,255,0.22)' }}
+          >
+            ✓ Fait
+          </button>
+          <button
+            onClick={() => onPostpone(task.id)}
+            className="px-4 py-2.5 rounded-xl text-[14px] font-medium text-white/80 active:scale-95 transition-transform"
+            style={{ background: 'rgba(255,255,255,0.12)' }}
+          >
+            Report demain
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Card tâche ─────────────────────────────────────────────────────────────
+
+function TodayTaskCard({
+  task, onComplete, onPostpone, justCompleted, justPostponed,
+}: {
+  task: TaskListItem;
+  onComplete: (id: string) => void;
+  onPostpone: (id: string) => void;
+  justCompleted: boolean;
+  justPostponed: boolean;
+}) {
   const isOverdue = !!task.next_due_at && new Date(task.next_due_at) < new Date(new Date().setHours(0, 0, 0, 0));
+
+  if (justPostponed) return null;
 
   return (
     <div
@@ -116,7 +158,7 @@ function TodayTaskCard({
       {/* Contenu */}
       <div className="flex-1 min-w-0">
         <p
-          className="text-[15px] font-medium text-[#1c1c1e] truncate transition-all duration-200"
+          className="text-[15px] font-medium text-[#1c1c1e] truncate"
           style={{ textDecoration: justCompleted ? 'line-through' : 'none', color: justCompleted ? '#8e8e93' : '#1c1c1e' }}
         >
           {task.name}
@@ -125,25 +167,95 @@ function TodayTaskCard({
           {isOverdue && !justCompleted && (
             <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: '#fff2f2', color: '#ff3b30' }}>En retard</span>
           )}
-          {justCompleted && (
-            <span className="text-[11px] font-semibold text-[#34c759]">✓ Fait !</span>
+          {task.duration_estimate && !justCompleted && (
+            <span className="text-[12px] text-[#8e8e93]">⏱ {DURATION_LABEL[task.duration_estimate]}</span>
           )}
-          {task.category && !justCompleted && (
-            <span className="text-[12px] text-[#8e8e93]">{task.category.icon} {task.category.name}</span>
-          )}
-          {!justCompleted && <AssigneeBadge task={task} currentUserId={currentUserId} phantomMembers={phantomMembers} />}
+          {justCompleted && <span className="text-[11px] font-semibold text-[#34c759]">✓ Fait !</span>}
         </div>
       </div>
 
-      {/* Chevron vers détail */}
+      {/* Report demain */}
       {!justCompleted && (
-        <Link href={`/tasks/${task.id}`} className="flex-shrink-0 text-[#c7c7cc]" aria-label="Détail">
-          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-            <path d="M9 18l6-6-6-6" />
-          </svg>
-        </Link>
+        <button
+          onClick={() => onPostpone(task.id)}
+          className="flex-shrink-0 text-[12px] text-[#c7c7cc] font-medium px-2 py-1 rounded-lg active:bg-[#f2f2f7] transition-colors"
+          aria-label="Reporter à demain"
+        >
+          Demain
+        </button>
       )}
     </div>
+  );
+}
+
+// ── Sur le radar ───────────────────────────────────────────────────────────
+
+function SurLeRadar({ tasks }: { tasks: TaskListItem[] }) {
+  const [open, setOpen] = useState(false);
+  if (tasks.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.06)' }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3.5"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-[17px]">📡</span>
+          <div className="text-left">
+            <p className="text-[15px] font-semibold text-[#1c1c1e]">Sur le radar</p>
+            <p className="text-[12px] text-[#8e8e93]">{tasks.length} chose{tasks.length > 1 ? 's' : ''} à venir</p>
+          </div>
+        </div>
+        <svg
+          width="16" height="16" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24"
+          style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}
+        >
+          <path d="M9 18l6-6-6-6" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="border-t border-[#f2f2f7]">
+          {tasks.map((task, i) => (
+            <div
+              key={task.id}
+              className="flex items-center justify-between px-4 py-3"
+              style={i < tasks.length - 1 ? { borderBottom: '0.5px solid #f2f2f7' } : {}}
+            >
+              <p className="text-[14px] text-[#1c1c1e]">{task.name}</p>
+              {task.next_due_at && (
+                <p className="text-[12px] text-[#8e8e93] ml-2 flex-shrink-0">
+                  {new Date(task.next_due_at).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── CTA Check-in du soir ───────────────────────────────────────────────────
+
+function CheckInDuSoir() {
+  return (
+    <Link
+      href="/journal"
+      className="flex items-center gap-4 px-4 py-4 rounded-2xl"
+      style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}
+    >
+      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-[16px] font-bold text-white"
+        style={{ background: 'rgba(255,255,255,0.15)' }}>Y</div>
+      <div className="flex-1">
+        <p className="text-[15px] font-semibold text-white">Check-in du soir</p>
+        <p className="text-[13px] text-white/60">Raconte ta journée à Yova — 3 min</p>
+      </div>
+      <svg width="16" height="16" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+        <path d="M9 18l6-6-6-6" />
+      </svg>
+    </Link>
   );
 }
 
@@ -151,13 +263,11 @@ function TodayTaskCard({
 
 export default function TodayPage() {
   const { profile } = useAuthStore();
-  const { tasks, loading: tasksLoading, fetchTasks, completeTask, filters } = useTaskStore();
+  const { tasks, loading: tasksLoading, fetchTasks, completeTask, updateTask, filters } = useTaskStore();
   const { householdProfile, members: phantomMembers, loading: familyLoading, fetchFamily } = useFamilyStore();
 
-  // Complétion rapide — état optimiste local
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
-
-  // Mémoire Yova — faits récents pour enrichir le greeting
+  const [postponedIds, setPostponedIds] = useState<Set<string>>(new Set());
   const [memoryFacts, setMemoryFacts] = useState<AgentMemoryFact[]>([]);
 
   const loadMemoryFacts = useCallback(async (householdId: string) => {
@@ -173,29 +283,45 @@ export default function TodayPage() {
   }, []);
 
   useEffect(() => {
-    if (profile?.household_id) {
-      fetchTasks(profile.household_id);
-      fetchFamily(profile.household_id);
-      loadMemoryFacts(profile.household_id);
-    }
+    if (!profile?.household_id) return;
+    const hid = profile.household_id;
+    fetchTasks(hid);
+    fetchFamily(hid);
+    loadMemoryFacts(hid);
+
+    const onVisible = () => { if (document.visibilityState === 'visible') { fetchTasks(hid); loadMemoryFacts(hid); } };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [profile?.household_id, fetchTasks, fetchFamily, loadMemoryFacts]);
 
-  // ── Complétion rapide ──
+  // ── Actions ──
   const handleComplete = async (taskId: string) => {
     setCompletedIds(prev => new Set(prev).add(taskId));
     await completeTask(taskId);
   };
 
-  // ── Sections ──
+  const handlePostpone = async (taskId: string) => {
+    setPostponedIds(prev => new Set(prev).add(taskId));
+    await updateTask(taskId, { next_due_at: tomorrowISO() });
+  };
+
+  // ── Données ──
   const filtered = filterTasks(tasks, filters, profile?.id ?? '', new Set());
   const sections = splitTasksIntoSections(filtered);
-  const urgentTasks: TaskListItem[] = [...sections.overdue, ...sections.today];
-  const upcomingCount = sections.tomorrow.length + sections.week.length + sections.later.length;
+  const urgentAll: TaskListItem[] = [...sections.overdue, ...sections.today].filter(t => !postponedIds.has(t.id));
 
-  const firstName = profile?.display_name?.split(' ')[0] ?? 'toi';
-  const hour = new Date().getHours();
+  // Card "Maintenant" = tâche la plus urgente non complétée
+  const maintenant = urgentAll.find(t => !completedIds.has(t.id)) ?? null;
+  // À faire aujourd'hui = les 5 suivantes (hors maintenant)
+  const aTFaire = urgentAll.filter(t => t.id !== maintenant?.id).slice(0, 5);
+  // Sur le radar = demain + semaine (capped 5)
+  const radar: TaskListItem[] = [...sections.tomorrow, ...sections.week].slice(0, 5);
+
   const isCrisis = householdProfile?.crisis_mode_active ?? false;
+  const hour = new Date().getHours();
+  const firstName = profile?.display_name?.split(' ')[0] ?? 'toi';
   const greeting = buildGreeting(firstName, householdProfile?.energy_level, householdProfile?.current_life_events ?? [], isCrisis, hour, memoryFacts);
+  const isEvening = hour >= 20;
 
   const isLoading = (tasksLoading || familyLoading) && tasks.length === 0;
 
@@ -208,99 +334,77 @@ export default function TodayPage() {
   }
 
   const todayLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-  const todayCapitalized = todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1);
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="space-y-3 pb-6">
 
       {/* ── En-tête ── */}
-      <div>
-        <p className="text-[13px] text-[#8e8e93] font-medium">{todayCapitalized}</p>
+      <div className="pt-1">
+        <p className="text-[13px] text-[#8e8e93] font-medium capitalize">{todayLabel}</p>
         <h1 className="text-[28px] font-bold text-[#1c1c1e] leading-tight mt-0.5">Aujourd&apos;hui</h1>
+        {greeting && (
+          <p className="text-[14px] text-[#8e8e93] mt-1 leading-snug">{greeting}</p>
+        )}
       </div>
 
-      {/* ── Mode crise ── */}
+      {/* 1. Banner crise */}
       {isCrisis && (
-        <Link href="/family" className="flex items-center gap-3 px-4 py-3.5 rounded-2xl"
-          style={{ background: '#fff2f0', border: '1.5px solid #ff3b30' }}>
-          <span className="text-[22px]">🚨</span>
-          <div className="flex-1">
-            <p className="text-[15px] font-semibold text-[#1c1c1e]">Mode crise actif</p>
-            <p className="text-[13px] text-[#ff3b30]">Seul l&apos;essentiel est affiché</p>
+        <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl" style={{ background: '#fff2f0', border: '1.5px solid #ff3b30' }}>
+          <span className="text-[20px]">🚨</span>
+          <div>
+            <p className="text-[15px] font-semibold text-[#1c1c1e]">Yova te tient cette semaine.</p>
+            <p className="text-[13px] text-[#ff3b30]">Juste l&apos;essentiel.</p>
           </div>
-          <svg width="16" height="16" fill="none" stroke="#ff3b30" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" /></svg>
-        </Link>
+        </div>
       )}
 
-      {/* ── Bloc Yova ── */}
-      <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}>
-        <div className="flex items-start gap-3 px-4 py-4">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-[15px] font-bold text-white"
-            style={{ background: 'rgba(255,255,255,0.15)' }}>Y</div>
-          <p className="text-[15px] text-white/90 leading-relaxed flex-1">{greeting}</p>
-        </div>
-        <Link href="/journal"
-          className="mx-4 mb-4 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-semibold text-white"
-          style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)' }}>
-          <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-          </svg>
-          Raconter ma journée à Yova
-        </Link>
-      </div>
+      {/* 2. Card "Maintenant" */}
+      {maintenant && (
+        <CardMaintenant
+          task={maintenant}
+          onComplete={handleComplete}
+          onPostpone={handlePostpone}
+          justCompleted={completedIds.has(maintenant.id)}
+        />
+      )}
 
-      {/* ── Tâches urgentes ── */}
-      {urgentTasks.length === 0 ? (
-        <div className="rounded-2xl px-4 py-8 text-center bg-white" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.08)' }}>
-          <p className="text-[36px] mb-2">✨</p>
+      {/* Rien à faire */}
+      {!maintenant && urgentAll.length === 0 && (
+        <div className="rounded-2xl px-4 py-10 text-center bg-white" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.06)' }}>
+          <p className="text-[40px] mb-2">✨</p>
           <p className="text-[17px] font-semibold text-[#1c1c1e]">Rien à faire aujourd&apos;hui</p>
           <p className="text-[14px] text-[#8e8e93] mt-1">
-            {upcomingCount > 0
-              ? `${upcomingCount} tâche${upcomingCount > 1 ? 's' : ''} à venir cette semaine`
-              : 'Profite — ou raconte ta journée à Yova'}
+            {radar.length > 0
+              ? `${radar.length} chose${radar.length > 1 ? 's' : ''} à venir sur le radar`
+              : 'Profite — ou parle à Yova'}
           </p>
         </div>
-      ) : (
-        <section>
-          <div className="flex items-center justify-between mb-2.5">
-            <h2 className="text-[17px] font-semibold text-[#1c1c1e]">
-              {sections.overdue.length > 0 ? '🔥 À traiter' : '📋 Du jour'}
-            </h2>
-            <Link href="/tasks" className="text-[14px] text-[#007aff] font-medium">Mes tâches</Link>
-          </div>
-          <div className="space-y-2">
-            {urgentTasks.slice(0, 6).map(task => (
-              <TodayTaskCard
-                key={task.id}
-                task={task}
-                currentUserId={profile?.id ?? ''}
-                phantomMembers={phantomMembers}
-                onComplete={handleComplete}
-                justCompleted={completedIds.has(task.id)}
-              />
-            ))}
-            {urgentTasks.length > 6 && (
-              <Link href="/tasks" className="block text-center text-[14px] text-[#007aff] font-medium py-2">
-                +{urgentTasks.length - 6} tâches de plus →
-              </Link>
-            )}
-          </div>
+      )}
+
+      {/* 3. À faire aujourd'hui */}
+      {aTFaire.length > 0 && (
+        <section className="space-y-2">
+          <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide px-1">
+            À faire aujourd&apos;hui
+          </p>
+          {aTFaire.map(task => (
+            <TodayTaskCard
+              key={task.id}
+              task={task}
+              onComplete={handleComplete}
+              onPostpone={handlePostpone}
+              justCompleted={completedIds.has(task.id)}
+              justPostponed={postponedIds.has(task.id)}
+            />
+          ))}
         </section>
       )}
 
-      {/* ── À venir ── */}
-      {urgentTasks.length > 0 && upcomingCount > 0 && (
-        <Link href="/tasks" className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-white"
-          style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.08)' }}>
-          <div>
-            <p className="text-[15px] font-medium text-[#1c1c1e]">À venir</p>
-            <p className="text-[13px] text-[#8e8e93]">{upcomingCount} tâche{upcomingCount > 1 ? 's' : ''} cette semaine</p>
-          </div>
-          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24" className="text-[#c7c7cc]">
-            <path d="M9 18l6-6-6-6" />
-          </svg>
-        </Link>
-      )}
+      {/* 4. Sur le radar */}
+      <SurLeRadar tasks={radar} />
+
+      {/* 5. Check-in du soir (uniquement après 20h) */}
+      {isEvening && <CheckInDuSoir />}
 
     </div>
   );

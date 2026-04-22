@@ -297,23 +297,8 @@ export default function ProfilePage() {
                 <polyline points="9 18 15 12 9 6" />
               </svg>
             </a>
-            {/* Score / répartition */}
-            <a
-              href="/dashboard"
-              className="flex items-center justify-between px-4 py-3.5 rounded-xl bg-white"
-              style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-[22px]">📊</span>
-                <div>
-                  <p className="text-[15px] font-semibold text-[#1c1c1e]">Score & répartition</p>
-                  <p className="text-[12px] text-[#8e8e93]">Charge mentale et équilibre du foyer</p>
-                </div>
-              </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c7c7cc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </a>
+            {/* Score / répartition — archivé spec V1, accessible via lien discret */}
+            {/* Voir SPEC_V1_YOVA.md : "Score 4 axes (plus visible par défaut)" */}
           </div>
 
           {/* Ce que Yova sait — mémoire longue */}
@@ -663,14 +648,7 @@ export default function ProfilePage() {
       <div className="mx-4">
         <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Raccourcis</p>
         <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-          <Link href="/distribution" className="flex items-center justify-between px-4 py-3"
-            style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
-            <div className="flex items-center gap-3">
-              <span className="text-[18px]">📊</span>
-              <span className="text-[15px] text-[#1c1c1e]">Statistiques détaillées</span>
-            </div>
-            <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
-          </Link>
+          {/* Statistiques détaillées archivées — spec V1 */}
           <Link href="/tasks/archived" className="flex items-center justify-between px-4 py-3"
             style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
             <div className="flex items-center gap-3">
