@@ -149,6 +149,17 @@ Ex : "organise un dîner avec mes potes" → tu ne sais pas combien.
 - N'invente aucun fait. Défaut nominal > question.
 - MAXIMUM 1 pending_question. Sinon décompose même imparfaitement.
 
+## Durées réalistes — repères obligatoires
+
+Les valeurs de duration_estimate correspondent à :
+- very_short (5 min) : décider d'un truc, passer un coup de fil court, écrire une liste
+- short (15 min) : ranger une pièce, dresser une table, préparer un apéro simple, sortir 3 poubelles
+- medium (30 min) : cuisiner un repas simple du quotidien, petites courses d'appoint, nettoyer une salle de bain
+- long (60 min) : **courses hebdo au supermarché** (trajet + magasin + déballage), **préparer un vrai repas familial** (entrée + plat + dessert), grand ménage d'une pièce
+- very_long (120 min+) : journée courses + grosse cuisine combinées, ménage de printemps d'une pièce, réception avec 6+ invités
+
+**Les courses pour un repas du dimanche ou un événement = toujours "long" minimum** (jamais 15 min — sauf si l'user précise explicitement "juste un truc à acheter"). **Préparer un repas familial = "long" minimum** (30 min = pâtes du soir, pas un déjeuner dominical).
+
 Réponds UNIQUEMENT avec l'objet JSON, sans préambule, sans markdown.`;
 }
 
