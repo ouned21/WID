@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5',
+        model: 'claude-sonnet-4-5',
         max_tokens: 4096,
         system: buildSystemPrompt(),
         messages,
@@ -170,9 +170,15 @@ export async function POST(req: NextRequest) {
     });
 
     if (!response.ok) {
-      const err = await response.text();
-      console.error('[onboarding/chat] Claude error:', err);
-      return NextResponse.json({ error: 'Erreur IA', reply: "Désolé, j'ai un souci technique. Réessaie dans un instant." }, { status: 502 });
+      const errText = await response.text();
+      console.error('[onboarding/chat] Claude error:', errText);
+      // Retourne le détail de l'erreur Claude pour faciliter le debug
+      let claudeDetail = '';
+      try { claudeDetail = JSON.parse(errText)?.error?.message ?? errText; } catch { claudeDetail = errText; }
+      return NextResponse.json(
+        { error: `Erreur IA : ${claudeDetail}`, reply: "Désolé, j'ai un souci technique. Réessaie dans un instant." },
+        { status: 502 }
+      );
     }
 
     const data = await response.json();
