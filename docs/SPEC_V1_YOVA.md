@@ -287,12 +287,14 @@ Remplace le formulaire multi-étapes + catalogue statique.
 
 ## ✅ État actuel du build (2026-04-22 — sprint 14 inclus)
 
-### Sprint 14 — Auto-sync faits structurés + anti-doublon projet + nettoyage legacy (2026-04-22h)
-- `extract-memory` (Haiku) écrit désormais `birth_date` / `school_class` / `specifics.allergies` direct dans `phantom_members` quand l'user les mentionne en journal. Matching prénom exact prioritaire + fallback Levenshtein ≤ 2. Skip silencieux si confidence < 0.8 ou ambigu. Allergies mergées sans écrasement. Trace audit systématique dans `agent_memory_facts`.
-- Bubble discrète "📌 Fiche Eva · anniversaire : 13 mai" après la réponse Yova dans `/journal` quand une fiche membre est mise à jour.
+### Sprint 14 — Auto-sync faits structurés + /week redesign + anti-doublon projet (2026-04-22h, PR #6 mergée)
+- `lib/structuredMemory.ts` (module partagé) + extraction regex inline **synchrone** dans `parse-journal` → écrit `birth_date` / `school_class` / `specifics.allergies` direct dans `phantom_members` avant retour de la réponse. 3 patterns regex ("anniv de X le DD mois", "X rentre en CLASSE", "X allergique à Y"). Matching prénom exact prioritaire + fallback Levenshtein ≤ 2 (gap ≥ 1 vs 2e candidat). Skip silencieux si confidence < 0.8 ou ambigu. Allergies mergées sans écrasement. Trace audit dans `agent_memory_facts`.
+- Bubble discrète "📌 Fiche Eva · anniversaire : 13 mai" après la réponse Yova dans `/journal` quand une fiche membre est mise à jour. Rafraîchit `fetchHousehold` pour propager la maj sur `/family`.
+- Fiche membre : si `birth_date` est dans le futur (auto-sync sans année de naissance) → affiche "🎂 dans X j" au lieu de "-1 ans". Helper `daysUntilNextBirthday`.
 - Anti-doublon projet dans `decomposeProjectCore` : avant appel Sonnet, check fuzzy (Jaccard ≥ 0.6) sur les parents actifs < 14 j. Si match → Yova demande "remplacer / ajouter ?". Stateful via `pending_project_duplicate` dans `conversation_turns`. Helpers `findPendingDuplicate` + `interpretDuplicateAnswer` + flag `skipDuplicateCheck`.
-- `/week` grid masque les tâches parent de projet (cohérent avec `/today` et `ProjectGroupCard`). Sous-tâches gardent leur chip coloré. Section "Projets à venir" > 7 j préserve les parents.
+- `/week` redesign option B : grid chrono top-down (Aujourd'hui → Demain → …), section "PROJETS EN COURS" déplacée **sous** le grid. N'affiche que les **parents** (pas les sous-tâches) avec progress bar N/total + chip coloré + date prochaine échéance. Tap carte = filtre vue. Sous-tâches > 7 j basculées en mode Mois.
 - `scripts/backfill-orphan-project-tasks.ts` — script dry-run/--apply pour rattacher les sous-tâches historiques orphelines à leurs parents de projet.
+- `extract-memory` conservé en parallèle (Haiku fallback/complément pour faits narratifs) mais n'est plus critique — `parse-journal` est source de vérité pour l'écriture structurée.
 
 ### Sprint 13 — Actions inline chat + phantom assignation + chip /week (2026-04-22g)
 - `DecomposedProjectCard` dans `/journal` devient tappable : chaque sous-tâche ouvre `TaskActionsSheet` (Fait / Reporter / Réassigner / Pas pertinent), refetch live après chaque action. Archivées affichées grisées + rayées + badge.
@@ -362,14 +364,24 @@ Suppression de toute la dette V0 incompatible avec la spec :
 - Détection de dérives : 4 patterns (`cooking_drift`, `balance_drift`, `journal_silence`, `task_overdue_cluster`)
 
 ### Prochains sprints (à prioriser avec Jonathan)
-- **TTS Yova** : Yova répond à voix haute (ElevenLabs ou Web Speech TTS) — Mois 3 roadmap
-- **Consolidation de tâches chevauchantes** ⭐ (issu retours sprint 12) : Yova détecte quand une sous-tâche de projet ("Faire les courses pour le déjeuner") recoupe une tâche récurrente existante ("Faire les courses" mercredi) et propose proactivement : *« Tu as déjà les courses mer. 29, je groupe avec le déjeuner dimanche pour que tu y ailles qu'une fois ? »*. Pilier 3 "Proactivité douce" pur. Dépend de : mémoire longue (sprint 6 ✅) + logique de similarité sémantique sur les noms de tâches. Mois 3-4 roadmap.
-- **CTA check-in ne doit pas réapparaître après complétion** (bug UX pré-existant) : la CTA "Check-in du soir" sur /today reste visible même après avoir complété les 3 questions. Vérifier `last_journal_at` ou `last_checkin_at` avant de l'afficher. Petit ticket (<1 jour).
-- **Bug parser : fuzzy match trop agressif sur projets parents** ⭐ (issu démo sprint 14) : quand l'user dit *« l'anniversaire d'Eva c'est le 13 mai »* dans /journal, le parseur `parse-journal` fuzzy-matche avec le projet parent actif *« Anniversaire d'Eva »* et crée une **completion faussement marquée "FAIT AUJOURD'HUI"**. La phrase énonçait une info structurée (date de naissance), pas une tâche accomplie. Côté UX, Yova répond même *« J'ai mis à jour la date »* (narratif Sonnet hallucinatoire) alors qu'aucune tâche n'est réellement complétée. Scope fix : dans `normalizeTaskName`/`isSimilarTask`, exclure les tâches dont le nom matche **trop littéralement** une déclaration de fait structuré (patterns "anniv/allergie/classe/est en" → ne pas compléter la tâche parente). OU baisser le seuil fuzzy + garder un filtre : si la tâche candidate est un **parent de projet** (référencé par parent_project_id), jamais de completion automatique — seules les sous-tâches sont complétables. Parent se complète implicitement quand 100% sous-tâches done (déjà la règle sprint 12). Petit ticket (~1 jour).
-- **CTA "Nouveau"/"+ Nouvelle conversation" en /journal ne bypass pas le check-in** (issu démo sprint 14) : après 20h, impossible de démarrer une conversation libre — Yova force le check-in guidé à chaque "Nouveau". Bloque les tests + parcours user "je veux juste lui dire un truc vite". Scope : ajouter un toggle ou un bypass quand l'user a déjà complété le check-in du jour (`last_checkin_at` <24h). Lié au ticket "CTA check-in ne doit pas réapparaître après complétion" — à bundler. Petit ticket (<1 jour).
-- **Anticipations parentales** : jobs anniv enfants, vacances scolaires, rdv récurrents — Mois 4-5
-- **Mode crise automatique** : activation auto sur signal dérive sévère (V2) — Mois 5
-- **Beta prep** : pricing/paywall Premium, 30-50 users — Mois 6
+
+- **Sprint 15 — Nettoyage bugs UX critiques** ⭐⭐⭐ (issus démo sprint 14 — bloque les tests en conditions réelles) :
+  3 bugs bundlés qui touchent tous le flow `/journal` + CTA check-in :
+  - (A) **Parent de projet jamais completable automatiquement** : le parseur fuzzy-matche *"l'anniversaire d'Eva c'est le 13 mai"* avec le projet parent actif *"Anniversaire d'Eva"* → marque FAIT AUJOURD'HUI à tort. Règle claire : si la task candidate est référencée par au moins 1 enfant (`parent_project_id`), JAMAIS de completion auto. Le parent se complète implicitement quand 100% sous-tâches done (règle sprint 12).
+  - (B) **CTA check-in du soir ne doit plus réapparaître après complétion** : vérifier `last_checkin_at` < 24h avant d'afficher la CTA sur `/today`. Ajouter un champ DB ou utiliser `user_journals` (flag `is_checkin`).
+  - (C) **Bypass conversation libre** : après 20h (ou toujours), le bouton "Nouveau" / "+ Nouvelle conversation" doit permettre une conv libre (pas forcer le check-in). Logique : si check-in du jour déjà fait → bypass automatique, sinon afficher un toggle "Check-in guidé / Conv libre".
+  - **Critère de succès** : 3 démos device réel — (1) parser ne complète plus à tort un projet parent, (2) pas de CTA check-in après avoir complété, (3) je peux démarrer une conv libre sans check-in.
+  - **Durée estimée** : 1-2 jours.
+
+- **Sprint 16 — Consolidation de tâches chevauchantes** ⭐⭐ (issu retours sprint 12, Pilier 3 pur) : Yova détecte quand une sous-tâche de projet ("Faire les courses pour le déjeuner") recoupe une tâche récurrente existante ("Faire les courses" mercredi) et propose proactivement : *« Tu as déjà les courses mer. 29, je groupe avec le déjeuner dimanche pour que tu y ailles qu'une fois ? »*. Dépend de : mémoire longue (sprint 6 ✅) + similarité sémantique sur noms de tâches. Mois 3-4 roadmap. Durée : 3-4 j.
+
+- **Sprint 17 — TTS Yova** : Yova répond à voix haute (ElevenLabs ou Web Speech TTS) pour le check-in du soir. Mois 3 roadmap. Durée : 2-3 j.
+
+- **Sprint 18 — Anticipations parentales** : jobs quotidiens détectent anniv enfants < 7 j, vacances scolaires, rdv pédiatre récurrents → observations proactives Pilier 2. Mois 4-5. Durée : ~1 semaine.
+
+- **Sprint 19 — Mode crise automatique** : activation auto sur signal dérive sévère (3+ observations `alert` concomitantes). Mois 5, V2. Durée : 3-4 j.
+
+- **Sprint 20 — Beta prep** : pricing/paywall Premium, onboarding 30-50 users. Mois 6. Durée : 1-2 semaines.
 
 > **Process** : chaque sprint = nouvelle session Claude Code. Lire CHANGELOG.md + SPEC_V1_YOVA.md + PROCESS_DEV.md en début de session.
 
