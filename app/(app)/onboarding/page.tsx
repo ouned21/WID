@@ -253,8 +253,9 @@ export default function OnboardingPage() {
     recognition.onresult = (e: SpeechRecognitionEvent) => {
       const transcript = e.results[0]?.[0]?.transcript ?? '';
       if (transcript.trim()) {
-        // Auto-envoie directement la réponse vocale
-        void sendMessage(transcript.trim());
+        // Met dans le textarea pour que l'utilisateur puisse vérifier avant d'envoyer
+        setTextInput(transcript.trim());
+        setTimeout(() => inputRef.current?.focus(), 50);
       }
       setIsRecording(false);
     };
