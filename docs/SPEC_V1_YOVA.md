@@ -255,9 +255,17 @@ Remplace le formulaire multi-étapes + catalogue statique.
 | Lessive lancée ou à faire ? | `next_due_at` lessive | Calibrage J0 |
 | Dîner ce soir prévu ? | `next_due_at` repas | Calibrage J0 |
 
-**Génération** : Claude Haiku avec tout le contexte → 10-20 tâches JSON avec `next_due_at` calibré.
+**Génération** : Claude Haiku avec tout le contexte → 10-18 tâches JSON avec `next_due_at` calibré.
 **Fallback** : catalogue statique si Claude timeout.
 **Sauvegarde** : conversation → `conversation_turns` (première mémoire Yova).
+
+**Règles de génération des tâches (onboarding) — NON NÉGOCIABLES** :
+- 🔴 **Zéro improvisation** : Claude ne génère QUE des tâches dont le besoin a été explicitement mentionné par l'user. Si l'user n'a pas dit "j'ai un bébé en couches" → pas de réappro couches. Si pas d'animal mentionné → pas de tâches animaux.
+- ✅ Tâches autorisées sans mention explicite (besoins universels) : courses, lessive, cuisine du soir, ménage, admin
+- ❌ Exclure les rituels automatiques : bain, brossage dents, coucher enfants, repas matin, vaisselle, faire son lit, préparer les enfants pour l'école, préparer le cartable
+- ❌ Exclure "plier/ranger le linge" si lessive déjà dans la liste (implicite)
+- ❌ Exclure poubelles quotidiennes (collecte hebdo ou tri sélectif uniquement)
+- Déduplication : vérification contre les tâches déjà en DB (anti-doublons si onboarding relancé)
 
 ### On RETIRE de la nav (code archivé, pas supprimé)
 - Score 4 axes (plus visible par défaut)
@@ -274,6 +282,49 @@ Remplace le formulaire multi-étapes + catalogue statique.
 - Table `agent_memory_facts` + pgvector embeddings
 - Surface « Parler à Yova » avec vocal (STT + TTS)
 - Mode crise (toggle manuel V1, automatisation V2)
+
+---
+
+## ✅ État actuel du build (2026-04-22)
+
+### Implémenté et livré
+
+**Aujourd'hui (`/today`)**
+- Card "Maintenant" (tâche la plus urgente), section "À faire aujourd'hui" (5 max), "Sur le radar" (collapsible), lien "Cette semaine"
+- Complétion tâche : feedback visuel immédiat (optimistic UI) + délai 1.5s avant suppression pour que l'animation soit visible
+- Rafraîchissement automatique au retour depuis le journal (pathname comme dépendance useEffect)
+- Assignation inline via bottom sheet (badge membre cliquable)
+
+**Journal / Parler à Yova (`/journal`)**
+- Saisie texte + dictée vocale (Web Speech API)
+- Fix hydration iOS PWA : `isSpeechSupported` initialisé côté client uniquement
+- Gestion erreur `service-not-allowed` (PWA iOS sans permission micro)
+- Détection assignation : "je vais faire X" = toujours une ASSIGNATION, jamais une complétion → routé vers Sonnet
+- Routage modèle : Haiku (complétions simples) / Sonnet (assignations, émotions, texte long)
+
+**Onboarding (`/onboarding`)**
+- Chat guidé SSE streaming avec Haiku
+- Fix infinite loading : `maxDuration=60`, suppression des `await fetchHousehold/fetchTasks` bloquants
+- Fix comptage adultes : arithmétique explicite dans le prompt (householdSize - enfants - 1)
+- Règle zéro improvisation sur les tâches générées (voir section Onboarding)
+- Déduplication DB : vérification contre tâches existantes avant insertion
+
+**Cette semaine (`/week`)**
+- Vue 7 jours groupée par jour, badges assignation colorés
+- Toggle **7 jours / 30 jours roulants** (vue mois = jours avec tâches uniquement)
+
+**Profil (`/profile`)**
+- Informations compte (nom, avatar), foyer (nom, code invitation), mode vacances, notifications, déconnexion, légal
+- Supprimé : liste membres (→ onglet Foyer), "Ce qu'Yova sait de toi" (formulaires manuels), "Mon objectif" (slider %), "Niveau de charge souhaité", raccourcis
+
+**Foyer (`/family`)**
+- Mode crise (toggle), énergie du foyer, "Ce qu'on traverse" (observations Yova), fiches enfants, autres membres, invitation partenaire
+
+### En cours / Prochains sprints
+- Mémoire narrative : pgvector + `agent_memory_facts` extraction auto depuis conversations
+- Détection de dérives : jobs quotidiens + table `observations`
+- Check-in du soir guidé (vocal STT + TTS)
+- Mode crise automatisation (V2)
 
 ---
 
