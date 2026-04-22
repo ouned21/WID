@@ -20,6 +20,17 @@ import { createClient } from '@/lib/supabase';
 type ApiMessage     = { role: 'user' | 'assistant'; content: string };
 type DisplayMessage = { role: 'yova' | 'user'; text: string };
 type Step           = 'loading' | 'chat' | 'generating' | 'done';
+type EquipmentItem  = { id: string; name: string; icon: string; category: string; is_default: boolean };
+
+const EQUIP_CAT_LABELS: Record<string, string> = {
+  cuisine:      '🍳 Cuisine',
+  salle_de_bain:'🚿 Salle de bain',
+  linge:        '👕 Linge',
+  sols:         '🧹 Sols & Ménage',
+  exterieur:    '🌿 Extérieur',
+  vehicule:     '🚗 Véhicule',
+  animaux:      '🐾 Animaux',
+};
 
 type DonePayload = {
   taskRows:      Record<string, unknown>[];
@@ -73,6 +84,11 @@ export default function OnboardingPage() {
   const [error, setError]         = useState<string | null>(null);
 
   // Done state
+  // Equipment picker
+  const [equipmentList, setEquipmentList]       = useState<EquipmentItem[]>([]);
+  const [selectedEquipment, setSelectedEquipment] = useState<Set<string>>(new Set());
+  const [showEquipment, setShowEquipment]       = useState(false);
+
   const [donePayload, setDonePayload] = useState<DonePayload | null>(null);
   const [taskCount, setTaskCount]     = useState(0);
   const [journalConsent, setJournalConsent] = useState(false);
@@ -85,6 +101,21 @@ export default function OnboardingPage() {
   const householdId = profile?.household_id;
 
   // ── Init ───────────────────────────────────────────────────────────────────
+  // Load equipment from DB
+  useEffect(() => {
+    createClient()
+      .from('onboarding_equipment')
+      .select('*')
+      .order('sort_order')
+      .then(({ data }) => {
+        if (!data) return;
+        setEquipmentList(data as EquipmentItem[]);
+        setSelectedEquipment(new Set(
+          (data as EquipmentItem[]).filter(e => e.is_default).map(e => e.id)
+        ));
+      });
+  }, []);
+
   // Auto-create household if missing
   useEffect(() => {
     if (!userId || householdId) return;
@@ -113,6 +144,7 @@ export default function OnboardingPage() {
         reply: string;
         done: boolean;
         chips?: string[];
+        showEquipment?: boolean;
         taskRows?: Record<string, unknown>[];
         children?: { name: string; age: number; school_class: string | null }[];
         householdMeta?: { energy_level: string; has_external_help: boolean; external_help_description: string | null };
@@ -130,6 +162,13 @@ export default function OnboardingPage() {
 
       setDisplay(prev => [...prev, yovaMsg]);
       setApiMessages(updatedApi);
+
+      if (data.showEquipment) {
+        setShowEquipment(true);
+        setChips([]);
+        setStep('chat');
+        return;
+      }
 
       if (data.done) {
         const payload: DonePayload = {
@@ -166,6 +205,19 @@ export default function OnboardingPage() {
     void callApi(init);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Confirm equipment selection ────────────────────────────────────────────
+  const confirmEquipment = useCallback(() => {
+    const names = equipmentList
+      .filter(e => selectedEquipment.has(e.id))
+      .map(e => e.name);
+    const msg = names.length > 0
+      ? `J'ai : ${names.join(', ')}`
+      : 'Pas d\'équipements particuliers';
+    setShowEquipment(false);
+    void sendMessage(msg);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [equipmentList, selectedEquipment]);
 
   // ── Send message ───────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (text: string) => {
@@ -435,8 +487,62 @@ export default function OnboardingPage() {
             </div>
           )}
 
+          {/* Equipment picker */}
+          {step === 'chat' && showEquipment && (() => {
+            const grouped: Record<string, EquipmentItem[]> = {};
+            for (const e of equipmentList) {
+              if (!grouped[e.category]) grouped[e.category] = [];
+              grouped[e.category].push(e);
+            }
+            return (
+              <div className="rounded-2xl bg-white overflow-hidden"
+                style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.08)', maxHeight: '55vh', overflowY: 'auto' }}>
+                <div className="px-4 pt-3 pb-1">
+                  <p className="text-[12px] font-bold text-[#8e8e93] uppercase tracking-wide">
+                    Tapez sur ce que vous avez
+                  </p>
+                </div>
+                {Object.entries(grouped).map(([cat, items]) => (
+                  <div key={cat} className="px-4 pb-3">
+                    <p className="text-[11px] font-semibold text-[#8e8e93] mb-1.5">
+                      {EQUIP_CAT_LABELS[cat] ?? cat}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {items.map(eq => {
+                        const sel = selectedEquipment.has(eq.id);
+                        return (
+                          <button key={eq.id}
+                            onClick={() => setSelectedEquipment(prev => {
+                              const n = new Set(prev);
+                              sel ? n.delete(eq.id) : n.add(eq.id);
+                              return n;
+                            })}
+                            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px] font-semibold transition-all active:scale-[0.95]"
+                            style={{
+                              background: sel ? 'linear-gradient(135deg,#007aff,#5856d6)' : '#f0f4ff',
+                              color: sel ? 'white' : '#1c1c1e',
+                            }}>
+                            <span className="text-[15px]">{eq.icon}</span>
+                            <span>{eq.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                <div className="px-4 pb-4 pt-1">
+                  <button onClick={confirmEquipment}
+                    className="w-full rounded-2xl py-3 text-[16px] font-bold text-white"
+                    style={{ background: 'linear-gradient(135deg,#007aff,#5856d6)', boxShadow: '0 4px 16px rgba(0,122,255,0.3)' }}>
+                    Confirmer ({selectedEquipment.size}) →
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Chat input */}
-          {step === 'chat' && (
+          {step === 'chat' && !showEquipment && (
             <>
               {/* Quick-reply chips */}
               {chips.length > 0 && (

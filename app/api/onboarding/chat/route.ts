@@ -49,7 +49,7 @@ INFORMATIONS À COLLECTER (toutes nécessaires avant de générer) :
 - hasChildren + childrenRaw : y a-t-il des enfants ? Si oui, prénoms et âges (ex: "Léa 7 ans, Tom 4 ans")
 - constraints : allergies ou contraintes alimentaires ("" si aucune)
 - hasExternalHelp + externalHelpRaw : aide extérieure (femme de ménage, baby-sitter, livraison repas...) ("" si aucune)
-- equipment : liste des équipements disponibles (lave-linge, lave-vaisselle, robot aspirateur, jardin, voiture, animal de compagnie...) — pose la question de façon ouverte et conversationnelle
+- equipment : liste des équipements disponibles — IMPORTANT : quand tu poses cette question, termine ton message exactement par [SHOW_EQUIPMENT] (sans rien après). Le frontend affichera une sélection visuelle à l'utilisateur. Tu n'as pas besoin de lister les équipements toi-même.
 - energyLevel : niveau d'énergie actuel du foyer — "low" (épuisé), "medium" (ça va), "high" (en forme)
 - groceriesDone : état des courses — "done" (faites récemment), "todo" (à faire), "delivery" (livraison habituelle)
 - laundryDone : état de la lessive — "done" (faite), "todo" (à lancer)
@@ -234,6 +234,12 @@ export async function POST(req: NextRequest) {
         console.error('[onboarding/chat] YOVA_DONE JSON parse error:', parseErr);
         console.error('[onboarding/chat] Raw JSON attempted:', rawText.slice(doneIdx + doneMarker.length, doneIdx + doneMarker.length + 200));
       }
+    }
+
+    // ── [SHOW_EQUIPMENT] marker — affiche la grille d'équipements ────────
+    if (rawText.includes('[SHOW_EQUIPMENT]')) {
+      const reply = rawText.replace('[SHOW_EQUIPMENT]', '').trim();
+      return NextResponse.json({ reply, done: false, chips: [], showEquipment: true });
     }
 
     // ── Regular message — extract optional chips [opt1|opt2] ──────────────
