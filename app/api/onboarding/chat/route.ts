@@ -1,18 +1,20 @@
 /**
- * API Route : /api/onboarding/chat
+ * API Route : /api/onboarding/chat — STREAMING (SSE)
  *
- * Claude pilote la conversation d'onboarding de bout en bout.
- * Le frontend envoie l'historique complet à chaque message (stateless).
+ * Diffuse la réponse Claude token par token via Server-Sent Events.
+ * Dès que YOVA_DONE est détecté dans le stream, l'event { type:'generating' }
+ * est envoyé immédiatement → le frontend bascule sur l'écran de génération
+ * SANS attendre la fin du JSON. Le JSON continue à arriver en arrière-plan.
  *
- * Quand Claude a assez d'infos, il répond avec YOVA_DONE + JSON structuré
- * qui contient context + taskRows + children + householdMeta.
- * Le backend détecte le marqueur, parse le JSON, et retourne done:true.
- *
- * Chips : Claude peut inclure [opt1|opt2] en fin de message pour
- * proposer des réponses rapides. Le backend les parse et les retourne séparément.
+ * Events SSE émis :
+ *   { type: 'reply',      reply, chips }             → message conversationnel normal
+ *   { type: 'equipment',  reply }                    → afficher le picker équipements
+ *   { type: 'generating', replyText }                → YOVA_DONE détecté, basculer écran
+ *   { type: 'done',       replyText, taskRows, ... } → JSON parsé, lancer persistTasks
+ *   { type: 'error',      message }                  → erreur
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
@@ -32,6 +34,8 @@ const CATEGORY_IDS: Record<string, string> = {
   vehicle:              'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
   household_management: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
 };
+
+// ── System prompt ────────────────────────────────────────────────────────────
 
 function buildSystemPrompt(): string {
   const now = new Date();
@@ -141,6 +145,8 @@ RÈGLES DE GÉNÉRATION DES TÂCHES (à appliquer dans le JSON final) :
   * Dîner "no" → aujourd'hui`;
 }
 
+// ── Auth ─────────────────────────────────────────────────────────────────────
+
 async function getAuthUser() {
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -152,169 +158,234 @@ async function getAuthUser() {
   return user;
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const encoder = new TextEncoder();
+
+function sseEvent(ctrl: ReadableStreamDefaultController, data: object) {
+  ctrl.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+}
+
+/** Injecte les chips de fallback si Claude a oublié de les mettre */
+function injectFallbackChips(reply: string): string[] {
+  const r = reply.toLowerCase();
+  if (/\bcombien\b.*\bmaison\b|\bmaison\b.*\bcombien\b|\bpersonnes?\b.*\bfoyer\b|\bfoyer\b.*\bcombien\b|\bvous [êe]tes combien\b/.test(r))
+    return ['1', '2', '3', '4', '5', '6+'];
+  if (/\benfants?\b/.test(r) && /[?]/.test(r) && !/pr[eé]nom|[âa]ge|classe|d[eé]tail/.test(r))
+    return ['Oui', 'Non'];
+  if (/allergi|contrainte.*alimentaire|alimentaire.*contrainte/.test(r) && /[?:]/.test(r))
+    return ['Aucune allergie 👍', 'On a des allergies'];
+  if (/aide ext|aide.*maison|aide.*domestique/.test(r) && /[?:]/.test(r) && !/quel type|pr[eé]cis|fr[eé]quence|combien de fois/.test(r))
+    return ["Oui, on a de l'aide", 'Non, on gère seuls'];
+  if (/[eé]nergie|[eé]puis[eé]|en forme|fatigue|sentez.*niveau|niveau.*[eé]nergie/.test(r))
+    return ['Épuisé 😴', 'Ça va 😊', 'En forme 💪'];
+  if (/\bcourses?\b/.test(r) && !/pr[eé]nom|enfant|adulte/.test(r))
+    return ['Faites ✓', 'À faire', 'Livraison 📦'];
+  if (/lessiv/.test(r))
+    return ['Faite ✓', 'À lancer'];
+  if (/d[îi]ner|soir.*repas|repas.*soir|ce soir.*pr[eé]vu|pr[eé]vu.*ce soir/.test(r))
+    return ['Prévu ✓', 'Pas encore'];
+  return [];
+}
+
+/** Parse et valide les tâches du JSON Claude */
+function buildTaskRows(tasks: {
+  name: string; category: string; frequency: string;
+  duration_estimate: string; physical_effort: string;
+  mental_load_score: number; next_due_at: string;
+}[]) {
+  const now = new Date(); now.setHours(9, 0, 0, 0);
+  const VALID_FREQ = new Set(['daily','weekly','biweekly','monthly','quarterly','semiannual','yearly','once']);
+  const VALID_DUR  = new Set(['very_short','short','medium','long','very_long']);
+  const VALID_EFF  = new Set(['none','light','medium','high']);
+
+  return tasks.map(t => ({
+    name:                  t.name,
+    category_id:           CATEGORY_IDS[t.category] ?? CATEGORY_IDS.cleaning,
+    frequency:             VALID_FREQ.has(t.frequency) ? t.frequency : 'weekly',
+    duration_estimate:     VALID_DUR.has(t.duration_estimate) ? t.duration_estimate : 'short',
+    physical_effort:       VALID_EFF.has(t.physical_effort) ? t.physical_effort : 'medium',
+    mental_load_score:     Math.min(5, Math.max(1, t.mental_load_score ?? 3)),
+    scoring_category:      t.category || 'cleaning',
+    is_active:             true,
+    is_fixed_assignment:   false,
+    notifications_enabled: true,
+    assigned_to:           null,
+    next_due_at:           (t.next_due_at && !isNaN(Date.parse(t.next_due_at)))
+                             ? t.next_due_at
+                             : now.toISOString(),
+  }));
+}
+
+// ── Route handler ─────────────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
   const user = await getAuthUser();
-  if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+  if (!user) {
+    return new Response(`data: ${JSON.stringify({ type: 'error', message: 'Non authentifié' })}\n\n`, {
+      status: 401, headers: { 'Content-Type': 'text/event-stream' },
+    });
+  }
 
   if (!ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: 'ANTHROPIC_API_KEY manquante' }, { status: 500 });
+    return new Response(`data: ${JSON.stringify({ type: 'error', message: 'ANTHROPIC_API_KEY manquante' })}\n\n`, {
+      status: 500, headers: { 'Content-Type': 'text/event-stream' },
+    });
   }
 
   const { messages } = await req.json() as {
     messages: { role: 'user' | 'assistant'; content: string }[];
   };
 
-  if (!messages || messages.length === 0) {
-    return NextResponse.json({ error: 'messages requis' }, { status: 400 });
+  if (!messages?.length) {
+    return new Response(`data: ${JSON.stringify({ type: 'error', message: 'messages requis' })}\n\n`, {
+      status: 400, headers: { 'Content-Type': 'text/event-stream' },
+    });
   }
 
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
+  // Ouvrir le stream Claude avec stream: true
+  const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 4096,
+      stream: true,
+      system: buildSystemPrompt(),
+      messages,
+    }),
+  });
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 4096,
-        system: buildSystemPrompt(),
-        messages,
-      }),
-    });
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('[onboarding/chat] Claude error:', errText);
-      // Retourne le détail de l'erreur Claude pour faciliter le debug
-      let claudeDetail = '';
-      try { claudeDetail = JSON.parse(errText)?.error?.message ?? errText; } catch { claudeDetail = errText; }
-      return NextResponse.json(
-        { error: `Erreur IA : ${claudeDetail}`, reply: "Désolé, j'ai un souci technique. Réessaie dans un instant." },
-        { status: 502 }
-      );
-    }
-
-    const data = await response.json();
-    const rawText: string = data.content?.[0]?.text ?? '';
-
-    // ── Detect YOVA_DONE ───────────────────────────────────────────────────
-    const doneMarker = 'YOVA_DONE';
-    const doneIdx = rawText.indexOf(doneMarker);
-
-    if (doneIdx !== -1) {
-      const replyText = rawText.slice(0, doneIdx).trim();
-      // Strip markdown code fences that Claude sometimes adds (```json ... ```)
-      const jsonStr = rawText
-        .slice(doneIdx + doneMarker.length)
-        .trim()
-        .replace(/^```(?:json)?\s*/i, '')
-        .replace(/\s*```\s*$/, '')
-        .trim();
-
-      try {
-        const parsed = JSON.parse(jsonStr) as {
-          context: Record<string, unknown>;
-          tasks: {
-            name: string; category: string; frequency: string;
-            duration_estimate: string; physical_effort: string;
-            mental_load_score: number; next_due_at: string;
-          }[];
-          children: { name: string; age: number; school_class: string | null }[];
-          adults: { name: string }[];
-          householdMeta: { energy_level: string; has_external_help: boolean; external_help_description: string | null };
-        };
-
-        const now = new Date();
-        now.setHours(9, 0, 0, 0);
-
-        const VALID_FREQUENCIES = new Set(['daily','weekly','biweekly','monthly','quarterly','semiannual','yearly','once']);
-        const VALID_DURATIONS   = new Set(['very_short','short','medium','long','very_long']);
-        const VALID_EFFORTS     = new Set(['none','light','medium','high']);
-
-        const taskRows = (parsed.tasks ?? []).map(t => ({
-          name:               t.name,
-          category_id:        CATEGORY_IDS[t.category] ?? CATEGORY_IDS.cleaning,
-          frequency:          VALID_FREQUENCIES.has(t.frequency) ? t.frequency : 'weekly',
-          duration_estimate:  VALID_DURATIONS.has(t.duration_estimate) ? t.duration_estimate : 'short',
-          physical_effort:    VALID_EFFORTS.has(t.physical_effort) ? t.physical_effort : 'medium',
-          mental_load_score:  Math.min(5, Math.max(1, t.mental_load_score ?? 3)),
-          scoring_category:   t.category           || 'cleaning',
-          is_active:          true,
-          is_fixed_assignment: false,
-          notifications_enabled: true,
-          assigned_to:        null,
-          next_due_at:        (t.next_due_at && !isNaN(Date.parse(t.next_due_at))) ? t.next_due_at : now.toISOString(),
-        }));
-
-        return NextResponse.json({
-          reply: replyText,
-          done: true,
-          taskRows,
-          children:      parsed.children      ?? [],
-          adults:        parsed.adults        ?? [],
-          householdMeta: parsed.householdMeta ?? null,
-        });
-      } catch (parseErr) {
-        // JSON malformed — log and continue as regular message so conversation doesn't break
-        console.error('[onboarding/chat] YOVA_DONE JSON parse error:', parseErr);
-        console.error('[onboarding/chat] Raw JSON attempted:', rawText.slice(doneIdx + doneMarker.length, doneIdx + doneMarker.length + 200));
-      }
-    }
-
-    // ── [SHOW_EQUIPMENT] marker — affiche la grille d'équipements ────────
-    if (rawText.includes('[SHOW_EQUIPMENT]')) {
-      const reply = rawText.replace('[SHOW_EQUIPMENT]', '').trim();
-      return NextResponse.json({ reply, done: false, chips: [], showEquipment: true });
-    }
-
-    // ── Regular message — extract optional chips [opt1|opt2] ──────────────
-    const chipsMatch = rawText.match(/\[([^\]]{1,120})\]\s*$/);
-    let chips = chipsMatch
-      ? chipsMatch[1].split('|').map(c => c.trim()).filter(Boolean)
-      : [];
-    const reply = chipsMatch
-      ? rawText.slice(0, rawText.lastIndexOf('[')).trim()
-      : rawText.trim();
-
-    // ── Fallback chips si Claude a oublié ─────────────────────────────────
-    // Détecte le type de question et injecte les chips si absentes.
-    // Notes :
-    // - \b ne fonctionne pas avant les lettres accentuées (é, è…) en JS → on évite \b sur ces chars
-    // - Claude utilise parfois ":" plutôt que "?" → on ne requiert pas \? pour courses/lessive/dîner/énergie
-    if (chips.length === 0) {
-      const r = reply.toLowerCase();
-      if (/\bcombien\b.*\bmaison\b|\bmaison\b.*\bcombien\b|\bpersonnes?\b.*\bfoyer\b|\bfoyer\b.*\bcombien\b|\bvous [êe]tes combien\b/.test(r))
-        chips = ['1', '2', '3', '4', '5', '6+'];
-      else if (/\benfants?\b/.test(r) && /\?/.test(r) && !/pr[eé]nom|[âa]ge|classe|d[eé]tail/.test(r))
-        chips = ['Oui', 'Non'];
-      else if (/allergi|contrainte.*alimentaire|alimentaire.*contrainte/.test(r) && /[?:]/.test(r))
-        chips = ['Aucune allergie 👍', 'On a des allergies'];
-      else if (/aide ext|aide.*maison|aide.*domestique/.test(r) && /[?:]/.test(r) && !/quel type|pr[eé]cis|fr[eé]quence|combien de fois/.test(r))
-        chips = ['Oui, on a de l\'aide', 'Non, on gère seuls'];
-      else if (/[eé]nergie|[eé]puis[eé]|en forme|fatigue|sentez.*niveau|niveau.*[eé]nergie/.test(r))
-        chips = ['Épuisé 😴', 'Ça va 😊', 'En forme 💪'];
-      else if (/\bcourses?\b/.test(r) && !/pr[eé]nom|enfant|adulte/.test(r))
-        chips = ['Faites ✓', 'À faire', 'Livraison 📦'];
-      else if (/lessiv/.test(r))
-        chips = ['Faite ✓', 'À lancer'];
-      else if (/d[îi]ner|soir.*repas|repas.*soir|ce soir.*pr[eé]vu|pr[eé]vu.*ce soir/.test(r))
-        chips = ['Prévu ✓', 'Pas encore'];
-    }
-
-    return NextResponse.json({ reply, done: false, chips });
-
-  } catch (err) {
-    console.error('[onboarding/chat] Exception:', err);
-    return NextResponse.json(
-      { error: 'Erreur serveur', reply: "Désolé, j'ai un souci. Réessaie dans un instant." },
-      { status: 500 }
+  if (!claudeRes.ok) {
+    const errText = await claudeRes.text();
+    let claudeDetail = errText;
+    try { claudeDetail = (JSON.parse(errText) as { error?: { message?: string } }).error?.message ?? errText; } catch { /* ignore */ }
+    return new Response(
+      `data: ${JSON.stringify({ type: 'error', message: `Erreur IA : ${claudeDetail}` })}\n\n`,
+      { status: 502, headers: { 'Content-Type': 'text/event-stream' } },
     );
   }
+
+  // Créer le ReadableStream SSE vers le client
+  const readable = new ReadableStream({
+    async start(ctrl) {
+      const reader = claudeRes.body!.getReader();
+      const decoder = new TextDecoder();
+
+      let accumulated = '';     // texte Claude complet accumulé
+      let generatingSent = false; // YOVA_DONE déjà signalé ?
+      let sseBuffer = '';         // buffer pour les lignes SSE incomplètes
+
+      try {
+        // ── Lire le stream Claude token par token ──
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          sseBuffer += decoder.decode(value, { stream: true });
+          const lines = sseBuffer.split('\n');
+          sseBuffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const payload = line.slice(6).trim();
+            if (payload === '[DONE]') continue;
+
+            try {
+              const evt = JSON.parse(payload) as {
+                type: string;
+                delta?: { type: string; text?: string };
+              };
+
+              if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+                accumulated += evt.delta.text ?? '';
+
+                // Dès que YOVA_DONE apparaît : signaler le frontend IMMÉDIATEMENT
+                if (!generatingSent && accumulated.includes('YOVA_DONE')) {
+                  generatingSent = true;
+                  const replyText = accumulated.slice(0, accumulated.indexOf('YOVA_DONE')).trim();
+                  sseEvent(ctrl, { type: 'generating', replyText });
+                }
+              }
+            } catch { /* ligne SSE malformée — ignorer */ }
+          }
+        }
+
+        // ── Stream terminé : traiter le texte complet ──
+        const DONE_MARKER = 'YOVA_DONE';
+        const doneIdx = accumulated.indexOf(DONE_MARKER);
+
+        if (doneIdx !== -1) {
+          // Conversation terminée : parser le JSON des tâches
+          const replyText = accumulated.slice(0, doneIdx).trim();
+          const jsonStr = accumulated
+            .slice(doneIdx + DONE_MARKER.length)
+            .trim()
+            .replace(/^```(?:json)?\s*/i, '')
+            .replace(/\s*```\s*$/, '')
+            .trim();
+
+          try {
+            const parsed = JSON.parse(jsonStr) as {
+              tasks: { name: string; category: string; frequency: string; duration_estimate: string; physical_effort: string; mental_load_score: number; next_due_at: string }[];
+              children: { name: string; age: number; school_class: string | null }[];
+              adults:   { name: string }[];
+              householdMeta: { energy_level: string; has_external_help: boolean; external_help_description: string | null };
+            };
+
+            sseEvent(ctrl, {
+              type:          'done',
+              replyText,
+              taskRows:      buildTaskRows(parsed.tasks ?? []),
+              children:      parsed.children      ?? [],
+              adults:        parsed.adults        ?? [],
+              householdMeta: parsed.householdMeta ?? null,
+            });
+          } catch (parseErr) {
+            console.error('[onboarding/chat] YOVA_DONE JSON parse error:', parseErr);
+            sseEvent(ctrl, { type: 'error', message: 'Erreur de parsing de la réponse IA. Réessaie.' });
+          }
+
+        } else if (accumulated.includes('[SHOW_EQUIPMENT]')) {
+          // Afficher le picker équipements
+          const reply = accumulated.replace('[SHOW_EQUIPMENT]', '').trim();
+          sseEvent(ctrl, { type: 'equipment', reply });
+
+        } else {
+          // Message conversationnel normal — extraire les chips
+          const chipsMatch = accumulated.match(/\[([^\]]{1,120})\]\s*$/);
+          let chips = chipsMatch
+            ? chipsMatch[1].split('|').map(c => c.trim()).filter(Boolean)
+            : [];
+          const reply = chipsMatch
+            ? accumulated.slice(0, accumulated.lastIndexOf('[')).trim()
+            : accumulated.trim();
+
+          // Fallback chips si Claude a oublié
+          if (chips.length === 0) chips = injectFallbackChips(reply);
+
+          sseEvent(ctrl, { type: 'reply', reply, chips });
+        }
+
+      } catch (err) {
+        console.error('[onboarding/chat] stream error:', err);
+        sseEvent(ctrl, { type: 'error', message: 'Erreur réseau. Rechargez la page.' });
+      } finally {
+        ctrl.close();
+      }
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      'Content-Type':      'text/event-stream',
+      'Cache-Control':     'no-cache',
+      'X-Accel-Buffering': 'no', // désactive le buffering nginx/Vercel
+      'Connection':        'keep-alive',
+    },
+  });
 }

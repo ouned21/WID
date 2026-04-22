@@ -268,7 +268,10 @@ export default function OnboardingPage() {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [display, isThinking]);
 
-  // ── API call ───────────────────────────────────────────────────────────────
+  // Timestamp quand le generating screen est apparu (pour garantir min 3s d'affichage)
+  const generatingShownAt = useRef<number>(0);
+
+  // ── API call — consomme le stream SSE ──────────────────────────────────────
   const callApi = useCallback(async (msgs: ApiMessage[]) => {
     setIsThinking(true);
     setError(null);
@@ -278,56 +281,92 @@ export default function OnboardingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: msgs }),
       });
-      const data = await res.json() as {
-        reply: string;
-        done: boolean;
-        chips?: string[];
-        showEquipment?: boolean;
-        taskRows?: Record<string, unknown>[];
-        children?: { name: string; age: number; school_class: string | null }[];
-        householdMeta?: { energy_level: string; has_external_help: boolean; external_help_description: string | null };
-        error?: string;
-      };
 
-      if (!res.ok || data.error) {
-        setError(data.error ?? 'Erreur. Rechargez la page.');
+      if (!res.ok || !res.body) {
+        setError('Erreur réseau. Rechargez la page.');
         setStep('chat');
         return;
       }
 
-      const yovaMsg: DisplayMessage = { role: 'yova', text: data.reply };
-      const updatedApi: ApiMessage[] = [...msgs, { role: 'assistant', content: data.reply }];
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let sseBuffer = '';
 
-      setDisplay(prev => [...prev, yovaMsg]);
-      setApiMessages(updatedApi);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      if (data.showEquipment) {
-        setShowEquipment(true);
-        setChips([]);
-        setStep('chat');
-        return;
-      }
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop() ?? '';
 
-      if (data.done) {
-        const payload: DonePayload = {
-          taskRows:      data.taskRows      ?? [],
-          children:      data.children      ?? [],
-          adults:        (data as { adults?: { name: string }[] }).adults ?? [],
-          householdMeta: data.householdMeta ?? null,
-        };
-        setDonePayload(payload);
-        setChips([]);
-        // Pause courte pour lire la conclusion, puis generating screen
-        // shownAt est passé à persistTasks pour garantir un minimum de 3s visible
-        setTimeout(() => {
-          setStep('generating');
-          const shownAt = Date.now();
-          void persistTasks(payload, shownAt);
-        }, 700);
-      } else {
-        setChips(data.chips ?? []);
-        setStep('chat');
-        setTimeout(() => inputRef.current?.focus(), 100);
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+
+          let evt: Record<string, unknown>;
+          try { evt = JSON.parse(raw) as Record<string, unknown>; }
+          catch { continue; }
+
+          switch (evt.type) {
+
+            // YOVA_DONE détecté mid-stream → écran generating IMMÉDIATEMENT
+            case 'generating': {
+              const replyText = (evt.replyText as string | undefined) ?? '';
+              if (replyText) setDisplay(prev => [...prev, { role: 'yova', text: replyText }]);
+              setIsThinking(false);
+              setStep('generating');
+              generatingShownAt.current = Date.now();
+              break;
+            }
+
+            // JSON complet parsé par le serveur → lancer persistTasks
+            case 'done': {
+              const payload: DonePayload = {
+                taskRows:      (evt.taskRows as Record<string, unknown>[]) ?? [],
+                children:      (evt.children as DonePayload['children'])  ?? [],
+                adults:        (evt.adults   as DonePayload['adults'])     ?? [],
+                householdMeta: (evt.householdMeta as DonePayload['householdMeta']) ?? null,
+              };
+              setDonePayload(payload);
+              void persistTasks(payload, generatingShownAt.current || Date.now());
+              break;
+            }
+
+            // Message conversationnel normal
+            case 'reply': {
+              const reply = (evt.reply as string) ?? '';
+              const chips = (evt.chips as string[]) ?? [];
+              setDisplay(prev => [...prev, { role: 'yova', text: reply }]);
+              setApiMessages([...msgs, { role: 'assistant', content: reply }]);
+              setChips(chips);
+              setStep('chat');
+              setIsThinking(false);
+              setTimeout(() => inputRef.current?.focus(), 100);
+              break;
+            }
+
+            // Afficher le picker équipements
+            case 'equipment': {
+              const reply = (evt.reply as string) ?? '';
+              setDisplay(prev => [...prev, { role: 'yova', text: reply }]);
+              setApiMessages([...msgs, { role: 'assistant', content: reply }]);
+              setShowEquipment(true);
+              setChips([]);
+              setStep('chat');
+              setIsThinking(false);
+              break;
+            }
+
+            // Erreur serveur
+            case 'error': {
+              setError((evt.message as string) ?? 'Erreur inattendue. Rechargez la page.');
+              setStep('chat');
+              setIsThinking(false);
+              break;
+            }
+          }
+        }
       }
     } catch (err) {
       console.error('[onboarding] callApi error:', err);
