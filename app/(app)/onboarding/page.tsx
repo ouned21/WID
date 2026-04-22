@@ -506,7 +506,9 @@ export default function OnboardingPage() {
       await fetchTasks(hid);
 
       setTaskCount(data.tasks?.length ?? payload.taskRows.length);
-      setStep('done');
+      // Délai minimum sur le generating screen pour que l'animation soit visible,
+      // puis navigation directe — pas besoin du bouton intermédiaire
+      setTimeout(() => router.push('/today'), 1500);
     } catch (err) {
       console.error('[onboarding] persistTasks error:', err);
       const msg = err instanceof Error ? err.message : 'Erreur lors de la création.';

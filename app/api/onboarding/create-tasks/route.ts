@@ -124,14 +124,23 @@ export async function POST(req: NextRequest) {
   const VALID_DUR  = new Set(['very_short','short','medium','long','very_long']);
   const VALID_EFF  = new Set(['none','light','medium','high']);
 
-  const safeRows = taskRows.map((r) => ({
-    ...r,
-    household_id: householdId,
-    created_by: user.id,
-    frequency:         VALID_FREQ.has(r.frequency as string) ? r.frequency : 'weekly',
-    duration_estimate: VALID_DUR.has(r.duration_estimate as string) ? r.duration_estimate : 'short',
-    physical_effort:   VALID_EFF.has(r.physical_effort as string) ? r.physical_effort : 'light',
-  }));
+  // Dédupliquer par nom (insensible à la casse) — évite les doublons si Claude répète une tâche
+  const seenNames = new Set<string>();
+  const safeRows = taskRows
+    .filter((r) => {
+      const key = (r.name as string ?? '').trim().toLowerCase();
+      if (!key || seenNames.has(key)) return false;
+      seenNames.add(key);
+      return true;
+    })
+    .map((r) => ({
+      ...r,
+      household_id: householdId,
+      created_by: user.id,
+      frequency:         VALID_FREQ.has(r.frequency as string) ? r.frequency : 'weekly',
+      duration_estimate: VALID_DUR.has(r.duration_estimate as string) ? r.duration_estimate : 'short',
+      physical_effort:   VALID_EFF.has(r.physical_effort as string) ? r.physical_effort : 'light',
+    }));
 
   let insertedTasks: { id: string; name: string }[] = [];
   if (safeRows.length > 0) {

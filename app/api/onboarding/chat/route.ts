@@ -121,6 +121,7 @@ QUAND TU AS TOUTES LES INFORMATIONS :
 
 RÈGLES DE GÉNÉRATION DES TÂCHES (à appliquer dans le JSON final) :
 - Entre 10 et 18 tâches, adaptées à CE foyer spécifiquement
+- Chaque tâche doit avoir un nom UNIQUE — aucun doublon dans la liste
 - N'inclus PAS les tâches couvertes par l'aide extérieure (ex: si femme de ménage → pas de ménage)
 - Si enfants : inclus tâches enfants (bain du soir, devoirs, préparation école, activités)
 - Si animal mentionné dans les équipements : inclus tâches animaux (nourriture, sortie, litière...)
