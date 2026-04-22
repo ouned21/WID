@@ -277,7 +277,7 @@ export async function POST(req: NextRequest) {
         chips = ['1', '2', '3', '4', '5', '6+'];
       else if (/\benfants?\b/.test(r) && /\?/.test(r))
         chips = ['Oui', 'Non'];
-      else if (/\baide\b.*\bext[eé]rieure?\b|\bfemme de m[eé]nage\b|\bbaby.?sit|\baide\b.*\bdomestique\b|\baide ext/.test(r))
+      else if (/\baide ext[eé]rieure\b|\baide (à la maison|domestique)\b/.test(r) && /\?/.test(r) && !/quel type|précis|fr[eé]quence|combien de fois/.test(r))
         chips = ['Oui, on a de l\'aide', 'Non, on gère seuls'];
       else if (/\b[eé]nergie\b|\b[eé]puis[eé]\b|\fen forme\b|\bfatigue\b|\bniveau\b.*\b[eé]nergie\b/.test(r))
         chips = ['Épuisé 😴', 'Ça va 😊', 'En forme 💪'];
