@@ -97,6 +97,10 @@ export type HouseholdTask = {
   is_active: boolean;
   created_by: string;
   created_at: string;
+  // Sprint 12 — décomposition de projets : FK self-ref vers la tâche parent.
+  // NULL pour une tâche normale OU pour le parent lui-même. Un parent est
+  // reconnu à l'UI par : au moins une row référence son id via parent_project_id.
+  parent_project_id?: string | null;
 };
 
 export type TaskCompletion = {

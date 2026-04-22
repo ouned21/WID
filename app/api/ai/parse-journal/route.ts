@@ -7,6 +7,8 @@ import { getHouseholdPreferences, formatHouseholdPreferencesForPrompt } from '@/
 import { logAiUsage, extractUsageFromResponse } from '@/utils/aiLogger';
 import { computeTaskScore } from '@/utils/taskScoring';
 import { loadTo10 } from '@/utils/designSystem';
+import { detectProjectIntent } from '@/utils/projectDecomposition';
+import { decomposeProjectCore, findPendingProject } from '@/lib/decomposeProjectCore';
 
 function serviceClient() {
   return createServiceClient(
@@ -243,6 +245,83 @@ export async function POST(request: NextRequest) {
   if (!profile?.household_id) return NextResponse.json({ error: 'Pas de foyer associé' }, { status: 400 });
 
   const householdId = profile.household_id;
+
+  // ─── Sprint 12 : router vers décomposition de projet ─────────────────
+  // Deux cas déclencheurs :
+  //   A. L'user répond à un pending_question récent (< 10 min) → fusionne et décompose
+  //   B. L'user énonce un projet clair ("organise le déjeuner dimanche") → décompose direct
+  //
+  // On court-circuite le parseur journal habituel : pas de matching tâches,
+  // pas de completions, pas de project V0 (keyword mariage/bébé/etc.).
+  const pending = conversationHistory.length === 0
+    ? await findPendingProject(supabase as never, householdId)
+    : null;
+
+  const routeToDecompose = pending !== null || detectProjectIntent(sanitizedText);
+
+  if (routeToDecompose) {
+    const decomposePrompt = pending
+      ? `${pending.original_prompt} — précision : ${sanitizedText}`
+      : sanitizedText;
+
+    const result = await decomposeProjectCore({
+      prompt: decomposePrompt,
+      userId: user.id,
+      userName: profile.display_name ?? 'l\'utilisateur',
+      householdId,
+      supabase: supabase as never,
+      admin: admin as never,
+    });
+
+    // Journal d'audit même quand on route (pas de completion créée)
+    await admin.from('user_journals').insert({
+      user_id: user.id, household_id: householdId, raw_text: text, input_method: inputMethod,
+      parsed_completions: [], unmatched_items: [],
+      ai_response: result.kind === 'decomposed'
+        ? `J'ai préparé ton projet : ${result.title} · ${result.subtask_count} tâches planifiées.`
+        : result.kind === 'pending'
+          ? result.question
+          : (result.user_message ?? result.error),
+      tokens_input: 0, tokens_output: 0, cost_usd: 0,
+      model_used: 'claude-sonnet-4-6', processing_time_ms: Date.now() - startTime,
+      mood_tone: null,
+    });
+
+    if (result.kind === 'error') {
+      return NextResponse.json({
+        completions: [], auto_created: [], unmatched: [],
+        ai_response: result.user_message ?? "J'ai eu un pépin. Réessaye ?",
+      }, { status: result.http_status });
+    }
+
+    if (result.kind === 'pending') {
+      return NextResponse.json({
+        needs_clarification: true,
+        clarification_question: result.question,
+        completions: [], auto_created: [], unmatched: [],
+        project_created: null,
+        project_decomposed: null,
+        ai_response: result.question,
+        mood_tone: null,
+      });
+    }
+
+    // Succès décomposition
+    return NextResponse.json({
+      completions: [], auto_created: [], unmatched: [],
+      project_created: null,
+      project_decomposed: {
+        parent_task_id: result.parent_task_id,
+        title: result.title,
+        description: result.description,
+        target_date: result.target_date,
+        subtask_count: result.subtask_count,
+        subtasks: result.subtasks,
+      },
+      ai_response: `J'ai préparé ton projet : ${result.title} · ${result.subtask_count} tâches planifiées.`,
+      mood_tone: null,
+    });
+  }
 
   const [tasksRes, membersRes, phantomsRes, categoriesRes, memoryRes, householdRes] = await Promise.all([
     supabase.from('household_tasks')

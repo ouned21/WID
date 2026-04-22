@@ -353,7 +353,7 @@ Suppression de toute la dette V0 incompatible avec la spec :
 
 ---
 
-## 🧩 Décomposition de projets complexes (M3)
+## 🧩 Décomposition de projets complexes (M3) — ✅ Implémenté sprint 12 (2026-04-22f)
 
 Certains besoins ne sont pas une tâche unique mais un **projet multi-étapes**. Exemples : *« organise le déjeuner de dimanche »*, *« prépare l'anniversaire de Léa »*, *« planifie le week-end chez mes parents »*.
 

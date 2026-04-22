@@ -23,6 +23,21 @@ type ParsedCompletion = {
 
 type AutoCreatedTask = { name: string; task_id: string };
 
+type ProjectDecomposed = {
+  parent_task_id: string;
+  title: string;
+  description: string | null;
+  target_date: string | null;
+  subtask_count: number;
+  subtasks: Array<{
+    name: string;
+    duration_minutes: number;
+    next_due_at: string;
+    assigned_to: string | null;
+    notes: string | null;
+  }>;
+};
+
 type ParseResponse = {
   journalId?: string;
   needs_clarification?: boolean;
@@ -30,6 +45,7 @@ type ParseResponse = {
   completions: ParsedCompletion[];
   auto_created?: AutoCreatedTask[];
   project_created?: { type: string; name: string; reference_date: string; taskCount: number } | null;
+  project_decomposed?: ProjectDecomposed | null;
   unmatched: string[];
   ai_response: string;
   mood_tone: string | null;
@@ -170,6 +186,40 @@ function ProjectCard({
   );
 }
 
+/** Sprint 12 — Card de confirmation après décomposition Yova (organise/prépare/planifie…). */
+function DecomposedProjectCard({ project }: { project: ProjectDecomposed }) {
+  const targetLabel = project.target_date
+    ? new Date(project.target_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+    : null;
+  return (
+    <div className="mb-3 ml-10">
+      <Link
+        href="/today"
+        className="block rounded-2xl overflow-hidden active:scale-[0.98] transition-transform"
+        style={{
+          background: 'linear-gradient(135deg, #5856d6, #764ba2)',
+          boxShadow: '0 4px 16px rgba(88,86,214,0.25)',
+        }}
+      >
+        <div className="px-4 py-3.5 flex items-center gap-3">
+          <span className="text-[22px]">📋</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-semibold text-white/60 uppercase tracking-wider">Projet préparé</p>
+            <p className="text-[15px] font-bold text-white truncate">{project.title}</p>
+            <p className="text-[12px] text-white/80 mt-0.5">
+              {project.subtask_count} tâche{project.subtask_count > 1 ? 's' : ''} planifiée{project.subtask_count > 1 ? 's' : ''}
+              {targetLabel ? ` · ${targetLabel}` : ''}
+            </p>
+          </div>
+          <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </div>
+      </Link>
+    </div>
+  );
+}
+
 function ResultCard({ data, currentUserName }: { data: ParseResponse; currentUserName?: string }) {
   const regularTasks = [
     ...(data.completions ?? []).map((c) => ({
@@ -180,7 +230,13 @@ function ResultCard({ data, currentUserName }: { data: ParseResponse; currentUse
     ...(data.auto_created ?? []).map((t) => ({ name: t.name, isNew: true, byName: null })),
   ];
   const project = data.project_created ?? null;
-  if (regularTasks.length === 0 && !project) return null;
+  const decomposed = data.project_decomposed ?? null;
+
+  // Sprint 12 — si la réponse est uniquement une décomposition, afficher la card dédiée
+  if (decomposed && regularTasks.length === 0 && !project) {
+    return <DecomposedProjectCard project={decomposed} />;
+  }
+  if (regularTasks.length === 0 && !project && !decomposed) return null;
 
   return (
     <div className="mb-3 ml-10">
@@ -442,7 +498,7 @@ export default function JournalPage() {
         setMessages((prev) => [
           ...prev,
           { id: uid(), type: 'yova', content: data.ai_response ?? 'Merci pour ce check-in. Bonne nuit !', moodTone: data.mood_tone },
-          ...((data.completions?.length ?? 0) > 0 || (data.auto_created?.length ?? 0) > 0
+          ...((data.completions?.length ?? 0) > 0 || (data.auto_created?.length ?? 0) > 0 || data.project_decomposed
             ? [{ id: uid(), type: 'result' as const, data }]
             : []),
         ]);
@@ -527,7 +583,7 @@ export default function JournalPage() {
       setMessages((prev) => [
         ...prev,
         { id: uid(), type: 'yova', content: data.ai_response, moodTone: data.mood_tone },
-        ...((data.completions?.length ?? 0) > 0 || (data.auto_created?.length ?? 0) > 0 || data.project_created
+        ...((data.completions?.length ?? 0) > 0 || (data.auto_created?.length ?? 0) > 0 || data.project_created || data.project_decomposed
           ? [{ id: uid(), type: 'result' as const, data }]
           : []),
       ]);
