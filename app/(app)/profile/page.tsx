@@ -11,17 +11,13 @@ import { createClient } from '@/lib/supabase';
 export default function ProfilePage() {
   const router = useRouter();
   const { profile, user, signOut, refreshProfile } = useAuthStore();
-  const { household, members, phantomMembers, renameHousehold, rotateInviteCode, addPhantomMember, removePhantomMember, linkPhantomToReal } = useHouseholdStore();
+  const { household, members, phantomMembers, renameHousehold, rotateInviteCode } = useHouseholdStore();
   const { facts, fetchMemory, invalidateFact } = useMemoryStore();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [copied, setCopied] = useState(false);
-  const [showAddPhantom, setShowAddPhantom] = useState(false);
-  const [phantomName, setPhantomName] = useState('');
   const [confirmRenewCode, setConfirmRenewCode] = useState(false);
   const [renewingCode, setRenewingCode] = useState(false);
-  const [linkingPhantom, setLinkingPhantom] = useState<string | null>(null); // phantomId en cours de rattachement
-  const [linkTargetId, setLinkTargetId] = useState(''); // realProfileId sélectionné
   const [dataOpen, setDataOpen] = useState(false);
 
   // Charger la mémoire Yova
@@ -173,29 +169,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Accès rapides */}
-          <div className="mx-4 space-y-2">
-            {/* Famille */}
-            <a
-              href="/family"
-              className="flex items-center justify-between px-4 py-3.5 rounded-xl bg-white"
-              style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-[22px]">👨‍👩‍👧</span>
-                <div>
-                  <p className="text-[15px] font-semibold text-[#1c1c1e]">Notre famille</p>
-                  <p className="text-[12px] text-[#8e8e93]">Membres, contraintes, énergie du foyer</p>
-                </div>
-              </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c7c7cc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </a>
-            {/* Score / répartition — archivé spec V1, accessible via lien discret */}
-            {/* Voir SPEC_V1_YOVA.md : "Score 4 axes (plus visible par défaut)" */}
-          </div>
-
           {/* Ce que Yova sait — mémoire longue */}
           {facts.length > 0 && (
             <div className="mx-4">
@@ -232,160 +205,6 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Membres */}
-          <div className="mx-4">
-            <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">
-              Membres ({members.length + phantomMembers.length})
-            </p>
-            <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-              {/* Membres réels */}
-              {members.map((member, i) => (
-                <div key={member.id}
-                  className="flex items-center gap-3 px-4 py-3"
-                  style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full text-[14px] font-semibold text-white"
-                    style={{ background: member.role === 'admin' ? '#007aff' : '#34c759' }}>
-                    {member.display_name?.charAt(0)?.toUpperCase() ?? '?'}
-                  </div>
-                  <span className="flex-1 text-[17px] text-[#1c1c1e]">{member.display_name || '(Anonyme)'}</span>
-                  <span className="text-[13px] text-[#8e8e93]">
-                    {member.role === 'admin' ? 'Admin' : 'Membre'}
-                  </span>
-                </div>
-              ))}
-
-              {/* Membres fantômes */}
-              {phantomMembers.map((phantom) => (
-                <div key={phantom.id} style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
-                  <div className="flex items-center gap-3 px-4 py-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full text-[14px]"
-                      style={{ background: '#e5e5ea' }}>
-                      👻
-                    </div>
-                    <span className="flex-1 text-[17px] text-[#1c1c1e]">{phantom.display_name || '(Anonyme)'}</span>
-                    <div className="flex gap-2">
-                      {/* Rattacher à un vrai membre */}
-                      {members.length > 0 && (
-                        <button
-                          onClick={() => setLinkingPhantom(linkingPhantom === phantom.id ? null : phantom.id)}
-                          className="text-[12px] font-medium px-2 py-1 rounded-lg"
-                          style={{ color: '#007aff', background: linkingPhantom === phantom.id ? '#EEF4FF' : 'transparent' }}
-                          title="Associer ce fantôme à un membre ayant rejoint le foyer"
-                        >
-                          Associer
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          if (confirm(`Retirer ${phantom.display_name} du foyer ?`)) {
-                            removePhantomMember(phantom.id);
-                          }
-                        }}
-                        className="text-[12px] font-medium px-2 py-1 rounded-lg"
-                        style={{ color: '#ff3b30' }}
-                      >
-                        Retirer
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Panel de rattachement */}
-                  {linkingPhantom === phantom.id && (
-                    <div className="px-4 pb-3 pt-1">
-                      <p className="text-[12px] text-[#8e8e93] mb-2">
-                        Quel membre réel remplace {phantom.display_name} ?
-                      </p>
-                      <div className="flex gap-2">
-                        <select
-                          value={linkTargetId}
-                          onChange={(e) => setLinkTargetId(e.target.value)}
-                          className="flex-1 text-[14px] rounded-lg px-3 py-2 bg-[#f0f2f8] text-[#1c1c1e] outline-none"
-                        >
-                          <option value="">Choisir un membre...</option>
-                          {members.filter((m) => m.id !== profile?.id || members.length === 1).map((m) => (
-                            <option key={m.id} value={m.id}>{m.display_name}</option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={async () => {
-                            if (!linkTargetId) return;
-                            const targetName = members.find((m) => m.id === linkTargetId)?.display_name;
-                            if (!confirm(`Transférer tout l'historique de ${phantom.display_name} vers ${targetName} ? Cette action est irréversible.`)) return;
-                            await linkPhantomToReal(phantom.id, linkTargetId);
-                            setLinkingPhantom(null);
-                            setLinkTargetId('');
-                          }}
-                          disabled={!linkTargetId}
-                          className="text-[13px] font-semibold px-3 py-2 rounded-lg text-white disabled:opacity-40"
-                          style={{ background: '#007aff' }}
-                        >
-                          Confirmer
-                        </button>
-                      </div>
-                      <p className="text-[11px] text-[#c7c7cc] mt-1.5">
-                        Toutes les tâches et complétions de {phantom.display_name} seront transférées.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {/* Ajouter un membre fantôme */}
-              <div className="flex items-center gap-3 px-4 py-3">
-                {showAddPhantom ? (
-                  <>
-                    <input
-                      type="text"
-                      value={phantomName}
-                      onChange={(e) => setPhantomName(e.target.value)}
-                      placeholder="Prénom"
-                      autoFocus
-                      className="flex-1 text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && phantomName.trim()) {
-                          addPhantomMember(phantomName.trim());
-                          setPhantomName('');
-                          setShowAddPhantom(false);
-                        }
-                      }}
-                    />
-                    <button
-                      onClick={() => {
-                        if (phantomName.trim()) {
-                          addPhantomMember(phantomName.trim());
-                          setPhantomName('');
-                          setShowAddPhantom(false);
-                        }
-                      }}
-                      className="text-[14px] font-semibold"
-                      style={{ color: '#007aff' }}
-                    >
-                      Ajouter
-                    </button>
-                    <button
-                      onClick={() => { setShowAddPhantom(false); setPhantomName(''); }}
-                      className="text-[14px] text-[#8e8e93]"
-                    >
-                      ✕
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => setShowAddPhantom(true)}
-                    className="flex items-center gap-2 text-[15px] font-medium"
-                    style={{ color: '#007aff' }}
-                  >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full text-[18px]"
-                      style={{ background: '#f0f2f8' }}>+</span>
-                    Ajouter un membre
-                  </button>
-                )}
-              </div>
-            </div>
-            <p className="text-[11px] text-[#8e8e93] mt-1.5 px-1">
-              👻 Membre sans compte — vous gérez ses tâches à sa place
-            </p>
-          </div>
         </>
       )}
 
