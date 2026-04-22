@@ -68,6 +68,116 @@ function TypingDots() {
   );
 }
 
+// ── Generating screen ─────────────────────────────────────────────────────────
+const GENERATING_STEPS = [
+  { icon: '🧠', text: 'Yova analyse ton foyer…' },
+  { icon: '📋', text: 'Création des tâches personnalisées…' },
+  { icon: '⚡', text: 'Calibration selon ton énergie…' },
+  { icon: '🗓️', text: 'Planification dans le temps…' },
+  { icon: '✨', text: 'Dernières finitions…' },
+];
+
+function GeneratingScreen() {
+  const [stepIdx, setStepIdx] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setStepIdx(i => (i + 1) % GENERATING_STEPS.length);
+    }, 1800);
+    return () => clearInterval(id);
+  }, []);
+
+  const current = GENERATING_STEPS[stepIdx];
+
+  return (
+    <>
+      <style>{`
+        @keyframes yova-pulse {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0.15); }
+          50%       { transform: scale(1.06); box-shadow: 0 0 0 18px rgba(255,255,255,0); }
+        }
+        @keyframes yova-fade-up {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes yova-orbit {
+          from { transform: rotate(0deg) translateX(52px) rotate(0deg); }
+          to   { transform: rotate(360deg) translateX(52px) rotate(-360deg); }
+        }
+        @keyframes yova-orbit2 {
+          from { transform: rotate(180deg) translateX(52px) rotate(-180deg); }
+          to   { transform: rotate(540deg) translateX(52px) rotate(-540deg); }
+        }
+      `}</style>
+      <div
+        className="min-h-screen flex flex-col items-center justify-center px-6 select-none"
+        style={{ background: 'linear-gradient(160deg,#0a1628 0%,#1a2f52 60%,#0d1f3c 100%)' }}
+      >
+        {/* Logo animé */}
+        <div className="relative flex items-center justify-center mb-10" style={{ width: 120, height: 120 }}>
+          {/* Orbites */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div style={{ position: 'absolute', animation: 'yova-orbit 3s linear infinite' }}>
+              <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'rgba(255,255,255,0.35)' }} />
+            </div>
+            <div style={{ position: 'absolute', animation: 'yova-orbit2 4.5s linear infinite' }}>
+              <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.2)' }} />
+            </div>
+          </div>
+          {/* Cercle principal */}
+          <div
+            className="w-20 h-20 rounded-full flex items-center justify-center text-[36px] font-black text-white z-10"
+            style={{
+              background: 'linear-gradient(135deg,#007aff,#5856d6)',
+              animation: 'yova-pulse 2.4s ease-in-out infinite',
+            }}
+          >
+            Y
+          </div>
+        </div>
+
+        {/* Titre */}
+        <h2 className="text-[26px] font-black text-white text-center leading-tight mb-2">
+          On prépare tout…
+        </h2>
+        <p className="text-[14px] text-center mb-10" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          Quelques secondes, promis.
+        </p>
+
+        {/* Étape courante */}
+        <div
+          key={stepIdx}
+          className="flex items-center gap-3 px-5 py-3.5 rounded-2xl"
+          style={{
+            background: 'rgba(255,255,255,0.07)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            animation: 'yova-fade-up 0.4s ease forwards',
+            minWidth: 240,
+          }}
+        >
+          <span className="text-[22px]">{current.icon}</span>
+          <p className="text-[15px] font-medium text-white/90">{current.text}</p>
+        </div>
+
+        {/* Progress dots */}
+        <div className="flex gap-1.5 mt-8">
+          {GENERATING_STEPS.map((_, i) => (
+            <div
+              key={i}
+              className="rounded-full transition-all duration-500"
+              style={{
+                width:  i === stepIdx ? 20 : 6,
+                height: 6,
+                background: i === stepIdx ? '#007aff' : 'rgba(255,255,255,0.2)',
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 export default function OnboardingPage() {
   const router = useRouter();
@@ -430,28 +540,7 @@ export default function OnboardingPage() {
 
   // ── Generating screen ──────────────────────────────────────────────────────
   if (step === 'generating') {
-    return (
-      <div
-        className="min-h-screen flex flex-col items-center justify-center px-6"
-        style={{ background: 'linear-gradient(180deg,#0a1628 0%,#1a2f52 100%)' }}
-      >
-        <div
-          className="h-16 w-16 rounded-full flex items-center justify-center mb-6"
-          style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
-        >
-          <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-white/20 border-t-white" />
-        </div>
-        <h2 className="text-[24px] font-black text-white text-center leading-tight mb-2">
-          Yova prépare votre foyer…
-        </h2>
-        <p
-          className="text-[14px] text-center max-w-[280px] leading-relaxed"
-          style={{ color: 'rgba(255,255,255,0.6)' }}
-        >
-          Création de vos tâches personnalisées
-        </p>
-      </div>
-    );
+    return <GeneratingScreen />;
   }
 
   // ── Chat UI (chat + done) ──────────────────────────────────────────────────

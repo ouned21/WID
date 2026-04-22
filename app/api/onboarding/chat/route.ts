@@ -100,7 +100,7 @@ QUAND TU AS TOUTES LES INFORMATIONS :
     {
       "name": "<nom court, action claire, en français>",
       "category": "<cleaning|tidying|shopping|laundry|children|meals|admin|outdoor|hygiene|pets|vehicle|household_management>",
-      "frequency": "<daily|every_other_day|twice_weekly|weekly|biweekly|monthly|quarterly|yearly>",
+      "frequency": "<daily|weekly|biweekly|monthly|quarterly|semiannual|yearly|once>",
       "duration_estimate": "<very_short|short|medium|long|very_long>",
       "physical_effort": "<none|light|medium|high>",
       "mental_load_score": <1 à 5>,
@@ -226,7 +226,7 @@ export async function POST(req: NextRequest) {
         const now = new Date();
         now.setHours(9, 0, 0, 0);
 
-        const VALID_FREQUENCIES = new Set(['daily','every_other_day','twice_weekly','weekly','biweekly','monthly','quarterly','yearly']);
+        const VALID_FREQUENCIES = new Set(['daily','weekly','biweekly','monthly','quarterly','semiannual','yearly','once']);
         const VALID_DURATIONS   = new Set(['very_short','short','medium','long','very_long']);
         const VALID_EFFORTS     = new Set(['none','light','medium','high']);
 

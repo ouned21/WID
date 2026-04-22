@@ -119,11 +119,18 @@ export async function POST(req: NextRequest) {
 
   const { taskRows = [], phantomMembers = [], householdMeta, customSuggestions = [] } = body;
 
-  // Forcer le household_id et created_by pour la sécurité
+  // Valider + forcer les champs critiques (filet de sécurité contre les valeurs hors-contrainte DB)
+  const VALID_FREQ = new Set(['daily','weekly','biweekly','monthly','quarterly','semiannual','yearly','once']);
+  const VALID_DUR  = new Set(['very_short','short','medium','long','very_long']);
+  const VALID_EFF  = new Set(['none','light','medium','high']);
+
   const safeRows = taskRows.map((r) => ({
     ...r,
     household_id: householdId,
     created_by: user.id,
+    frequency:         VALID_FREQ.has(r.frequency as string) ? r.frequency : 'weekly',
+    duration_estimate: VALID_DUR.has(r.duration_estimate as string) ? r.duration_estimate : 'short',
+    physical_effort:   VALID_EFF.has(r.physical_effort as string) ? r.physical_effort : 'light',
   }));
 
   let insertedTasks: { id: string; name: string }[] = [];
