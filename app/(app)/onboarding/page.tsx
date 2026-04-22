@@ -443,6 +443,27 @@ export default function OnboardingPage() {
           {/* Typing indicator */}
           {isThinking && <TypingDots />}
 
+          {/* Quick-reply chips — juste sous le dernier message Yova */}
+          {step === 'chat' && !showEquipment && chips.length > 0 && !isThinking && (
+            <div className="flex flex-wrap gap-2 pl-9">
+              {chips.map((chip, i) => (
+                <button
+                  key={i}
+                  onClick={() => void sendMessage(chip)}
+                  className="rounded-2xl px-4 py-2 text-[14px] font-semibold transition-all active:scale-[0.95]"
+                  style={{
+                    background: 'white',
+                    color: '#007aff',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                    border: '1.5px solid rgba(0,122,255,0.3)',
+                  }}
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Error inline */}
           {error && (
             <div
@@ -584,27 +605,6 @@ export default function OnboardingPage() {
           {/* Chat input */}
           {step === 'chat' && !showEquipment && (
             <>
-              {/* Quick-reply chips */}
-              {chips.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {chips.map((chip, i) => (
-                    <button
-                      key={i}
-                      onClick={() => void sendMessage(chip)}
-                      className="rounded-2xl px-4 py-2 text-[14px] font-semibold transition-all active:scale-[0.95]"
-                      style={{
-                        background: 'white',
-                        color: '#007aff',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-                        border: '1.5px solid rgba(0,122,255,0.3)',
-                      }}
-                    >
-                      {chip}
-                    </button>
-                  ))}
-                </div>
-              )}
-
               {/* Text input — Entrée = envoyer, Shift+Entrée = nouvelle ligne */}
               <div className="flex gap-2 items-end" style={{ position: 'relative' }}>
                 <textarea
