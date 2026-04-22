@@ -257,12 +257,32 @@ export async function POST(req: NextRequest) {
 
     // ── Regular message — extract optional chips [opt1|opt2] ──────────────
     const chipsMatch = rawText.match(/\[([^\]]{1,120})\]\s*$/);
-    const chips = chipsMatch
+    let chips = chipsMatch
       ? chipsMatch[1].split('|').map(c => c.trim()).filter(Boolean)
       : [];
     const reply = chipsMatch
       ? rawText.slice(0, rawText.lastIndexOf('[')).trim()
       : rawText.trim();
+
+    // ── Fallback chips si Claude a oublié ─────────────────────────────────
+    // Détecte le type de question et injecte les chips si absentes
+    if (chips.length === 0) {
+      const r = reply.toLowerCase();
+      if (/\bcombien\b.*\bmaison\b|\bmaison\b.*\bcombien\b|\bpersonnes?\b.*\bfoyer\b|\bfoyer\b.*\bcombien\b|\bvous êtes combien\b/.test(r))
+        chips = ['1', '2', '3', '4', '5', '6+'];
+      else if (/\benfants?\b/.test(r) && /\?/.test(r))
+        chips = ['Oui', 'Non'];
+      else if (/\baide\b.*\bext[eé]rieure?\b|\bfemme de m[eé]nage\b|\bbaby.?sit|\baide\b.*\bdomestique\b|\baide ext/.test(r))
+        chips = ['Oui, on a de l\'aide', 'Non, on gère seuls'];
+      else if (/\b[eé]nergie\b|\b[eé]puis[eé]\b|\fen forme\b|\bfatigue\b|\bniveau\b.*\b[eé]nergie\b/.test(r))
+        chips = ['Épuisé 😴', 'Ça va 😊', 'En forme 💪'];
+      else if (/\bcourses?\b/.test(r) && /\?/.test(r))
+        chips = ['Faites ✓', 'À faire', 'Livraison 📦'];
+      else if (/\blessiv[e]?\b/.test(r) && /\?/.test(r))
+        chips = ['Faite ✓', 'À lancer'];
+      else if (/\bd[îi]ner\b|\bsoir\b.*\brepas\b|\brepas\b.*\bsoir\b/.test(r) && /\?/.test(r))
+        chips = ['Prévu ✓', 'Pas encore'];
+    }
 
     return NextResponse.json({ reply, done: false, chips });
 
