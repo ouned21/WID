@@ -214,7 +214,13 @@ function DecomposedProjectCard({
   allMembers: HouseholdMember[];
   currentUserId: string;
 }) {
-  const { completeTask, updateTask, archiveTask } = useTaskStore();
+  // Note : on N'utilise PAS taskStore pour les mutations depuis cette card.
+  // Raison : taskStore.updateTask/archiveTask/completeTask exigent que la tâche
+  // soit déjà dans `store.tasks` (sinon return silencieux "Tâche introuvable").
+  // Or juste après une décomposition, il y a une fenêtre où la card est rendue
+  // mais le store n'est pas encore resync — l'action paraîtrait sans effet.
+  // On fait les écritures en direct et on refetch les enfants localement.
+  const { fetchTasks } = useTaskStore();
   const [childTasks, setChildTasks] = useState<TaskListItem[] | null>(null);
   const [actionsTaskId, setActionsTaskId] = useState<string | null>(null);
 
@@ -243,33 +249,69 @@ function DecomposedProjectCard({
 
   useEffect(() => { fetchChildren(); }, [fetchChildren]);
 
+  const afterMutation = async () => {
+    await fetchChildren();
+    if (householdId) fetchTasks(householdId); // sync store pour les autres surfaces
+  };
+
   const handleComplete = async () => {
-    if (!actionsTaskId) return;
+    if (!actionsTaskId || !householdId) return;
     const id = actionsTaskId;
     setActionsTaskId(null);
-    await completeTask(id);
-    await fetchChildren();
+    const supabase = createClient();
+    const { data: task } = await supabase
+      .from('household_tasks')
+      .select('household_id, mental_load_score')
+      .eq('id', id).maybeSingle();
+    if (!task) return;
+    const now = new Date().toISOString();
+    await supabase.from('task_completions').insert({
+      task_id: id,
+      household_id: task.household_id,
+      completed_by: currentUserId,
+      completed_at: now,
+      mental_load_score: task.mental_load_score,
+    });
+    // Pour les sous-tâches de projet (frequency='once'), next_due_at passe à null
+    // après complétion (cohérent avec computeNextDueAt('once') dans le store).
+    await supabase.from('household_tasks').update({ next_due_at: null }).eq('id', id);
+    await afterMutation();
   };
   const handlePostpone = async (nextDueIso: string) => {
     if (!actionsTaskId) return;
     const id = actionsTaskId;
     setActionsTaskId(null);
-    await updateTask(id, { next_due_at: nextDueIso });
-    await fetchChildren();
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('household_tasks')
+      .update({ next_due_at: nextDueIso })
+      .eq('id', id);
+    if (error) console.error('[decomposed-card] postpone error:', error);
+    await afterMutation();
   };
   const handleReassign = async (userId: string | null, phantomId: string | null) => {
     if (!actionsTaskId) return;
     const id = actionsTaskId;
     setActionsTaskId(null);
-    await updateTask(id, { assigned_to: userId, assigned_to_phantom_id: phantomId });
-    await fetchChildren();
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('household_tasks')
+      .update({ assigned_to: userId, assigned_to_phantom_id: phantomId })
+      .eq('id', id);
+    if (error) console.error('[decomposed-card] reassign error:', error);
+    await afterMutation();
   };
   const handleArchive = async () => {
     if (!actionsTaskId) return;
     const id = actionsTaskId;
     setActionsTaskId(null);
-    await archiveTask(id);
-    await fetchChildren();
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('household_tasks')
+      .update({ is_active: false })
+      .eq('id', id);
+    if (error) console.error('[decomposed-card] archive error:', error);
+    await afterMutation();
   };
 
   const targetLabel = project.target_date
