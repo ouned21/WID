@@ -306,8 +306,8 @@ export default function ProfilePage() {
               <div className="flex items-center gap-3">
                 <span className="text-[22px]">📊</span>
                 <div>
-                  <p className="text-[15px] font-semibold text-[#1c1c1e]">Statistiques</p>
-                  <p className="text-[12px] text-[#8e8e93]">Répartition des tâches et tendances</p>
+                  <p className="text-[15px] font-semibold text-[#1c1c1e]">Score & répartition</p>
+                  <p className="text-[12px] text-[#8e8e93]">Charge mentale et équilibre du foyer</p>
                 </div>
               </div>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c7c7cc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
