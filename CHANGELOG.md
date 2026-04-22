@@ -6,6 +6,43 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-22f] — Sprint 12 : Décomposition de projets complexes (M3)
+
+### Ajouté
+- `supabase/migrations/20260422_sprint12_project_decomposition.sql` — colonne `household_tasks.parent_project_id` (FK self-ref, nullable, ON DELETE CASCADE) + index partiel. Permet de grouper un projet parent et ses sous-tâches
+- `app/api/ai/decompose-project/route.ts` (POST) — endpoint Sonnet 4.6 qui décompose un prompt user en projet + 3-6 sous-tâches datées/assignées en 1 tour. Timeout 10s, contexte foyer complet (members, profile, 20 derniers facts, 5 derniers conversation_turns)
+- `lib/decomposeProjectCore.ts` — cœur réutilisable (appelé par l'endpoint direct ET par le parseur journal). Prompt système applique la table des défauts M3 (nb convives = taille foyer, budget normal, créneaux courses J-1 après-midi / prépa H-2, etc.)
+- `utils/projectDecomposition.ts` — heuristique `detectProjectIntent` (regex verbes "organise/prépare/planifie" + objets multi-tâches) + validator runtime hand-rolled (pas de dép zod — style aligné avec `utils/validation.ts`)
+- `utils/projectDecomposition.test.ts` — 16 tests unitaires (router + validator)
+- `components/ProjectGroupCard.tsx` — carte projet sur `/today` avec progress N/total, expand/collapse, sous-tâches actionables (complétion + ⋯ ouvre `TaskActionsSheet`) + helper `groupTasksByProject`
+- `scripts/eval-decompose.ts` — script manuel pour taper les 10 prompts variés contre l'endpoint (staging), produit rapport Markdown pour revue humaine
+
+### Modifié
+- `app/api/ai/parse-journal/route.ts` — router sprint 12 : avant le parseur normal, détecte (A) un `pending_project` récent dans `conversation_turns` (< 10 min) pour relancer la décomposition avec le prompt fusionné, OU (B) un prompt projet via heuristique regex → appelle `decomposeProjectCore`. Si routé, court-circuite completions/auto_create/project-V0 et retourne `project_decomposed`
+- `app/(app)/today/page.tsx` — section "Projets en cours" avant "À faire aujourd'hui". Les enfants de projet n'apparaissent plus dans les listes plates (maintenant, aTFaire, radar) mais sous leur parent groupé
+- `app/(app)/journal/page.tsx` — nouveau type `ProjectDecomposed` dans `ParseResponse`, nouvelle card `DecomposedProjectCard` (confirmation "📋 Projet préparé" avec lien vers `/today`)
+- `types/database.ts` — `HouseholdTask.parent_project_id?: string | null`
+
+### Règles produit respectées (ref spec M3)
+- **Proposition imparfaite, pas interrogatoire** : Yova ne pose JAMAIS plus d'une question. Les faits déductibles (allergies, taille foyer, patterns) viennent de la mémoire. Les manquants sans défaut → table des défauts nominaux
+- **Single-question flow** (stateful) : quand Yova doit poser une question, elle stocke `{pending_project: {original_prompt, missing}}` dans `conversation_turns.extracted_facts` (speaker=agent). Au message user suivant (< 10 min), parse-journal fusionne la réponse avec le prompt original et relance la décomposition
+- **Parent auto-complété** : le parent n'a pas de bouton "Fait" dans l'UI — il se complète implicitement quand tous ses enfants sont done (rendu visuel : progress bar 100 %)
+
+### Ajustements post-démo (mêmes commits, sprint 12)
+- **Fix /today — projets avec sous-tâches futures** (`0c24b9d`) : le filtre limitait les projets aux tâches overdue+today, donc un projet pour dimanche n'apparaissait nulle part. `groupTasksByProject` désormais appliqué à toutes les tâches filtrées
+- **Fix durées Sonnet** (`3f5c856`) : prompt système sous-estimait systématiquement (courses 15 min, repas 30 min). Ajout d'une table de repères concrets : courses événement = long (60 min) mini, repas familial = long mini
+- **Fix check-in bypass** (`92352fb`) : si le user tape un projet clair ("organise le déjeuner dimanche") pendant le check-in du soir, on route direct vers `send()` → `parse-journal` au lieu d'attendre que les 3 questions soient répondues
+- **Fix assignation par défaut** : `assigned_to` reste `null` (foyer) si Sonnet ne détecte pas de pattern mémoire. Avant : on forçait l'assignation sur l'initiateur du prompt, ce qui dumpait tout sur une seule personne
+- **UI /journal enrichie** : la card "Projet préparé" affiche maintenant inline les sous-tâches (nom + date + durée) plutôt qu'un simple décompte. Consultation directe sans quitter la conversation
+
+### Pré-merge — validation
+- `npx tsc --noEmit` : OK
+- `npx vitest run utils/projectDecomposition.test.ts` : 16/16 passed
+- `npx next build` : OK (route `/api/ai/decompose-project` compilée)
+- Tests démo device réel OK : 2 projets décomposés ("déjeuner dimanche" 6 tâches, "week-end chez les parents" 5 tâches), cohérence validée
+
+---
+
 ## [2026-04-22e] — Sprint 11 : Nettoyage V1
 
 ### Supprimé (alignement spec V1 "zéro charge mentale")

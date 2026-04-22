@@ -22,6 +22,7 @@ import { createClient } from '@/lib/supabase';
 import { filterTasks, splitTasksIntoSections } from '@/utils/taskSelectors';
 import { TaskActionsSheet } from '@/components/TaskActionsSheet';
 import { UndoToast } from '@/components/UndoToast';
+import { ProjectGroupCard, groupTasksByProject } from '@/components/ProjectGroupCard';
 import type { TaskListItem, HouseholdMember, AgentMemoryFact } from '@/types/database';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -561,12 +562,31 @@ export default function TodayPage() {
   const sections = splitTasksIntoSections(filtered);
   const urgentAll: TaskListItem[] = [...sections.overdue, ...sections.today].filter(t => !postponedIds.has(t.id));
 
-  // Card "Maintenant" = tâche la plus urgente non complétée
-  const maintenant = urgentAll.find(t => !completedIds.has(t.id)) ?? null;
-  // À faire aujourd'hui = les 5 suivantes (hors maintenant)
-  const aTFaire = urgentAll.filter(t => t.id !== maintenant?.id).slice(0, 5);
-  // Sur le radar = demain + semaine (capped 5)
-  const radar: TaskListItem[] = [...sections.tomorrow, ...sections.week].slice(0, 5);
+  // Sprint 12 — regrouper les tâches de projet sur TOUTES les tâches filtrées
+  // (pas seulement urgentes), sinon un projet dont les sous-tâches sont dans le
+  // futur n'apparaît nulle part en tant que groupe.
+  const allGrouped = groupTasksByProject(filtered);
+  const projectParentIds = new Set(allGrouped.projects.map(g => g.parent.id));
+  const projectChildIds = new Set(
+    allGrouped.projects.flatMap(g => g.subtasks.map(s => s.id))
+  );
+
+  // Filtre : retirer parents + enfants de projet des listes plates (maintenant, aTFaire, radar).
+  // Ils sont rendus uniquement via ProjectGroupCard pour éviter les doublons.
+  const hideProjectTasks = (t: TaskListItem) =>
+    !projectParentIds.has(t.id) && !projectChildIds.has(t.id);
+  const urgentOrphans = urgentAll.filter(hideProjectTasks);
+
+  // Card "Maintenant" = tâche orpheline la plus urgente non complétée (jamais un projet)
+  const maintenant = urgentOrphans.find(t => !completedIds.has(t.id)) ?? null;
+  // À faire aujourd'hui = les 5 orphelines suivantes (hors maintenant)
+  const aTFaire = urgentOrphans.filter(t => t.id !== maintenant?.id).slice(0, 5);
+  // Projets à afficher : tous ceux qui ont au moins 1 sous-tâche non faite
+  const projectsToShow = allGrouped.projects.filter(g => g.subtasks.some(c => !completedIds.has(c.id)));
+  // Sur le radar = demain + semaine (tâches orphelines uniquement, capped 5)
+  const radar: TaskListItem[] = [...sections.tomorrow, ...sections.week]
+    .filter(hideProjectTasks)
+    .slice(0, 5);
 
   const isCrisis = householdProfile?.crisis_mode_active ?? false;
   const hour = new Date().getHours();
@@ -620,7 +640,7 @@ export default function TodayPage() {
       )}
 
       {/* Rien à faire */}
-      {!maintenant && urgentAll.length === 0 && (
+      {!maintenant && urgentAll.length === 0 && projectsToShow.length === 0 && (
         <div className="rounded-2xl px-4 py-10 text-center bg-white" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.06)' }}>
           <p className="text-[40px] mb-2">✨</p>
           <p className="text-[17px] font-semibold text-[#1c1c1e]">Rien à faire aujourd&apos;hui</p>
@@ -630,6 +650,27 @@ export default function TodayPage() {
               : 'Profite — ou parle à Yova'}
           </p>
         </div>
+      )}
+
+      {/* Projets en cours (Sprint 12) */}
+      {projectsToShow.length > 0 && (
+        <section className="space-y-2">
+          <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide px-1">
+            Projets en cours
+          </p>
+          {projectsToShow.map((g) => (
+            <ProjectGroupCard
+              key={g.parent.id}
+              parent={g.parent}
+              subtasks={g.subtasks}
+              doneChildIds={completedIds}
+              allMembers={allMembers}
+              currentUserId={profile?.id ?? ''}
+              onOpenActions={setActionsTaskId}
+              onCompleteChild={handleComplete}
+            />
+          ))}
+        </section>
       )}
 
       {/* 3. À faire aujourd'hui */}

@@ -345,6 +345,10 @@ Suppression de toute la dette V0 incompatible avec la spec :
 
 ### Prochains sprints (à prioriser avec Jonathan)
 - **TTS Yova** : Yova répond à voix haute (ElevenLabs ou Web Speech TTS) — Mois 3 roadmap
+- **Consolidation de tâches chevauchantes** ⭐ (issu retours sprint 12) : Yova détecte quand une sous-tâche de projet ("Faire les courses pour le déjeuner") recoupe une tâche récurrente existante ("Faire les courses" mercredi) et propose proactivement : *« Tu as déjà les courses mer. 29, je groupe avec le déjeuner dimanche pour que tu y ailles qu'une fois ? »*. Pilier 3 "Proactivité douce" pur. Dépend de : mémoire longue (sprint 6 ✅) + logique de similarité sémantique sur les noms de tâches. Mois 3-4 roadmap.
+- **CTA check-in ne doit pas réapparaître après complétion** (bug UX pré-existant) : la CTA "Check-in du soir" sur /today reste visible même après avoir complété les 3 questions. Vérifier `last_journal_at` ou `last_checkin_at` avant de l'afficher. Petit ticket (<1 jour).
+- **Actions inline dans chat Yova** (sprint 13) : permettre au user d'appeler `TaskActionsSheet` (reporter / réassigner / pas pertinent) directement depuis la carte "Projet préparé" dans `/journal`, sans aller sur `/today`. Renforce l'ADN conversationnel du Pilier 3.
+- **Assignation Yova vers membres fantômes** (sprint 13 ou 14) : Sonnet doit pouvoir assigner à Barbara (phantom_member) via `assigned_to_phantom_id`, pas seulement aux adultes connectés. Nécessite : élargir le format output decompose-project, insérer le bon champ, prompt enrichi. Aujourd'hui : tout ce qui n'est pas un UUID de profile connecté tombe en `assigned_to = null` (foyer), ce qui est déjà mieux que tout dumper sur l'initiateur.
 - **Anticipations parentales** : jobs anniv enfants, vacances scolaires, rdv récurrents — Mois 4-5
 - **Mode crise automatique** : activation auto sur signal dérive sévère (V2) — Mois 5
 - **Beta prep** : pricing/paywall Premium, 30-50 users — Mois 6
@@ -353,7 +357,7 @@ Suppression de toute la dette V0 incompatible avec la spec :
 
 ---
 
-## 🧩 Décomposition de projets complexes (M3)
+## 🧩 Décomposition de projets complexes (M3) — ✅ Implémenté sprint 12 (2026-04-22f)
 
 Certains besoins ne sont pas une tâche unique mais un **projet multi-étapes**. Exemples : *« organise le déjeuner de dimanche »*, *« prépare l'anniversaire de Léa »*, *« planifie le week-end chez mes parents »*.
 
@@ -418,8 +422,11 @@ Elle propose un **projet parent + 3-6 sous-tâches liées** avec `next_due_at` c
 - Surface chat + vocal (STT + TTS)
 - Check-in du soir guidé
 - Historique conversations
-- **Décomposition de projets complexes** (voir section dédiée ci-dessous) : Sonnet décompose "organise le déjeuner dimanche" en 4-6 sous-tâches liées (menu, liste courses, courses, prépa) à partir de la mémoire foyer + défauts nominaux, sans interrogatoire
-- **Livrable** : rituel vocal du soir fonctionnel + un seul tour de parole pour lancer un projet
+- **Décomposition de projets complexes** (voir section dédiée ci-dessous) : Sonnet décompose "organise le déjeuner dimanche" en 4-6 sous-tâches liées (menu, liste courses, courses, prépa) à partir de la mémoire foyer + défauts nominaux, sans interrogatoire — ✅ livré sprint 12 (2026-04-22f)
+- **Actions inline dans chat Yova** (sprint 13) : `TaskActionsSheet` accessible directement sur la card "Projet préparé" (reporter / réassigner / pas pertinent) sans quitter la conversation. Identifié lors des tests sprint 12 — l'ADN Yova est conversationnelle, forcer à changer d'onglet casse la fluidité.
+- **Assignation Yova vers membres fantômes** (sprint 13 ou 14) : Sonnet doit pouvoir assigner à Barbara / tout phantom_member via `assigned_to_phantom_id`. Aujourd'hui : par défaut null (foyer) faute de phantoms assignables.
+- **Consolidation de tâches chevauchantes** ⭐ : Yova détecte quand une sous-tâche de projet recoupe une tâche récurrente existante et propose proactivement de grouper. Essentiel au Pilier 3 "Proactivité douce". *Identifié lors des tests sprint 12 — le produit est incomplet sans ça.*
+- **Livrable M3** : rituel vocal du soir fonctionnel + un seul tour de parole pour lancer un projet + Yova propose de grouper les tâches qui se chevauchent + ajustement sans quitter le chat
 
 ### Mois 4 — Détection de dérives
 - Job quotidien analyse activité

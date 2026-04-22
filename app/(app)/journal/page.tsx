@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useMemoryStore, FACT_TYPE_EMOJI, FACT_TYPE_LABEL } from '@/stores/memoryStore';
 import { createClient } from '@/lib/supabase';
+import { detectProjectIntent } from '@/utils/projectDecomposition';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -23,6 +24,21 @@ type ParsedCompletion = {
 
 type AutoCreatedTask = { name: string; task_id: string };
 
+type ProjectDecomposed = {
+  parent_task_id: string;
+  title: string;
+  description: string | null;
+  target_date: string | null;
+  subtask_count: number;
+  subtasks: Array<{
+    name: string;
+    duration_minutes: number;
+    next_due_at: string;
+    assigned_to: string | null;
+    notes: string | null;
+  }>;
+};
+
 type ParseResponse = {
   journalId?: string;
   needs_clarification?: boolean;
@@ -30,6 +46,7 @@ type ParseResponse = {
   completions: ParsedCompletion[];
   auto_created?: AutoCreatedTask[];
   project_created?: { type: string; name: string; reference_date: string; taskCount: number } | null;
+  project_decomposed?: ProjectDecomposed | null;
   unmatched: string[];
   ai_response: string;
   mood_tone: string | null;
@@ -170,6 +187,80 @@ function ProjectCard({
   );
 }
 
+const DURATION_LABEL_FR: Record<number, string> = {
+  5: '5 min', 15: '15 min', 30: '30 min', 60: '1h', 120: '2h+',
+};
+
+/** Sprint 12 — Card de confirmation après décomposition Yova (organise/prépare/planifie…).
+ *  L'user voit directement les sous-tâches créées — pas besoin de naviguer vers /today
+ *  pour comprendre ce que Yova a fait. Inline-view only (actions en sprint 13). */
+function DecomposedProjectCard({ project }: { project: ProjectDecomposed }) {
+  const targetLabel = project.target_date
+    ? new Date(project.target_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+    : null;
+
+  return (
+    <div className="mb-3 ml-10">
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, #5856d6, #764ba2)',
+          boxShadow: '0 4px 16px rgba(88,86,214,0.25)',
+        }}
+      >
+        {/* En-tête */}
+        <div className="px-4 py-3.5 flex items-center gap-3">
+          <span className="text-[22px]">📋</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-semibold text-white/60 uppercase tracking-wider">Projet préparé</p>
+            <p className="text-[15px] font-bold text-white truncate">{project.title}</p>
+            <p className="text-[12px] text-white/80 mt-0.5">
+              {project.subtask_count} tâche{project.subtask_count > 1 ? 's' : ''} planifiée{project.subtask_count > 1 ? 's' : ''}
+              {targetLabel ? ` · ${targetLabel}` : ''}
+            </p>
+          </div>
+        </div>
+
+        {/* Liste des sous-tâches */}
+        <div style={{ background: 'rgba(255,255,255,0.08)' }}>
+          {project.subtasks.map((s, i) => {
+            const dueDate = new Date(s.next_due_at);
+            const dateShort = dueDate.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+            const durationLabel = DURATION_LABEL_FR[s.duration_minutes] ?? `${s.duration_minutes} min`;
+            return (
+              <div
+                key={i}
+                className="px-4 py-2.5 flex items-start gap-2.5"
+                style={i > 0 ? { borderTop: '0.5px solid rgba(255,255,255,0.12)' } : {}}
+              >
+                <span className="text-[11px] font-semibold text-white/50 leading-[1.2] mt-0.5 flex-shrink-0 w-4">{i + 1}.</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium text-white leading-snug">{s.name}</p>
+                  <p className="text-[11px] text-white/60 mt-0.5">
+                    {dateShort} · ⏱ {durationLabel}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer : lien vers /today pour ajuster */}
+        <Link
+          href="/today"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 active:bg-white/10 transition-colors"
+          style={{ background: 'rgba(255,255,255,0.12)', borderTop: '0.5px solid rgba(255,255,255,0.18)' }}
+        >
+          <span className="text-[12px] font-semibold text-white">Voir sur Aujourd&apos;hui · ajuster</span>
+          <svg width="12" height="12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 function ResultCard({ data, currentUserName }: { data: ParseResponse; currentUserName?: string }) {
   const regularTasks = [
     ...(data.completions ?? []).map((c) => ({
@@ -180,7 +271,13 @@ function ResultCard({ data, currentUserName }: { data: ParseResponse; currentUse
     ...(data.auto_created ?? []).map((t) => ({ name: t.name, isNew: true, byName: null })),
   ];
   const project = data.project_created ?? null;
-  if (regularTasks.length === 0 && !project) return null;
+  const decomposed = data.project_decomposed ?? null;
+
+  // Sprint 12 — si la réponse est uniquement une décomposition, afficher la card dédiée
+  if (decomposed && regularTasks.length === 0 && !project) {
+    return <DecomposedProjectCard project={decomposed} />;
+  }
+  if (regularTasks.length === 0 && !project && !decomposed) return null;
 
   return (
     <div className="mb-3 ml-10">
@@ -392,6 +489,17 @@ export default function JournalPage() {
   const sendCheckin = async () => {
     const trimmed = text.trim();
     if (!trimmed || trimmed.length < 2 || sending) return;
+
+    // Sprint 12 — bypass check-in si l'user énonce un projet clair.
+    // checkinStep=3 suffit pour cacher la bulle Q1 welcome ET router les
+    // inputs suivants vers send() (cf. conditions `checkinStep < 3`).
+    // Ne PAS toucher isDone sinon l'input disparaît.
+    if (detectProjectIntent(trimmed)) {
+      setCheckinStep(3);
+      await send();
+      return;
+    }
+
     setText('');
 
     const newAnswers = [...checkinAnswers, trimmed];
@@ -442,7 +550,7 @@ export default function JournalPage() {
         setMessages((prev) => [
           ...prev,
           { id: uid(), type: 'yova', content: data.ai_response ?? 'Merci pour ce check-in. Bonne nuit !', moodTone: data.mood_tone },
-          ...((data.completions?.length ?? 0) > 0 || (data.auto_created?.length ?? 0) > 0
+          ...((data.completions?.length ?? 0) > 0 || (data.auto_created?.length ?? 0) > 0 || data.project_decomposed
             ? [{ id: uid(), type: 'result' as const, data }]
             : []),
         ]);
@@ -527,7 +635,7 @@ export default function JournalPage() {
       setMessages((prev) => [
         ...prev,
         { id: uid(), type: 'yova', content: data.ai_response, moodTone: data.mood_tone },
-        ...((data.completions?.length ?? 0) > 0 || (data.auto_created?.length ?? 0) > 0 || data.project_created
+        ...((data.completions?.length ?? 0) > 0 || (data.auto_created?.length ?? 0) > 0 || data.project_created || data.project_decomposed
           ? [{ id: uid(), type: 'result' as const, data }]
           : []),
       ]);
