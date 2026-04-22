@@ -49,6 +49,7 @@ export type DecomposeCoreOutput =
         duration_minutes: number;
         next_due_at: string;
         assigned_to: string | null;
+        assigned_phantom_id: string | null;
         notes: string | null;
       }>;
       duration_ms: number;
@@ -124,7 +125,8 @@ ${p.turnsBlock || '(aucun)'}
       "name": "verbe + objet, max 8 mots",
       "duration_estimate": "very_short | short | medium | long | very_long",
       "next_due_at": "YYYY-MM-DDTHH:mm:ss.000Z (UTC, ≥ maintenant)",
-      "assigned_to": "<UUID user ou null>",
+      "assigned_to": "<UUID adulte connecté — celui marqué [uuid] — ou null>",
+      "assigned_phantom_id": "<UUID membre non-connecté — celui marqué [phantom:uuid] — ou null>",
       "notes": "≤ 140 chars ou null"
     }
     // 3-6 sous-tâches — jamais < 2, jamais > 6
@@ -145,7 +147,9 @@ Ex : "organise un dîner avec mes potes" → tu ne sais pas combien.
 ## Règles
 
 - Sous-tâches DATÉES sur créneaux réalistes.
-- **Assignation par défaut = null (foyer)**. N'assigne à un UUID QUE si un fait mémorisé établit un pattern clair ("Barbara cuisine le dimanche", "Jonathan fait les courses"). N'assigne PAS systématiquement à l'utilisateur qui demande — il a pas forcément envie de tout faire.
+- **Assignation par défaut = null (foyer)**. Les DEUX champs \`assigned_to\` et \`assigned_phantom_id\` à null = tâche foyer.
+- **Un seul des deux champs peut être non-null par sous-tâche** (jamais les deux). \`assigned_to\` = UUID visible comme \`[uuid]\` dans la liste membres (adulte connecté). \`assigned_phantom_id\` = UUID visible comme \`[phantom:uuid]\` (membre sans compte : Barbara, enfant…).
+- N'assigne à un UUID (profile OU phantom) QUE si un fait mémorisé établit un pattern clair ("Barbara cuisine le dimanche", "Jonathan fait les courses"). N'assigne PAS systématiquement à l'utilisateur qui demande — il a pas forcément envie de tout faire. N'assigne PAS à un phantom par défaut juste parce qu'il existe.
 - N'invente aucun fait. Défaut nominal > question.
 - MAXIMUM 1 pending_question. Sinon décompose même imparfaitement.
 
@@ -212,7 +216,7 @@ export async function decomposeProjectCore(input: DecomposeCoreInput): Promise<D
       const klass = p.school_class ? ` ${p.school_class}` : '';
       const allerg = (p.specifics as { allergies?: string[] } | null)?.allergies;
       const allergStr = Array.isArray(allerg) && allerg.length > 0 ? ` · allergies : ${allerg.join(', ')}` : '';
-      return `- ${p.display_name} (${kind}${age}${klass})${allergStr}`;
+      return `- [phantom:${p.id}] ${p.display_name} (${kind}${age}${klass})${allergStr}`;
     }),
   ].join('\n') || '(aucun membre)';
 
@@ -351,10 +355,18 @@ export async function decomposeProjectCore(input: DecomposeCoreInput): Promise<D
     : null;
 
   const memberIdSet = new Set(members.map((m) => m.id));
-  const sanitizedSubtasks: DecomposedSubtask[] = validated.subtasks.map((s) => ({
-    ...s,
-    assigned_to: s.assigned_to && memberIdSet.has(s.assigned_to) ? s.assigned_to : null,
-  }));
+  const phantomIdSet = new Set(phantoms.map((p) => p.id));
+  const sanitizedSubtasks: DecomposedSubtask[] = validated.subtasks.map((s) => {
+    const keepProfile = s.assigned_to && memberIdSet.has(s.assigned_to);
+    const keepPhantom = s.assigned_phantom_id && phantomIdSet.has(s.assigned_phantom_id);
+    // Mutex côté défensif : si par malheur les deux sont présents (le validator
+    // l'interdit déjà), on garde le profile et on lâche le phantom.
+    return {
+      ...s,
+      assigned_to: keepProfile ? s.assigned_to : null,
+      assigned_phantom_id: keepProfile ? null : keepPhantom ? s.assigned_phantom_id : null,
+    };
+  });
 
   const { data: parentRow, error: parentErr } = await admin.from('household_tasks').insert({
     household_id: householdId,
@@ -389,6 +401,7 @@ export async function decomposeProjectCore(input: DecomposeCoreInput): Promise<D
     // défaut — l'user typant le prompt n'est pas forcément celui qui fait
     // tout. Si Yova n'a pas de pattern mémoire clair, laisser foyer.
     assigned_to: s.assigned_to,
+    assigned_to_phantom_id: s.assigned_phantom_id,
     is_active: true, is_fixed_assignment: false, notifications_enabled: true,
     created_by: userId,
     next_due_at: s.next_due_at,
@@ -436,6 +449,7 @@ export async function decomposeProjectCore(input: DecomposeCoreInput): Promise<D
       duration_minutes: DURATION_MINUTES[s.duration_estimate] ?? 15,
       next_due_at: s.next_due_at,
       assigned_to: s.assigned_to,
+      assigned_phantom_id: s.assigned_phantom_id,
       notes: s.notes,
     })),
     duration_ms: duration,

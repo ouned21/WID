@@ -40,7 +40,8 @@ export type DecomposedSubtask = {
   name: string;
   duration_estimate: 'very_short' | 'short' | 'medium' | 'long' | 'very_long';
   next_due_at: string;              // ISO date
-  assigned_to: string | null;       // UUID user, ou null (foyer)
+  assigned_to: string | null;       // UUID profile (adulte connecté) — mutex avec assigned_phantom_id
+  assigned_phantom_id: string | null; // UUID phantom_members (Barbara, enfant, autre) — mutex avec assigned_to
   notes: string | null;             // contexte court, 0-140 chars
 };
 
@@ -140,11 +141,21 @@ export function validateDecomposition(raw: unknown): DecompositionResult {
       if (!UUID.test(s2)) throw new ValidationError(`subtasks[${i}].assigned_to not UUID`);
       assigned = s2;
     }
+    let assignedPhantom: string | null = null;
+    if (x.assigned_phantom_id != null && x.assigned_phantom_id !== '') {
+      const s2 = String(x.assigned_phantom_id);
+      if (!UUID.test(s2)) throw new ValidationError(`subtasks[${i}].assigned_phantom_id not UUID`);
+      assignedPhantom = s2;
+    }
+    if (assigned && assignedPhantom) {
+      throw new ValidationError(`subtasks[${i}] cannot set both assigned_to and assigned_phantom_id`);
+    }
     return {
       name: asStr(x.name, `subtasks[${i}].name`, 100),
       duration_estimate: duration as DecomposedSubtask['duration_estimate'],
       next_due_at: nextDue,
       assigned_to: assigned,
+      assigned_phantom_id: assignedPhantom,
       notes: asNullableStr(x.notes, `subtasks[${i}].notes`, 140),
     };
   });

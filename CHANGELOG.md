@@ -6,6 +6,32 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-22g] — Sprint 13 : Actions inline chat + phantom assignation + chip projet /week
+
+### Ajouté
+- `utils/projectDecomposition.ts` — champ `assigned_phantom_id: string | null` dans `DecomposedSubtask` (mutex avec `assigned_to`). Validator UUID + rejette si les deux champs non-null simultanés. 3 nouveaux tests unitaires (19 au total)
+- `lib/decomposeProjectCore.ts` — les phantom_members exposent leur UUID à Sonnet via marqueur `[phantom:UUID]` (distinct de `[UUID]` pour les profiles). Prompt système mis à jour : règle "mutex + n'assigne PAS à un phantom par défaut, seulement si fait mémoire clair". Insert `household_tasks.assigned_to_phantom_id` côté DB
+- `app/(app)/week/page.tsx` — helpers `projectChipColor(parent_project_id)` (hash stable → palette 6 couleurs) et `ProjectChip` (✨ + titre parent, tappable). Banner filtre actif "Projet : X ✕" affichée en tête quand un chip est cliqué
+
+### Modifié
+- `app/(app)/journal/page.tsx` — `DecomposedProjectCard` refactorisée en composant "live" : fetch dédié des sous-tâches via `parent_project_id` (inclut `is_active=false` pour afficher les archivées grisées+rayées+badge "archivée"), tap sur une sous-tâche → `TaskActionsSheet`, refetch après chaque action. Fallback sur le JSON renvoyé par l'endpoint pendant le premier render pour éviter un flash vide. Footer remplacé "Voir sur Aujourd'hui" → "Tape une tâche pour l'ajuster" (l'user n'a plus besoin de naviguer)
+- `app/(app)/week/page.tsx` — `WeekTaskRow` affiche le chip projet inline à droite du nom (couleur stable par `parent_project_id`, label = nom du parent). Tap sur chip (stopPropagation) → filtre la vue sur les tâches de ce projet (enfants + parent). Appliqué aussi à la section "Projets à venir". Pas de regroupement — le tri par jour reste la valeur de /week (coordination temporelle)
+- `types/database.ts` : inchangé (`assigned_to_phantom_id` déjà présent depuis sprint 1)
+
+### Pourquoi
+Sprint 12 a livré la décomposition mais laissait deux frictions : (1) après "organise le déjeuner dimanche", l'user devait naviguer sur `/today` pour ajuster la moindre sous-tâche — rupture conversationnelle, (2) Barbara (phantom member sans compte) ne pouvait jamais être ciblée par Sonnet même si un fait mémoire le justifiait. Sprint 13 referme ces boucles : l'user ajuste dans le chat sans changer d'onglet, et Sonnet peut cibler n'importe quel membre du foyer. Le chip /week est un bonus de lisibilité quand plusieurs projets coexistent.
+
+### Règles produit respectées (ref spec M3)
+- **Zéro improvisation d'assignation phantom** : Sonnet n'assigne un phantom QUE si un fait mémoire établit un pattern clair. Même règle stricte que pour les profiles, étendue aux phantoms
+- **Pas de CRUD UI** : la sheet chat propose les mêmes 4 micro-actions (Fait / Reporter / Réassigner / Pas pertinent) — pas de nouvelle action, pas de création manuelle
+- **Réversible en DB** : "Pas pertinent" archive (`is_active=false`), la sous-tâche reste visible grisée + rayée + badge "archivée" dans la card chat. Pas de hard delete UI
+
+### Piliers spec
+- Pilier 1 — Connaissance intime du foyer (phantoms adressables = mémoire foyer complète)
+- Pilier 3 — Proactivité douce (l'user ajuste inline, il ne gère pas une todo-list)
+
+---
+
 ## [2026-04-22f] — Sprint 12 : Décomposition de projets complexes (M3)
 
 ### Ajouté

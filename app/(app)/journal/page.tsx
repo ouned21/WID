@@ -1,14 +1,17 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import BackButton from '@/components/BackButton';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
+import { useHouseholdStore } from '@/stores/householdStore';
 import { useMemoryStore, FACT_TYPE_EMOJI, FACT_TYPE_LABEL } from '@/stores/memoryStore';
 import { createClient } from '@/lib/supabase';
 import { detectProjectIntent } from '@/utils/projectDecomposition';
+import { TaskActionsSheet } from '@/components/TaskActionsSheet';
+import type { TaskListItem, HouseholdMember } from '@/types/database';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -35,6 +38,7 @@ type ProjectDecomposed = {
     duration_minutes: number;
     next_due_at: string;
     assigned_to: string | null;
+    assigned_phantom_id: string | null;
     notes: string | null;
   }>;
 };
@@ -191,12 +195,93 @@ const DURATION_LABEL_FR: Record<number, string> = {
   5: '5 min', 15: '15 min', 30: '30 min', 60: '1h', 120: '2h+',
 };
 
-/** Sprint 12 — Card de confirmation après décomposition Yova (organise/prépare/planifie…).
- *  L'user voit directement les sous-tâches créées — pas besoin de naviguer vers /today
- *  pour comprendre ce que Yova a fait. Inline-view only (actions en sprint 13). */
-function DecomposedProjectCard({ project }: { project: ProjectDecomposed }) {
+/** Sprint 13 — Card de confirmation après décomposition Yova, avec actions inline.
+ *  Chaque sous-tâche est tappable → ouvre TaskActionsSheet (Fait / Reporter / Réassigner / Pas pertinent).
+ *  Fetch dédié (inclut is_active=false) pour afficher les tâches archivées grisées + rayées,
+ *  cohérent avec l'ADN "réversible en DB". */
+const DURATION_LABEL_BY_ESTIMATE: Record<string, string> = {
+  very_short: '5 min', short: '15 min', medium: '30 min', long: '1h', very_long: '2h+',
+};
+
+function DecomposedProjectCard({
+  project,
+  householdId,
+  allMembers,
+  currentUserId,
+}: {
+  project: ProjectDecomposed;
+  householdId: string | null;
+  allMembers: HouseholdMember[];
+  currentUserId: string;
+}) {
+  const { completeTask, updateTask, archiveTask } = useTaskStore();
+  const [childTasks, setChildTasks] = useState<TaskListItem[] | null>(null);
+  const [actionsTaskId, setActionsTaskId] = useState<string | null>(null);
+
+  const fetchChildren = useCallback(async () => {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('household_tasks')
+      .select(`
+        *,
+        category:task_categories(id, name, icon, color_hex, sort_order),
+        assignee:profiles!household_tasks_assigned_to_fkey(id, display_name, avatar_url),
+        task_completions(id, completed_at, completed_by, mental_load_score, duration_minutes, note)
+      `)
+      .eq('parent_project_id', project.parent_task_id)
+      .order('next_due_at', { ascending: true, nullsFirst: false });
+
+    const rows = (data ?? []).map((row: Record<string, unknown>) => {
+      const completions = (row.task_completions as Array<{ completed_at: string }>) ?? [];
+      const sorted = completions.sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime());
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { task_completions: _, ...rest } = row;
+      return { ...rest, last_completion: sorted[0] ?? null } as TaskListItem;
+    });
+    setChildTasks(rows);
+  }, [project.parent_task_id]);
+
+  useEffect(() => { fetchChildren(); }, [fetchChildren]);
+
+  const handleComplete = async () => {
+    if (!actionsTaskId) return;
+    const id = actionsTaskId;
+    setActionsTaskId(null);
+    await completeTask(id);
+    await fetchChildren();
+  };
+  const handlePostpone = async (nextDueIso: string) => {
+    if (!actionsTaskId) return;
+    const id = actionsTaskId;
+    setActionsTaskId(null);
+    await updateTask(id, { next_due_at: nextDueIso });
+    await fetchChildren();
+  };
+  const handleReassign = async (userId: string | null, phantomId: string | null) => {
+    if (!actionsTaskId) return;
+    const id = actionsTaskId;
+    setActionsTaskId(null);
+    await updateTask(id, { assigned_to: userId, assigned_to_phantom_id: phantomId });
+    await fetchChildren();
+  };
+  const handleArchive = async () => {
+    if (!actionsTaskId) return;
+    const id = actionsTaskId;
+    setActionsTaskId(null);
+    await archiveTask(id);
+    await fetchChildren();
+  };
+
   const targetLabel = project.target_date
     ? new Date(project.target_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+    : null;
+
+  // Fallback : tant que le fetch n'a pas encore renvoyé, on affiche le JSON renvoyé
+  // par l'endpoint (read-only, pour éviter un flash vide).
+  const useLiveRows = childTasks !== null && childTasks.length > 0;
+
+  const selectedTask = actionsTaskId && childTasks
+    ? childTasks.find((t) => t.id === actionsTaskId) ?? null
     : null;
 
   return (
@@ -221,47 +306,114 @@ function DecomposedProjectCard({ project }: { project: ProjectDecomposed }) {
           </div>
         </div>
 
-        {/* Liste des sous-tâches */}
+        {/* Liste des sous-tâches — live (clickable) ou fallback (JSON) */}
         <div style={{ background: 'rgba(255,255,255,0.08)' }}>
-          {project.subtasks.map((s, i) => {
-            const dueDate = new Date(s.next_due_at);
-            const dateShort = dueDate.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
-            const durationLabel = DURATION_LABEL_FR[s.duration_minutes] ?? `${s.duration_minutes} min`;
-            return (
-              <div
-                key={i}
-                className="px-4 py-2.5 flex items-start gap-2.5"
-                style={i > 0 ? { borderTop: '0.5px solid rgba(255,255,255,0.12)' } : {}}
-              >
-                <span className="text-[11px] font-semibold text-white/50 leading-[1.2] mt-0.5 flex-shrink-0 w-4">{i + 1}.</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-medium text-white leading-snug">{s.name}</p>
-                  <p className="text-[11px] text-white/60 mt-0.5">
-                    {dateShort} · ⏱ {durationLabel}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
+          {useLiveRows
+            ? childTasks!.map((task, i) => {
+                const dueDate = task.next_due_at ? new Date(task.next_due_at) : null;
+                const dateShort = dueDate
+                  ? dueDate.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })
+                  : '—';
+                const durationLabel = task.duration_estimate
+                  ? DURATION_LABEL_BY_ESTIMATE[task.duration_estimate] ?? task.duration_estimate
+                  : '';
+                const isArchived = !task.is_active;
+                const isDone = !isArchived && task.last_completion !== null;
+                const dim = isArchived || isDone;
+                return (
+                  <button
+                    key={task.id}
+                    onClick={() => setActionsTaskId(task.id)}
+                    className="w-full px-4 py-2.5 flex items-start gap-2.5 text-left active:bg-white/10 transition-colors"
+                    style={i > 0 ? { borderTop: '0.5px solid rgba(255,255,255,0.12)' } : {}}
+                    aria-label={`Actions sur ${task.name}`}
+                  >
+                    <span
+                      className="text-[11px] font-semibold leading-[1.2] mt-0.5 flex-shrink-0 w-4"
+                      style={{ color: dim ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.5)' }}
+                    >
+                      {isDone ? '✓' : isArchived ? '—' : `${i + 1}.`}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className="text-[13px] font-medium leading-snug"
+                        style={{
+                          color: dim ? 'rgba(255,255,255,0.45)' : 'white',
+                          textDecoration: dim ? 'line-through' : 'none',
+                        }}
+                      >
+                        {task.name}
+                      </p>
+                      <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                        {dateShort}{durationLabel ? ` · ⏱ ${durationLabel}` : ''}
+                        {isArchived && ' · archivée'}
+                        {isDone && ' · fait'}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })
+            : project.subtasks.map((s, i) => {
+                const dueDate = new Date(s.next_due_at);
+                const dateShort = dueDate.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+                const durationLabel = DURATION_LABEL_FR[s.duration_minutes] ?? `${s.duration_minutes} min`;
+                return (
+                  <div
+                    key={i}
+                    className="px-4 py-2.5 flex items-start gap-2.5"
+                    style={i > 0 ? { borderTop: '0.5px solid rgba(255,255,255,0.12)' } : {}}
+                  >
+                    <span className="text-[11px] font-semibold text-white/50 leading-[1.2] mt-0.5 flex-shrink-0 w-4">{i + 1}.</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-white leading-snug">{s.name}</p>
+                      <p className="text-[11px] text-white/60 mt-0.5">{dateShort} · ⏱ {durationLabel}</p>
+                    </div>
+                  </div>
+                );
+              })}
         </div>
 
-        {/* Footer : lien vers /today pour ajuster */}
-        <Link
-          href="/today"
-          className="flex items-center justify-center gap-2 px-4 py-2.5 active:bg-white/10 transition-colors"
+        {/* Footer : hint d'action */}
+        <div
+          className="flex items-center justify-center gap-2 px-4 py-2.5"
           style={{ background: 'rgba(255,255,255,0.12)', borderTop: '0.5px solid rgba(255,255,255,0.18)' }}
         >
-          <span className="text-[12px] font-semibold text-white">Voir sur Aujourd&apos;hui · ajuster</span>
-          <svg width="12" height="12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
-            <path d="M9 18l6-6-6-6" />
-          </svg>
-        </Link>
+          <span className="text-[11px] font-medium text-white/75">
+            {useLiveRows ? 'Tape une tâche pour l\'ajuster' : 'Préparation…'}
+          </span>
+        </div>
       </div>
+
+      {/* Sheet d'actions inline */}
+      {actionsTaskId && selectedTask && householdId && (
+        <TaskActionsSheet
+          task={selectedTask}
+          allMembers={allMembers}
+          currentUserId={currentUserId}
+          onComplete={handleComplete}
+          onPostpone={handlePostpone}
+          onReassign={handleReassign}
+          onArchive={handleArchive}
+          onClose={() => setActionsTaskId(null)}
+        />
+      )}
     </div>
   );
 }
 
-function ResultCard({ data, currentUserName }: { data: ParseResponse; currentUserName?: string }) {
+function ResultCard({
+  data,
+  currentUserName,
+  householdId,
+  allMembers,
+  currentUserId,
+}: {
+  data: ParseResponse;
+  currentUserName?: string;
+  householdId: string | null;
+  allMembers: HouseholdMember[];
+  currentUserId: string;
+}) {
   const regularTasks = [
     ...(data.completions ?? []).map((c) => ({
       name: c.task_name,
@@ -273,9 +425,16 @@ function ResultCard({ data, currentUserName }: { data: ParseResponse; currentUse
   const project = data.project_created ?? null;
   const decomposed = data.project_decomposed ?? null;
 
-  // Sprint 12 — si la réponse est uniquement une décomposition, afficher la card dédiée
+  // Sprint 12/13 — si la réponse est uniquement une décomposition, card live avec actions
   if (decomposed && regularTasks.length === 0 && !project) {
-    return <DecomposedProjectCard project={decomposed} />;
+    return (
+      <DecomposedProjectCard
+        project={decomposed}
+        householdId={householdId}
+        allMembers={allMembers}
+        currentUserId={currentUserId}
+      />
+    );
   }
   if (regularTasks.length === 0 && !project && !decomposed) return null;
 
@@ -331,6 +490,7 @@ export default function JournalPage() {
   const router = useRouter();
   const { profile, refreshProfile } = useAuthStore();
   const { fetchTasks } = useTaskStore();
+  const { allMembers, fetchHousehold } = useHouseholdStore();
   const { facts, fetchMemory, invalidateFact } = useMemoryStore();
 
   // Chat state
@@ -451,6 +611,11 @@ export default function JournalPage() {
   useEffect(() => {
     if (profile?.household_id) fetchMemory(profile.household_id);
   }, [profile?.household_id, fetchMemory]);
+
+  // ── Foyer (membres pour la sheet d'actions sur sous-tâches) ──
+  useEffect(() => {
+    if (profile?.household_id) fetchHousehold(profile.household_id);
+  }, [profile?.household_id, fetchHousehold]);
 
   // ── Historique journaux ──
   useEffect(() => {
@@ -808,7 +973,16 @@ export default function JournalPage() {
           if (msg.type === 'user') return <UserBubble key={msg.id} content={msg.content} />;
           if (msg.type === 'yova') return <YovaBubble key={msg.id} content={msg.content} moodTone={msg.moodTone} isQuestion={msg.isQuestion} />;
           if (msg.type === 'typing') return <TypingBubble key={msg.id} />;
-          if (msg.type === 'result') return <ResultCard key={msg.id} data={msg.data} currentUserName={profile?.display_name ?? undefined} />;
+          if (msg.type === 'result') return (
+            <ResultCard
+              key={msg.id}
+              data={msg.data}
+              currentUserName={profile?.display_name ?? undefined}
+              householdId={profile?.household_id ?? null}
+              allMembers={allMembers}
+              currentUserId={profile?.id ?? ''}
+            />
+          );
           return null;
         })}
 
