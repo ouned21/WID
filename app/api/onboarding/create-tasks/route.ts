@@ -109,10 +109,15 @@ export async function POST(req: NextRequest) {
       school_class?: string | null;
       specifics?: { allergies?: string[]; activities?: { name: string }[]; notes?: string };
     }[];
+    householdMeta?: {
+      energy_level?: string;
+      has_external_help?: boolean;
+      external_help_description?: string | null;
+    };
     customSuggestions: string[];
   };
 
-  const { taskRows = [], phantomMembers = [], customSuggestions = [] } = body;
+  const { taskRows = [], phantomMembers = [], householdMeta, customSuggestions = [] } = body;
 
   // Forcer le household_id et created_by pour la sécurité
   const safeRows = taskRows.map((r) => ({
@@ -167,6 +172,20 @@ export async function POST(req: NextRequest) {
     await admin.from('custom_task_suggestions').insert(
       customSuggestions.map((name) => ({ name, household_id: householdId, source: 'onboarding' }))
     );
+  }
+
+  // Upsert household profile (energy level, external help)
+  if (householdMeta) {
+    const externalHelpJsonb = householdMeta.has_external_help && householdMeta.external_help_description
+      ? [{ description: householdMeta.external_help_description }]
+      : [];
+
+    await admin.from('household_profile').upsert({
+      household_id: householdId,
+      energy_level: householdMeta.energy_level ?? 'medium',
+      external_help: externalHelpJsonb,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'household_id' });
   }
 
   return NextResponse.json({ tasks: insertedTasks });

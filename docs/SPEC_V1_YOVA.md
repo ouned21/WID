@@ -48,10 +48,10 @@ Un foyer en surcharge ne peut pas gérer 4 onglets.
 | Onglet | Rôle |
 |--------|------|
 | **Aujourd'hui** | Inbox unique : ce qui compte aujourd'hui, rien de plus. Remplace Journal + Tâches + Planning actuels. |
-| **Famille** | Le foyer vivant : membres, contraintes, ce que Yova sait, observations. |
+| **Foyer** | Le foyer vivant : membres, contraintes, ce que Yova sait, observations. |
 | **Parler à Yova** | Chat/vocal avec l'agent (rituel du soir + sessions libres). |
 
-Le Score 4 axes et le Dashboard analytique **sortent de la nav principale**. Archivés, accessibles via Famille → Paramètres → Statistiques (feature Premium curieux).
+Le Score 4 axes et le Dashboard analytique **sortent de la nav principale**. Archivés, accessibles via Foyer → Paramètres → Statistiques (feature Premium curieux).
 
 ---
 
@@ -76,7 +76,7 @@ Le Score 4 axes et le Dashboard analytique **sortent de la nav principale**. Arc
 
 ---
 
-### 👨‍👩‍👧‍👧 Famille
+### 🏠 Foyer
 
 **Principe** : *« Ce que Yova sait de vous. »*
 
@@ -136,7 +136,7 @@ C'est **la** brique technique centrale. Plus critique que l'IA elle-même.
 3. **Observations** (Postgres + jobs)
    - Jobs quotidiens analysent l'activité et émettent des observations
    - Ex: 10 jours sans tâche « cuisine » → observation `cooking_drift`
-   - Remontées dans onglet Famille + déclenchent rappels doux
+   - Remontées dans onglet Foyer + déclenchent rappels doux
 
 ### Schéma simplifié des nouvelles tables
 
@@ -230,10 +230,30 @@ agent_memory_facts
 ### On GARDE (refactor léger)
 - Auth Supabase
 - Modèle données foyer + membres + tâches (avec ajustements)
-- Onboarding équipements (raccourci à 5 questions)
-- Templates de tâches catalogue
 - Service worker PWA
 - Journal quotidien (devient la brique « Parler à Yova »)
+
+### Onboarding — conversation guidée Yova (sprint 3)
+Remplace le formulaire multi-étapes + catalogue statique.
+
+**Principe** : chat guidé, mix chips/boutons + texte libre. Chaque question a un objectif technique précis.
+
+| Question | Donnée produite | Effet concret |
+|---|---|---|
+| Taille du foyer | `household_size` | Volume de tâches |
+| Prénoms/âges enfants | `phantom_members` (nom, birth_date) | Active tâches enfants |
+| Classe scolaire | `phantom_members.school_class` | Tâches scolaires |
+| Allergies/contraintes | `phantom_members.specifics.allergies` | Informe cuisine/courses |
+| Aide extérieure | `household_profile.external_help` | Désactive tâches couvertes |
+| Équipements (grille chips) | `household_profile` | Active/désactive blocs tâches |
+| Niveau d'énergie | `household_profile.energy_level` | low → mode vital |
+| Courses faites ou à faire ? | `next_due_at` courses | Calibrage J0 |
+| Lessive lancée ou à faire ? | `next_due_at` lessive | Calibrage J0 |
+| Dîner ce soir prévu ? | `next_due_at` repas | Calibrage J0 |
+
+**Génération** : Claude Haiku avec tout le contexte → 10-20 tâches JSON avec `next_due_at` calibré.
+**Fallback** : catalogue statique si Claude timeout.
+**Sauvegarde** : conversation → `conversation_turns` (première mémoire Yova).
 
 ### On RETIRE de la nav (code archivé, pas supprimé)
 - Score 4 axes (plus visible par défaut)
@@ -255,7 +275,7 @@ agent_memory_facts
 ### Mois 1 — Fondations pivot
 - Refactor nav 4 → 3 onglets
 - Onglet « Aujourd'hui » (fusion journal + tâches)
-- Onglet « Famille » avec fiches membres enrichies
+- Onglet « Foyer » avec fiches membres enrichies
 - Migration données existantes
 - **Livrable** : Yova V1 avec nouvelle structure, IA inchangée
 
@@ -273,7 +293,7 @@ agent_memory_facts
 
 ### Mois 4 — Détection de dérives
 - Job quotidien analyse activité
-- Table `observations` + UI Famille
+- Table `observations` + UI Foyer
 - Notifs douces avec bon ton
 - **Livrable** : Yova commence à étonner
 
