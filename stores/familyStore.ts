@@ -90,44 +90,49 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   // ── fetchFamily ──────────────────────────────────────────────────────────
   fetchFamily: async (householdId) => {
     set({ loading: true, error: null });
-    const supabase = createClient();
+    try {
+      const supabase = createClient();
 
-    const [profileRes, membersRes] = await Promise.all([
-      supabase
-        .from('household_profile')
-        .select('*')
-        .eq('household_id', householdId)
-        .maybeSingle(),
-      supabase
-        .from('phantom_members')
-        .select('*')
-        .eq('household_id', householdId)
-        .order('created_at', { ascending: true }),
-    ]);
+      const [profileRes, membersRes] = await Promise.all([
+        supabase
+          .from('household_profile')
+          .select('*')
+          .eq('household_id', householdId)
+          .maybeSingle(),
+        supabase
+          .from('phantom_members')
+          .select('*')
+          .eq('household_id', householdId)
+          .order('created_at', { ascending: true }),
+      ]);
 
-    if (profileRes.error) {
-      console.error('[familyStore] household_profile:', profileRes.error.message);
+      if (profileRes.error) {
+        console.error('[familyStore] household_profile:', profileRes.error.message);
+      }
+      if (membersRes.error) {
+        console.error('[familyStore] phantom_members:', membersRes.error.message);
+      }
+
+      // Si pas de profil foyer (ancien foyer), on le crée silencieusement
+      let hp = profileRes.data as HouseholdProfile | null;
+      if (!hp) {
+        const { data: created } = await supabase
+          .from('household_profile')
+          .insert({ household_id: householdId })
+          .select()
+          .single();
+        hp = created as HouseholdProfile | null;
+      }
+
+      set({
+        householdProfile: hp,
+        members: (membersRes.data as PhantomMember[]) ?? [],
+        loading: false,
+      });
+    } catch (err) {
+      console.error('[familyStore] fetchFamily exception:', err);
+      set({ loading: false, error: 'Impossible de charger les données du foyer.' });
     }
-    if (membersRes.error) {
-      console.error('[familyStore] phantom_members:', membersRes.error.message);
-    }
-
-    // Si pas de profil foyer (ancien foyer), on le crée silencieusement
-    let hp = profileRes.data as HouseholdProfile | null;
-    if (!hp) {
-      const { data: created } = await supabase
-        .from('household_profile')
-        .insert({ household_id: householdId })
-        .select()
-        .single();
-      hp = created as HouseholdProfile | null;
-    }
-
-    set({
-      householdProfile: hp,
-      members: (membersRes.data as PhantomMember[]) ?? [],
-      loading: false,
-    });
   },
 
   // ── updateHouseholdProfile ───────────────────────────────────────────────

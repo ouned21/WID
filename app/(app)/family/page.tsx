@@ -234,21 +234,31 @@ export default function FamilyPage() {
       .eq('id', obsId);
   };
 
-  // ── Init ──
+  // ── Init + rechargement au retour sur l'onglet ──
   useEffect(() => {
-    if (profile?.household_id) {
-      fetchFamily(profile.household_id);
-      loadObservations(profile.household_id);
-      loadMemoryFacts(profile.household_id);
-      // Charger le code d'invitation depuis la table households
+    if (!profile?.household_id) return;
+    const hid = profile.household_id;
+
+    const refresh = () => {
+      fetchFamily(hid);
+      loadObservations(hid);
+      loadMemoryFacts(hid);
       const supabase = createClient();
       supabase
         .from('households')
         .select('invite_code')
-        .eq('id', profile.household_id)
+        .eq('id', hid)
         .single()
         .then(({ data }) => { if (data?.invite_code) setInviteCode(data.invite_code); });
-    }
+    };
+
+    // Chargement initial
+    refresh();
+
+    // Rechargement quand l'utilisateur revient sur l'onglet / l'app
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [profile?.household_id, fetchFamily, loadObservations, loadMemoryFacts]);
 
   // ── Helpers formulaire ──

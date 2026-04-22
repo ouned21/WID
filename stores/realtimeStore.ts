@@ -5,6 +5,7 @@ import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { useAnalyticsStore } from '@/stores/analyticsStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useFamilyStore } from '@/stores/familyStore';
 
 let subscribed = false;
 let channels: ReturnType<ReturnType<typeof createClient>['channel']>[] = [];
@@ -87,12 +88,31 @@ export function initRealtime(householdId: string) {
         filter: `household_id=eq.${householdId}`,
       },
       () => {
+        // Rafraîchir householdStore ET familyStore (page Famille)
         useHouseholdStore.getState().fetchHousehold(householdId);
+        useFamilyStore.getState().fetchFamily(householdId);
       },
     )
     .subscribe();
 
-  channels = [tasksChannel, completionsChannel, membersChannel, phantomChannel];
+  // Channel profil foyer : UPDATE sur household_profile
+  const householdProfileChannel = supabase
+    .channel(`household:${householdId}:profile`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'household_profile',
+        filter: `household_id=eq.${householdId}`,
+      },
+      () => {
+        useFamilyStore.getState().fetchFamily(householdId);
+      },
+    )
+    .subscribe();
+
+  channels = [tasksChannel, completionsChannel, membersChannel, phantomChannel, householdProfileChannel];
 }
 
 /**

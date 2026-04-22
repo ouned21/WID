@@ -18,6 +18,8 @@ export default function ProfilePage() {
   const [copied, setCopied] = useState(false);
   const [showAddPhantom, setShowAddPhantom] = useState(false);
   const [phantomName, setPhantomName] = useState('');
+  const [confirmRenewCode, setConfirmRenewCode] = useState(false);
+  const [renewingCode, setRenewingCode] = useState(false);
   const [linkingPhantom, setLinkingPhantom] = useState<string | null>(null); // phantomId en cours de rattachement
   const [linkTargetId, setLinkTargetId] = useState(''); // realProfileId sélectionné
   const [dataOpen, setDataOpen] = useState(false);
@@ -251,20 +253,24 @@ export default function ProfilePage() {
                   </button>
                   {profile?.role === 'admin' && (
                     <button
-                      onClick={async () => {
-                        if (!confirm('Renouveler le code d\'invitation ?\n\nL\'ancien code ne fonctionnera plus. Les membres déjà dans le foyer ne sont pas affectés — tu devras seulement partager le nouveau code aux futures personnes à inviter.')) return;
-                        const res = await rotateInviteCode();
-                        if (!res.ok) alert(`Erreur : ${res.error ?? 'inconnue'}`);
-                      }}
-                      className="flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-semibold"
+                      onClick={() => setConfirmRenewCode(true)}
+                      disabled={renewingCode}
+                      className="flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-semibold disabled:opacity-50"
                       style={{ background: '#f0f2f8', color: '#007aff' }}
                       aria-label="Renouveler le code d'invitation"
                     >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M1 4v6h6M23 20v-6h-6"/>
-                        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
-                      </svg>
-                      Renouveler
+                      {renewingCode ? (
+                        <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3"/>
+                          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                        </svg>
+                      ) : (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 4v6h6M23 20v-6h-6"/>
+                          <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+                        </svg>
+                      )}
+                      {renewingCode ? '…' : 'Renouveler'}
                     </button>
                   )}
                 </div>
@@ -300,8 +306,8 @@ export default function ProfilePage() {
               <div className="flex items-center gap-3">
                 <span className="text-[22px]">📊</span>
                 <div>
-                  <p className="text-[15px] font-semibold text-[#1c1c1e]">Score & répartition</p>
-                  <p className="text-[12px] text-[#8e8e93]">Charge mentale et équilibre du foyer</p>
+                  <p className="text-[15px] font-semibold text-[#1c1c1e]">Statistiques</p>
+                  <p className="text-[12px] text-[#8e8e93]">Répartition des tâches et tendances</p>
                 </div>
               </div>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c7c7cc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -950,6 +956,41 @@ export default function ProfilePage() {
         </div>
         <p className="text-[11px] text-[#c7c7cc] mt-2">Yova © {new Date().getFullYear()} · v{process.env.NEXT_PUBLIC_APP_VERSION ?? 'dev'}</p>
       </div>
+
+      {/* ── Modale confirmation renouvellement code ── */}
+      {confirmRenewCode && (
+        <div className="fixed inset-0 bg-black/40 flex items-end z-50" onClick={() => setConfirmRenewCode(false)}>
+          <div className="w-full bg-white rounded-t-3xl p-6 pb-10 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-[#e5e5ea] rounded-full mx-auto mb-2" />
+            <p className="text-[18px] font-bold text-[#1c1c1e]">Renouveler le code ?</p>
+            <p className="text-[15px] text-[#8e8e93] leading-relaxed">
+              L&apos;ancien code ne fonctionnera plus. Les membres déjà dans le foyer ne sont pas affectés — il faudra partager le nouveau code aux prochaines personnes à inviter.
+            </p>
+            <button
+              onClick={async () => {
+                setRenewingCode(true);
+                setConfirmRenewCode(false);
+                const res = await rotateInviteCode();
+                setRenewingCode(false);
+                if (!res.ok) {
+                  // Affichage d'erreur inline — pas d'alert()
+                  console.error('[profile] rotateInviteCode:', res.error);
+                }
+              }}
+              className="w-full py-4 rounded-2xl text-[17px] font-bold text-white"
+              style={{ background: '#007aff' }}
+            >
+              Renouveler
+            </button>
+            <button
+              onClick={() => setConfirmRenewCode(false)}
+              className="w-full py-4 rounded-2xl text-[17px] font-medium text-[#1c1c1e] bg-[#f2f2f7]"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
