@@ -603,25 +603,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Charge préférée */}
-          <div className="px-4 py-3" style={{ borderBottom: '0.5px solid var(--ios-separator)' }}>
-            <p className="text-[13px] font-semibold text-[#1c1c1e] mb-2">Ton niveau de charge souhaité</p>
-            <div className="grid grid-cols-3 gap-1.5">
-              {[
-                { v: 'light', label: 'Léger', desc: 'Moins possible' },
-                { v: 'balanced', label: 'Équilibré', desc: 'Ma juste part' },
-                { v: 'heavy', label: 'Élevé', desc: "J'en prends plus" },
-              ].map((opt) => (
-                <button key={opt.v} onClick={() => { setLoadPreference(opt.v as 'light' | 'balanced' | 'heavy'); savePrefs({ loadPreference: opt.v as 'light' | 'balanced' | 'heavy' }); }}
-                  className="rounded-lg py-2 px-2 text-left"
-                  style={loadPreference === opt.v ? { background: '#007aff', color: 'white' } : { background: '#f0f2f8', color: '#3c3c43' }}>
-                  <p className="text-[12px] font-bold">{opt.label}</p>
-                  <p className="text-[10px] opacity-80">{opt.desc}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Note libre à Yova */}
           <div className="px-4 py-3">
             <p className="text-[13px] font-semibold text-[#1c1c1e] mb-1">Message à Yova</p>
