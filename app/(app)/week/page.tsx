@@ -49,15 +49,13 @@ function getNextSevenDays(): Date[] {
   });
 }
 
-/** Retourne tous les jours du mois en cours */
-function getDaysOfCurrentMonth(): Date[] {
+/** Retourne les 30 prochains jours (aujourd'hui inclus) */
+function getNextThirtyDays(): Date[] {
   const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  return Array.from({ length: daysInMonth }, (_, i) => {
-    const d = new Date(year, month, i + 1);
-    d.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  return Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
     return d;
   });
 }
@@ -71,7 +69,10 @@ function getSevenDaysFromNow(): Date {
 }
 
 function getMonthLabel(): string {
-  return new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  const today = new Date();
+  const end = new Date(today);
+  end.setDate(end.getDate() + 29);
+  return `${today.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`;
 }
 
 /** Clé YYYY-MM-DD locale (pas UTC) */
@@ -205,7 +206,7 @@ export default function WeekPage() {
   }, [profile?.household_id, fetchTasks, fetchHousehold]);
 
   const weekDays  = useMemo(() => getNextSevenDays(), []);
-  const monthDays = useMemo(() => getDaysOfCurrentMonth(), []);
+  const monthDays = useMemo(() => getNextThirtyDays(), []);
   const days = viewMode === 'week' ? weekDays : monthDays;
 
   /** Tasks groupées par jour */
@@ -246,10 +247,10 @@ export default function WeekPage() {
     );
   }
 
-  // En vue mois, on n'affiche que les jours qui ont des tâches (ou passés/aujourd'hui)
+  // En vue mois roulant, on n'affiche que les jours avec des tâches (tout est dans le futur)
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const visibleDays = viewMode === 'month'
-    ? days.filter((d) => (grouped.get(localDateKey(d))?.length ?? 0) > 0 || d <= today)
+    ? days.filter((d) => (grouped.get(localDateKey(d))?.length ?? 0) > 0)
     : days;
 
   return (
@@ -342,15 +343,11 @@ export default function WeekPage() {
         const key = localDateKey(day);
         const dayTasks = grouped.get(key) ?? [];
         const isToday = day.toDateString() === new Date().toDateString();
-        const isPast = day < today && !isToday;
         const label = getDayLabel(day);
         const dateStr = getDayDate(day);
 
-        // En vue mois, masquer les jours passés vides
-        if (viewMode === 'month' && isPast && dayTasks.length === 0) return null;
-
         return (
-          <div key={key} style={{ opacity: isPast ? 0.5 : 1 }}>
+          <div key={key}>
             <div className="flex items-baseline gap-2 px-1 mb-2">
               <p className={`text-[13px] font-semibold uppercase tracking-wide ${isToday ? 'text-[#007aff]' : 'text-[#8e8e93]'}`}>
                 {label}
