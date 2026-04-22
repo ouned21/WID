@@ -338,6 +338,24 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       return { ok: false, error: error.message };
     }
 
+    // Sprint 16 — cascade : si la tâche archivée est référencée dans
+    // covers_project_ids d'autres tâches (cas où c'est un projet parent
+    // qui couvrait des tâches récurrentes), on retire la référence.
+    // Idempotent : safe même si aucune tâche ne la couvre.
+    const { data: covering } = await supabase
+      .from('household_tasks')
+      .select('id, covers_project_ids')
+      .eq('household_id', task.household_id)
+      .contains('covers_project_ids', [taskId]);
+    if (covering && covering.length > 0) {
+      for (const t of covering) {
+        const remaining = ((t.covers_project_ids as string[] | null) ?? []).filter((id) => id !== taskId);
+        await supabase.from('household_tasks')
+          .update({ covers_project_ids: remaining })
+          .eq('id', t.id);
+      }
+    }
+
     await get().fetchTasks(task.household_id);
     return { ok: true };
   },

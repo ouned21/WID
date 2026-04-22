@@ -103,6 +103,10 @@ export type HouseholdTask = {
   // NULL pour une tâche normale OU pour le parent lui-même. Un parent est
   // reconnu à l'UI par : au moins une row référence son id via parent_project_id.
   parent_project_id?: string | null;
+  // Sprint 16 — consolidation : liste des parent_project_id que cette tâche
+  // (récurrente, en général) couvre AUSSI. Vide par défaut. Affichage badge
+  // discret sur /week. Cleanup auto au moment où le projet est archivé.
+  covers_project_ids?: string[];
 };
 
 export type TaskCompletion = {

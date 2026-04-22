@@ -13,7 +13,10 @@ import {
   findPendingProject,
   findPendingDuplicate,
   interpretDuplicateAnswer,
+  findPendingOverlap,
+  clearCoversForProject,
 } from '@/lib/decomposeProjectCore';
+import { interpretOverlapAnswer } from '@/utils/overlapDetection';
 import {
   extractStructuredFallback,
   applyStructuredUpdates,
@@ -319,6 +322,9 @@ export async function POST(request: NextRequest) {
         .eq('household_id', householdId).eq('id', pendingDup.existing_parent_id);
       await admin.from('household_tasks').update({ is_active: false })
         .eq('household_id', householdId).eq('parent_project_id', pendingDup.existing_parent_id);
+      // Sprint 16 — cascade : retire ce parent_id des covers_project_ids des
+      // récurrentes qui le référençaient (cohérence mémoire vivante).
+      await clearCoversForProject(admin as never, householdId, pendingDup.existing_parent_id);
       skipDuplicateCheck = true;
       dupRoutePrompt = pendingDup.original_prompt;
     } else {
@@ -332,6 +338,125 @@ export async function POST(request: NextRequest) {
         mood_tone: null,
       });
     }
+  }
+
+  // ─── Sprint 16 — pending_overlap (user a répondu à une proposition de groupement) ──
+  // Précédence : on regarde si le DERNIER turn agent était un pending_overlap
+  // (et pas un pending_project_duplicate / pending_project), pour ne pas
+  // intercepter à tort une vraie réponse à une question d'un autre type.
+  const pendingOverlap = conversationHistory.length === 0 && !pending && !pendingDup
+    ? await findPendingOverlap(supabase as never, householdId)
+    : null;
+
+  if (pendingOverlap) {
+    const decision = interpretOverlapAnswer(sanitizedText);
+    const parentId = pendingOverlap.parent_id;
+
+    // Helper : insert les sous-tâches restantes telles quelles (cas keep_both
+    // ou fallback ambigu après reformulation)
+    const insertPendingSubs = async () => {
+      const { data: cats } = await supabase.from('task_categories').select('id, name');
+      const fallbackCat = (cats ?? []).find((c) => c.name.toLowerCase() === 'gestion du foyer')
+        ?? (cats ?? []).find((c) => c.name.toLowerCase() === 'divers')
+        ?? (cats ?? [])[0];
+      if (!fallbackCat) return;
+      const rows = pendingOverlap.pending_subtasks.map((s) => ({
+        household_id: householdId,
+        name: s.name,
+        category_id: fallbackCat.id,
+        frequency: 'once' as never,
+        mental_load_score: 3, user_score: 3,
+        scoring_category: 'household_management',
+        duration_estimate: s.duration_estimate,
+        physical_effort: 'light',
+        assigned_to: s.assigned_to,
+        assigned_to_phantom_id: s.assigned_phantom_id,
+        is_active: true, is_fixed_assignment: false, notifications_enabled: true,
+        created_by: user.id,
+        next_due_at: s.next_due_at,
+        parent_project_id: parentId,
+      }));
+      if (rows.length > 0) {
+        await admin.from('household_tasks').insert(rows);
+      }
+    };
+
+    let aiResponse: string;
+
+    if (decision.kind === 'group') {
+      for (const o of pendingOverlap.overlaps) {
+        // Récupère la liste actuelle pour merge sans doublon
+        const { data: existing } = await admin.from('household_tasks')
+          .select('covers_project_ids').eq('id', o.existing_task_id).maybeSingle();
+        const current = ((existing?.covers_project_ids as string[] | null) ?? []);
+        const merged = current.includes(parentId) ? current : [...current, parentId];
+        // Preco #1 : déplace la récurrente à la date du projet (consolidation réelle)
+        await admin.from('household_tasks')
+          .update({ next_due_at: o.subtask_next_due_at, covers_project_ids: merged })
+          .eq('id', o.existing_task_id);
+      }
+      const summary = pendingOverlap.overlaps.length === 1
+        ? `OK — j'ai déplacé "${pendingOverlap.overlaps[0].existing_task_name}" pour qu'elle couvre aussi le projet.`
+        : `OK — j'ai groupé ${pendingOverlap.overlaps.length} tâches récurrentes avec le projet.`;
+      aiResponse = summary;
+
+    } else if (decision.kind === 'keep_both') {
+      await insertPendingSubs();
+      aiResponse = pendingOverlap.overlaps.length === 1
+        ? 'OK — gardées toutes les deux.'
+        : 'OK — gardées toutes séparément.';
+
+    } else if (decision.kind === 'reschedule') {
+      const newDate = decision.new_date_iso;
+      if (!newDate) {
+        // Pas de date claire → reformule une fois
+        return NextResponse.json({
+          needs_clarification: true,
+          clarification_question: 'À quelle date je décale la récurrente ? (ex: samedi, 27 mai, demain)',
+          completions: [], auto_created: [], unmatched: [],
+          project_created: null, project_decomposed: null,
+          ai_response: 'À quelle date je décale la récurrente ? (ex: samedi, 27 mai, demain)',
+          mood_tone: null,
+        });
+      }
+      for (const o of pendingOverlap.overlaps) {
+        const { data: existing } = await admin.from('household_tasks')
+          .select('covers_project_ids').eq('id', o.existing_task_id).maybeSingle();
+        const current = ((existing?.covers_project_ids as string[] | null) ?? []);
+        const merged = current.includes(parentId) ? current : [...current, parentId];
+        await admin.from('household_tasks')
+          .update({ next_due_at: newDate, covers_project_ids: merged })
+          .eq('id', o.existing_task_id);
+      }
+      const dateLabel = new Date(newDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+      aiResponse = `OK — récurrente${pendingOverlap.overlaps.length > 1 ? 's' : ''} décalée${pendingOverlap.overlaps.length > 1 ? 's' : ''} au ${dateLabel}.`;
+
+    } else {
+      // Ambigu — preco #6 : fallback keep_both (pas de relance infinie)
+      await insertPendingSubs();
+      aiResponse = "Pas sûre d'avoir saisi — je garde les deux côtés. Tu peux ajuster sur /week.";
+    }
+
+    await admin.from('user_journals').insert({
+      user_id: user.id, household_id: householdId, raw_text: text, input_method: inputMethod,
+      parsed_completions: [], unmatched_items: [],
+      ai_response: aiResponse,
+      tokens_input: 0, tokens_output: 0, cost_usd: 0,
+      model_used: 'sprint16-overlap-router', processing_time_ms: Date.now() - startTime,
+      mood_tone: null,
+    });
+    await admin.from('conversation_turns').insert([
+      { household_id: householdId, user_id: user.id, speaker: 'user', content: text, source: 'chat' },
+      { household_id: householdId, user_id: user.id, speaker: 'agent', content: aiResponse, source: 'chat' },
+    ]);
+
+    return NextResponse.json({
+      completions: [], auto_created: [], unmatched: [],
+      project_created: null, project_decomposed: null,
+      ai_response: aiResponse,
+      mood_tone: null,
+      structured_updates: structuredApplied,
+    });
   }
 
   const routeToDecompose = pending !== null || pendingDup !== null || detectProjectIntent(sanitizedText);
@@ -363,7 +488,9 @@ export async function POST(request: NextRequest) {
           ? result.question
           : result.kind === 'duplicate'
             ? result.question
-            : (result.user_message ?? result.error),
+            : result.kind === 'overlap_question'
+              ? result.question
+              : (result.user_message ?? result.error),
       tokens_input: 0, tokens_output: 0, cost_usd: 0,
       model_used: 'claude-sonnet-4-6', processing_time_ms: Date.now() - startTime,
       mood_tone: null,
@@ -383,6 +510,28 @@ export async function POST(request: NextRequest) {
         completions: [], auto_created: [], unmatched: [],
         project_created: null,
         project_decomposed: null,
+        ai_response: result.question,
+        mood_tone: null,
+        structured_updates: structuredApplied,
+      });
+    }
+
+    if (result.kind === 'overlap_question') {
+      // Sprint 16 — projet partiellement créé (parent + sous-tâches non-overlap),
+      // question posée pour les sous-tâches qui chevauchent une récurrente.
+      return NextResponse.json({
+        needs_clarification: true,
+        clarification_question: result.question,
+        completions: [], auto_created: [], unmatched: [],
+        project_created: null,
+        project_decomposed: {
+          parent_task_id: result.parent_task_id,
+          title: result.title,
+          description: null,
+          target_date: result.target_date,
+          subtask_count: result.inserted_subtask_count,
+          subtasks: [], // l'UI re-fetch via parent_task_id pour obtenir les enfants insérés
+        },
         ai_response: result.question,
         mood_tone: null,
         structured_updates: structuredApplied,

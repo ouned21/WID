@@ -360,6 +360,19 @@ function DecomposedProjectCard({
       .update({ is_active: false })
       .eq('id', id);
     if (error) console.error('[decomposed-card] archive error:', error);
+    // Sprint 16 — cascade covers_project_ids (cf. taskStore.archiveTask).
+    const { data: covering } = await supabase
+      .from('household_tasks')
+      .select('id, covers_project_ids')
+      .contains('covers_project_ids', [id]);
+    if (covering && covering.length > 0) {
+      for (const t of covering) {
+        const remaining = ((t.covers_project_ids as string[] | null) ?? []).filter((x) => x !== id);
+        await supabase.from('household_tasks')
+          .update({ covers_project_ids: remaining })
+          .eq('id', t.id);
+      }
+    }
     await afterMutation();
   };
 

@@ -6,6 +6,59 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-25] — Sprint 16 : Consolidation de tâches chevauchantes (Pilier 3 pur)
+
+### Ajouté
+- `utils/overlapDetection.ts` — détection pure et testable. `detectOverlaps` : pour chaque sous-tâche d'un projet, cherche la meilleure récurrente active dont `next_due_at` tombe dans ±3 j ET dont le nom passe Jaccard ≥ **0.33** (calibré sur le cas canonique "Faire les courses" vs "Faire les courses pour le déjeuner dimanche" = 1/3 = 0.33 ; 0.5 du sprint 14 anti-doublon raterait ce match évident). `interpretOverlapAnswer` : interprète la réponse user libre en chat (regex, pas d'appel IA) en 4 décisions — `group` / `keep_both` / `reschedule` (avec extraction date FR : "demain", "samedi", "27 mai") / `ambiguous`. `buildOverlapQuestion` : 1 question groupée pour 1..N overlaps (preco multi-overlap = 1 message, pas N questions séquentielles)
+- `utils/overlapDetection.test.ts` — 24 tests (matching ±3j, exclusion noms non-liés, choix meilleur candidat parmi plusieurs, interpréteur 4 décisions, extraction dates "demain"/"après-demain"/"27 mai"/"samedi", question single vs multi)
+- `supabase/migrations/20260425_sprint16_overlap_consolidation.sql` — colonne `household_tasks.covers_project_ids uuid[]` (default `'{}'`) + index GIN. Liste des `parent_project_id` qu'une tâche récurrente couvre AUSSI suite à un groupement. Idempotent
+- `lib/decomposeProjectCore.ts` — nouveau retour `kind: 'overlap_question'`. Après validation Sonnet, AVANT insert enfants : query récurrentes actives (`frequency != 'once'`, `parent_project_id IS NULL`, `next_due_at` dans ±4j de la fenêtre des sous-tâches, limit 50), passe par `detectOverlaps`. Si ≥ 1 match : insère parent + sous-tâches NON-overlap, stocke contexte complet dans `conversation_turns.extracted_facts.pending_overlap` (parent_id, project_target_date, pending_subtasks à insérer plus tard, overlaps {existing_task_id, dates, names}), retourne question groupée. Helpers exportés `findPendingOverlap` (lookup < 10 min) + `clearCoversForProject` (cascade)
+
+### Modifié
+- `app/api/ai/parse-journal/route.ts` — router `pending_overlap` avant `routeToDecompose`. 4 branches sur la réponse user : (1) **group** → pour chaque overlap, UPDATE récurrente `next_due_at = subtask_next_due_at` (preco #1 : déplace à la date du projet, pas au statu quo) + append `parent_id` à `covers_project_ids` (idempotent, dedup) ; (2) **keep_both** → INSERT pending_subtasks tel quel ; (3) **reschedule** → UPDATE récurrente `next_due_at = new_date_iso` + covers ; si pas de date claire dans la réponse → reformule UNE fois "À quelle date je décale ?" puis fallback ; (4) **ambiguous** → preco #6 fallback `keep_both` silencieux ("Pas sûre d'avoir saisi — je garde les deux côtés. Tu peux ajuster sur /week."), pas de boucle de relance. Cascade aussi appelée depuis le replace flow sprint 14 (`clearCoversForProject` après archivage parent). Nouveau handle pour `result.kind === 'overlap_question'` côté dispatch
+- `app/api/ai/decompose-project/route.ts` — gère `result.kind === 'overlap_question'` avec payload `pending_overlap` (cohérence endpoint direct vs router journal)
+- `stores/taskStore.ts` — `archiveTask` cascade : après update `is_active=false`, query `household_tasks WHERE covers_project_ids @> [taskId]` + retire la référence. Idempotent. Couvre l'archivage user via TaskActionsSheet "Pas pertinent" sur un projet parent
+- `app/(app)/journal/page.tsx` — même cascade locale dans `DecomposedProjectCard.handleArchive` (archive d'une tâche depuis la card chat)
+- `app/(app)/week/page.tsx` — `WeekTaskRow` : nouvelle ligne discrète "↻ couvre aussi : <projet>" (vert sobre, 11px) sous le nom de tâche quand `covers_project_ids` non vide. Preco #2 : visible et utile (l'user doit savoir que ses courses dim. servent aussi au déjeuner). Lookup étendu : `archivedParentTitles` couvre désormais à la fois `parent_project_id` et les ids dans `covers_project_ids`
+- `types/database.ts` — `HouseholdTask.covers_project_ids?: string[]`
+
+### Règles produit (décisions sprint 16, validées Jonathan)
+- **"Groupe" déplace la récurrente à la date du projet** (preco #1, option B). "Groupe" en langage naturel = "fais d'une pierre deux coups le même jour". Garder mer. ET prévoir dim. = aller deux fois (les courses de mer. ne couvrent pas un repas frais dim.). Si l'user voulait conserver mer., il dit "garde les deux"
+- **Badge `/week` visible** (preco #2, option A). Sprint 15bis dit "Yova ne se vante pas de sa mémoire" pour les openers — mais ici c'est de l'info opérationnelle (l'user achète plus pour couvrir 2 usages). Sans badge, l'user oublie le contexte de groupement et ne comprend pas le déplacement de date
+- **Annulation projet = cleanup auto cascade** (preco #3). Le contexte "couvre aussi le déjeuner dim." devient mensonger si le projet meurt. `clearCoversForProject` appelé sur tous les chemins d'archivage parent (replace flow sprint 14, taskStore.archiveTask, journal/page DecomposedProjectCard)
+- **Multi-overlaps = 1 question groupée** (preco #4, option B). 2 questions séquentielles = interrogatoire (anti-pattern sprint 12 "max 1 question"). Les décisions s'appliquent globalement à tous les overlaps du même projet — l'user nuance via TaskActionsSheet plus tard si besoin
+- **Pas de 4e choix "skip prochaine occurrence"** (preco #5, NON). YAGNI sprint 16 : le 4e cas complique le prompt et ajoute peu — `keep_both` couvre déjà le doublon ponctuel accepté. Si retour user après Barbara, on l'ajoutera
+- **Réponse ambiguë = on lâche, on insère** (preco #6). Esprit "user qui esquive = on lâche" gravé sprint 15bis. Insérer le doublon = comportement le moins surprenant (l'user voit les deux tâches sur /week, peut nettoyer). Ne rien créer = perte silencieuse, pire UX
+- **Seuil Jaccard 0.33 ≠ 0.5 du sprint 14**. Sprint 14 anti-doublon = clones stricts (deux projets quasi-identiques sur même titre). Sprint 16 = recoupement utile (sous-tâche d'un projet contient les tokens d'une récurrente). Pas le même problème, pas le même seuil. Documenté en haut de `overlapDetection.ts`
+- **Hors scope sprint 16** : détection de chevauchement entre tâches NON issues d'un projet (ex: deux récurrentes qui se ressemblent). Sprint futur si besoin produit avéré
+
+### Audit alignement vision (effectué début sprint 16)
+Avant build : revue rapide de la trajectoire sprints 12-15bis vs spec/roadmap. Conclusions :
+- ✅ Nav 3 onglets, routes V0 supprimées, 4 piliers respectés sur tous les sprints récents
+- ✅ Sprint 16 = Pilier 3 pur, dans la roadmap mois 3 ("Yova propose de grouper les tâches qui se chevauchent")
+- ⚠️ **Vocal incomplet** : STT existe (Deepgram), TTS Yova non commencé. La métrique nord V1 = "check-in vocal ≥ 4×/semaine" — sans TTS, ce n'est qu'à moitié vocal. Décision Jonathan attendue : sprint 17 TTS avant sprint 18 anticipations ?
+- ⚠️ **Premium infra inexistante** : `/upgrade` page sans gating Stripe. Pas urgent pour Barbara (test interne) mais à formaliser avant ouverture beta. → Nouveau sprint dédié à planifier (validé Jonathan)
+- ⚠️ **`mental_load_score` / `user_score` toujours écrits hardcodés** (`mental_load_score: 5, user_score: 5` dans decomposeProjectCore et autres). Plus dans l'ADN V1 (sprint 11 a retiré l'affichage). Doivent être supprimés (validé Jonathan) → sprint nettoyage à planifier
+- ⚠️ **Onboarding n'écrit pas dans `conversation_turns`** (`grep` confirme zéro insert). Conséquence : un user fraîchement onboardé démarre opener sprint 15bis avec `isMemoryEmpty=true` au premier check-in → fallback générique "On apprend à se connaître" alors qu'il a passé 10 min en chat onboarding juste avant. Le portrait foyer construit en onboarding est invisible pour l'opener. Sprint dédié à planifier (chiffré en backlog)
+
+### Piliers spec
+- Pilier 3 — Proactivité douce (Yova propose de grouper, n'oblige pas, lâche si l'user esquive)
+- Pilier 1 — Connaissance intime (la détection passe par le contenu sémantique des tâches existantes)
+
+### Pré-merge — validation
+- `npx tsc --noEmit` : OK
+- `npx vitest run utils/overlapDetection.test.ts` : 24/24 sprint 16
+- Suite globale : 150/151 (1 fail pré-existant `utils/security.test.ts` sans rapport, noté sprints 14 / 15 / 15bis)
+- `npx next build` : OK (warning supabaseUrl en page-data collection nécessite `.env.local` côté CI — sans rapport)
+- Démo device réel — 5 scénarios attendus :
+  1. Récurrente "Faire les courses" mer. + projet "déjeuner dim." → question posée + "ok groupe" → récurrente déplacée au dim. avec covers_project_ids enrichi + badge /week visible
+  2. Même scénario + "non garde les deux" → 2 tâches séparées sur /week, pas de modif récurrente
+  3. Même scénario + "décale au samedi" → récurrente déplacée au sam. avec covers_project_ids enrichi
+  4. Décomposition sans overlap → flow sprint 12 inchangé, aucune question
+  5. Réponse ambiguë "mouais" → fallback keep_both avec message "tu peux ajuster sur /week"
+
+---
+
 ## [2026-04-24] — Sprint 15bis : Check-in conversationnel contextualisé (Piliers 1+3)
 
 ### Ajouté

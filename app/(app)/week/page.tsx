@@ -185,6 +185,7 @@ function WeekTaskRow({
   allMembers,
   currentUserId,
   projectInfo,
+  coversTitles,
   onOpenActions,
   onFilterProject,
 }: {
@@ -192,6 +193,7 @@ function WeekTaskRow({
   allMembers: HouseholdMember[];
   currentUserId: string;
   projectInfo: { parentId: string; title: string } | null;
+  coversTitles: string[];
   onOpenActions: (taskId: string) => void;
   onFilterProject: (parentId: string) => void;
 }) {
@@ -214,6 +216,11 @@ function WeekTaskRow({
             />
           )}
         </div>
+        {coversTitles.length > 0 && (
+          <p className="text-[11px] text-[#34a853] mt-0.5 truncate">
+            ↻ couvre aussi : {coversTitles.join(' · ')}
+          </p>
+        )}
         {task.duration_estimate && (
           <p className="text-[12px] text-[#8e8e93] mt-0.5">
             ⏱ {DURATION_LABEL[task.duration_estimate] ?? task.duration_estimate}
@@ -330,6 +337,12 @@ export default function WeekPage() {
   useEffect(() => {
     const referenced = new Set<string>();
     for (const t of tasks) if (t.parent_project_id) referenced.add(t.parent_project_id);
+    // Sprint 16 — inclure aussi les projets référencés via covers_project_ids
+    // (nécessaires pour afficher le badge "couvre aussi : <projet>")
+    for (const t of tasks) {
+      const covers = (t.covers_project_ids as string[] | undefined) ?? [];
+      for (const id of covers) referenced.add(id);
+    }
     const activeParents = new Set(tasks.filter((t) => referenced.has(t.id)).map((t) => t.id));
     const missing = [...referenced].filter((id) => !activeParents.has(id) && !archivedParentTitles.has(id));
     if (missing.length === 0) return;
@@ -599,17 +612,24 @@ export default function WeekPage() {
               ) : null
             ) : (
               <div className="space-y-1.5">
-                {dayTasks.map((task) => (
-                  <WeekTaskRow
-                    key={task.id}
-                    task={task}
-                    allMembers={allMembers}
-                    currentUserId={profile?.id ?? ''}
-                    projectInfo={projectInfoFor(task)}
-                    onOpenActions={setActionsTaskId}
-                    onFilterProject={setFilteredProjectId}
-                  />
-                ))}
+                {dayTasks.map((task) => {
+                  const covers = (task.covers_project_ids as string[] | undefined) ?? [];
+                  const coversTitles = covers
+                    .map((id) => parentIdToTitle.get(id))
+                    .filter((t): t is string => Boolean(t));
+                  return (
+                    <WeekTaskRow
+                      key={task.id}
+                      task={task}
+                      allMembers={allMembers}
+                      currentUserId={profile?.id ?? ''}
+                      projectInfo={projectInfoFor(task)}
+                      coversTitles={coversTitles}
+                      onOpenActions={setActionsTaskId}
+                      onFilterProject={setFilteredProjectId}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>

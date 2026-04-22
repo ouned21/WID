@@ -1,7 +1,7 @@
 # Yova V1 — Spec produit
 
 > **Doc de référence épinglé.** Toute feature V1 doit être traçable à cette spec.
-> Dernière mise à jour : 2026-04-24 (sprint 15bis — check-in conversationnel contextualisé)
+> Dernière mise à jour : 2026-04-25 (sprint 16 — consolidation de tâches chevauchantes)
 
 ---
 
@@ -285,7 +285,21 @@ Remplace le formulaire multi-étapes + catalogue statique.
 
 ---
 
-## ✅ État actuel du build (2026-04-24 — sprint 15bis inclus)
+## ✅ État actuel du build (2026-04-25 — sprint 16 inclus)
+
+### Sprint 16 — Consolidation de tâches chevauchantes (2026-04-25, PR #TBD)
+- `utils/overlapDetection.ts` (logique pure, 24 tests) — Yova détecte quand une sous-tâche d'un projet décomposé recoupe une tâche récurrente existante (Jaccard ≥ 0.33 sur tokens significatifs, fenêtre ±3 jours). Calibré sur le cas canonique "Faire les courses" mer. ↔ "Faire les courses pour le déjeuner dimanche". Seuil distinct du sprint 14 anti-doublon (0.5) — ici on cherche un **recoupement utile**, pas un clone strict.
+- Migration `20260425_sprint16_overlap_consolidation.sql` : colonne `household_tasks.covers_project_ids uuid[]` (default `'{}'`) + index GIN. Liste des `parent_project_id` qu'une tâche récurrente couvre AUSSI suite à un groupement. Affichée comme badge discret vert "↻ couvre aussi : <projet>" sur `/week`.
+- `lib/decomposeProjectCore.ts` : nouveau retour `kind: 'overlap_question'`. Après validation Sonnet, **avant insert enfants**, si overlaps détectés → insère parent + sous-tâches NON-overlap, stocke contexte complet dans `conversation_turns.extracted_facts.pending_overlap`, retourne question groupée. Helpers `findPendingOverlap` + `clearCoversForProject` (cascade idempotente).
+- `app/api/ai/parse-journal/route.ts` : router `pending_overlap` interprète la réponse user en 4 décisions :
+  - **`group`** → UPDATE récurrente `next_due_at = subtask_next_due_at` (déplacement à la date du projet, preco Jonathan) + append `parent_id` à `covers_project_ids` (dedup)
+  - **`keep_both`** → INSERT pending_subtasks tel quel (2 tâches séparées sur /week)
+  - **`reschedule`** → UPDATE récurrente `next_due_at = new_date_iso` (extraction "demain", "samedi", "27 mai") + covers ; pas de date claire = reformule UNE fois puis fallback
+  - **`ambiguous`** → fallback `keep_both` silencieux ("je garde les deux côtés. Tu peux ajuster sur /week.") — esprit "user qui esquive = on lâche" sprint 15bis
+- Cascade clear `clearCoversForProject` appelée sur tous les chemins d'archivage parent : sprint 14 replace flow (parse-journal), `taskStore.archiveTask` (TaskActionsSheet "Pas pertinent"), `journal/page.tsx` DecomposedProjectCard archive. Cohérence mémoire vivante : si un projet meurt, son contexte "couvre aussi" disparaît automatiquement des récurrentes.
+- `app/(app)/week/page.tsx` : `WeekTaskRow` affiche "↻ couvre aussi : <titre projet>" en vert sobre (11px) sous le nom de tâche quand `covers_project_ids` non vide. Lookup `archivedParentTitles` étendu pour résoudre les titres de projets référencés via covers (pas seulement parent_project_id).
+
+
 
 ### Sprint 15bis — Check-in conversationnel contextualisé (2026-04-24, PR #10 mergée)
 - `POST /api/ai/checkin-opener` (Sonnet 4.6, timeout 8s, max_tokens 120) : une seule question tailored, max 25 mots, ton confident. Charge en parallèle profiles + phantoms + `households.yova_narrative` + `agent_memory_facts` (10) + `observations` non-ack (10) + `conversation_turns` (10) + dernier opener < 30h (pour rotation).
@@ -379,15 +393,19 @@ Suppression de toute la dette V0 incompatible avec la spec :
 
 ### Prochains sprints (à prioriser avec Jonathan)
 
-- **Sprint 16 — Consolidation de tâches chevauchantes** ⭐⭐ (issu retours sprint 12, Pilier 3 pur) : Yova détecte quand une sous-tâche de projet ("Faire les courses pour le déjeuner") recoupe une tâche récurrente existante ("Faire les courses" mercredi) et propose proactivement : *« Tu as déjà les courses mer. 29, je groupe avec le déjeuner dimanche pour que tu y ailles qu'une fois ? »*. Dépend de : mémoire longue (sprint 6 ✅) + similarité sémantique sur noms de tâches. Mois 3-4 roadmap. Durée : 3-4 j.
+- **Sprint 17 — TTS Yova** ⭐⭐ (priorité haute, débloque la métrique nord V1) : Yova répond à voix haute (ElevenLabs ou Web Speech TTS) pour le check-in du soir. Aujourd'hui STT (Deepgram) existe mais Yova n'a pas de voix → le check-in est à moitié vocal. La métrique nord V1 = "check-in vocal ≥ 4×/semaine" — sans TTS, on mesure pas ce qu'on prétend. À prioriser avant sprint 18. Mois 3 roadmap. Durée : 2-3 j.
 
-- **Sprint 17 — TTS Yova** : Yova répond à voix haute (ElevenLabs ou Web Speech TTS) pour le check-in du soir. Mois 3 roadmap. Durée : 2-3 j.
+- **Sprint 17bis — Onboarding → conversation_turns** : aujourd'hui le chat onboarding (10-18 questions guidées Haiku) n'écrit AUCUN turn dans `conversation_turns` (vérifié grep, sprint 16 audit). Conséquence : un user fraîchement onboardé démarre l'opener sprint 15bis avec `isMemoryEmpty=true` → fallback générique "On apprend à se connaître" alors qu'il vient de passer 10 min en chat. Le portrait foyer construit en onboarding est invisible pour le rituel du soir. Sprint court : insérer chaque échange onboarding dans `conversation_turns` (source: 'onboarding'), garder l'historique searchable dès J1. Durée : 1-2 j.
+
+- **Sprint 17ter — Nettoyage scoring résiduel** : sprint 11 a retiré l'affichage user-facing du score 4 axes mais on continue d'écrire `mental_load_score`/`user_score` à 5 hardcodés un peu partout (decomposeProjectCore, generate-tasks, parse-journal). Plus dans l'ADN V1 → à supprimer (validé Jonathan sprint 16 audit). Migration : colonnes nullable + suppression des inserts hardcodés + nettoyage `taskScoring.ts` si plus appelé. Durée : 1-2 j.
 
 - **Sprint 18 — Anticipations parentales** : jobs quotidiens détectent anniv enfants < 7 j, vacances scolaires, rdv pédiatre récurrents → observations proactives Pilier 2. Mois 4-5. Durée : ~1 semaine.
 
 - **Sprint 19 — Mode crise automatique** : activation auto sur signal dérive sévère (3+ observations `alert` concomitantes). Mois 5, V2. Durée : 3-4 j.
 
-- **Sprint 20 — Beta prep** : pricing/paywall Premium, onboarding 30-50 users. Mois 6. Durée : 1-2 semaines.
+- **Sprint 19bis — Premium infra** ⭐ (validé Jonathan sprint 16 audit, à planifier avant Barbara prend un tarif au sérieux) : aujourd'hui `/upgrade` page existe mais aucun gating réel (pas de Stripe, pas de paywall sur `aiRateLimit`, free vs premium = même expérience). À ne pas reporter à la veille du beta — risque de promesse cassée visible. Sprint dédié : Stripe integration + gating quota IA (Free = 1 check-in/semaine + tâches basiques + pas de mémoire longue per spec) + UX `/upgrade` avec CTA fonctionnel. Durée : ~1 semaine.
+
+- **Sprint 20 — Beta prep** : onboarding 30-50 users, polish, instrumentation métrique nord (% foyers avec ≥ 4 check-ins vocaux/semaine à S+4). Mois 6. Durée : 1-2 semaines.
 
 > **Process** : chaque sprint = nouvelle session Claude Code. Lire CHANGELOG.md + SPEC_V1_YOVA.md + PROCESS_DEV.md en début de session.
 
