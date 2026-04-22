@@ -126,12 +126,21 @@ export async function POST(req: NextRequest) {
   const VALID_DUR  = new Set(['very_short','short','medium','long','very_long']);
   const VALID_EFF  = new Set(['none','light','medium','high']);
 
-  // Dédupliquer par nom (insensible à la casse) — évite les doublons si Claude répète une tâche
+  // Récupérer les noms de tâches déjà en DB pour ce foyer (anti-doublon multi-onboarding)
+  const { data: existingTasks } = await admin
+    .from('household_tasks')
+    .select('name')
+    .eq('household_id', householdId);
+  const existingNames = new Set(
+    (existingTasks ?? []).map((t: { name: string }) => t.name.trim().toLowerCase())
+  );
+
+  // Dédupliquer par nom (insensible à la casse) — dans le batch ET contre la DB
   const seenNames = new Set<string>();
   const safeRows = taskRows
     .filter((r) => {
       const key = (r.name as string ?? '').trim().toLowerCase();
-      if (!key || seenNames.has(key)) return false;
+      if (!key || seenNames.has(key) || existingNames.has(key)) return false;
       seenNames.add(key);
       return true;
     })

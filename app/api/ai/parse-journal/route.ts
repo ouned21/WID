@@ -395,8 +395,10 @@ ${sanitizedText}
    - RÈGLE ABSOLUE : si le verbe est au futur ou à l'infinitif de projet → hors de auto_create.
    - **EXCEPTION ASSIGNATION** : si ${userName} déclare QUI va faire une tâche (présente ou future), remplis le champ "assignments" :
      - "c'est à moi de préparer le dîner", "je vais m'occuper du dîner", "je prends la lessive en charge", "c'est pour moi le rangement" → assignee: "user"
-     - "c'est à Barbara de faire les courses", "Barbara va s'en occuper", "c'est pour Barbara" → assignee: "member:UUID-de-Barbara" (utilise les UUIDs de la liste Membres)
-     - Formulations détectables : "c'est à [moi/prénom] de", "je/[prénom] vais m'en/s'en occuper", "je/[prénom] prends X en charge", "c'est moi/[prénom] qui [fait/fera]", "X c'est pour moi/[prénom]"
+     - **"je vais faire les courses", "je vais faire un dîner", "je vais ranger", "je vais lancer la lessive"** → assignee: "user" (futur = intention = assignation automatique à l'auteur)
+     - "c'est à Barbara de faire les courses", "Barbara va s'en occuper", "c'est pour Barbara", "Barbara va faire X" → assignee: "member:UUID-de-Barbara" (utilise les UUIDs de la liste Membres)
+     - Formulations détectables : "c'est à [moi/prénom] de", "je/[prénom] vais faire X", "je/[prénom] vais m'en/s'en occuper", "je/[prénom] prends X en charge", "c'est moi/[prénom] qui [fait/fera]", "X c'est pour moi/[prénom]"
+     - ⚠️ RÈGLE CRITIQUE : "je vais faire X" est toujours une ASSIGNATION — JAMAIS une complétion. Ne met JAMAIS "je vais faire X" dans completions ou auto_create.
      - Pour task_id : utilise l'UUID de la tâche si tu la retrouves dans la liste, sinon null + task_name lisible.
 7. **Noms de tâches** : verbe infinitif + objet, STRICTEMENT 3 mots maximum, AUCUN contexte.
    - ✅ "Ranger l'appartement" ✅ "Préparer le dîner" ✅ "Faire les courses" ✅ "Plier le linge"
@@ -547,7 +549,8 @@ Réponds UNIQUEMENT avec ce JSON.`;
     if (emotionKeywords.test(t)) return { model: 'claude-sonnet-4-6', reason: 'emotional' };
 
     // Assignation → détection intent + UPDATE DB → Sonnet (précision critique)
-    const assignKeywords = /c.?est [àa] moi|je prends en charge|je vais m.?en occuper|c.?est pour moi|je m.?en occupe/;
+    // "je vais faire X" = futur = intention = assignation
+    const assignKeywords = /c.?est [àa] moi|je prends en charge|je vais m.?en occuper|c.?est pour moi|je m.?en occupe|je vais faire|je vais [a-zàâäéèêëîïôùûüç]+ (le|la|les|du|de la|un|une)/;
     if (assignKeywords.test(t)) return { model: 'claude-sonnet-4-6', reason: 'assignment' };
 
     // Tâches futures planifiées → Sonnet (raisonnement dates)

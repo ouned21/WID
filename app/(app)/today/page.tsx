@@ -13,6 +13,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useFamilyStore } from '@/stores/familyStore';
@@ -488,6 +489,7 @@ export default function TodayPage() {
   const { tasks, loading: tasksLoading, fetchTasks, completeTask, updateTask, archiveTask, deleteTask, filters } = useTaskStore();
   const { householdProfile, members: phantomMembers, loading: familyLoading, fetchFamily } = useFamilyStore();
   const { allMembers, fetchHousehold } = useHouseholdStore();
+  const pathname = usePathname();
 
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [postponedIds, setPostponedIds] = useState<Set<string>>(new Set());
@@ -518,11 +520,15 @@ export default function TodayPage() {
     const onVisible = () => { if (document.visibilityState === 'visible') { fetchTasks(hid); loadMemoryFacts(hid); } };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [profile?.household_id, fetchTasks, fetchFamily, fetchHousehold, loadMemoryFacts]);
+  // pathname dans les deps : force un refetch quand on revient sur /today depuis /journal
+  }, [pathname, profile?.household_id, fetchTasks, fetchFamily, fetchHousehold, loadMemoryFacts]);
 
   // ── Actions ──
   const handleComplete = async (taskId: string) => {
+    // Feedback visuel immédiat (vert + barré)
     setCompletedIds(prev => new Set(prev).add(taskId));
+    // Délai 1.5s pour que l'animation de validation soit visible avant que la tâche disparaisse
+    await new Promise(r => setTimeout(r, 1500));
     await completeTask(taskId);
   };
 

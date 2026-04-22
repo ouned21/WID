@@ -135,10 +135,12 @@ RÈGLES DE GÉNÉRATION DES TÂCHES (à appliquer dans le JSON final) :
 - Entre 10 et 18 tâches, adaptées à CE foyer spécifiquement
 - Chaque tâche doit avoir un nom UNIQUE — aucun doublon dans la liste
 - N'inclus PAS les tâches couvertes par l'aide extérieure (ex: si femme de ménage → pas de ménage)
-- Si enfants : inclus tâches enfants (préparation école, devoirs, activités, réappro couches/hygiène si < 3 ans)
-- ❌ EXCLURE absolument ces rituels automatiques que personne n'oublie : bain du soir, douche, brossage dents, coucher des enfants, repas du matin, débarrasser la table, faire/laver la vaisselle, faire son lit — ils génèrent du bruit sans aucune valeur
+- Si enfants : inclus tâches enfants liées à l'organisation (devoirs, activités sportives/culturelles, rdv médicaux). ⚠️ "réappro couches/lingettes" = UNIQUEMENT si l'utilisateur mentionne explicitement un bébé en couches (< 2 ans) — pas pour des enfants scolarisés.
+- ❌ EXCLURE absolument ces rituels automatiques que personne n'oublie : bain du soir, douche, brossage dents, coucher des enfants, repas du matin, débarrasser la table, faire/laver la vaisselle, faire son lit, préparer les enfants pour l'école (routine quotidienne évidente), vérifier/ranger les affaires d'école, préparer le cartable — ils génèrent du bruit sans aucune valeur
 - ❌ EXCLURE : sortir les poubelles quotidiennement (inclure seulement la collecte hebdomadaire ou le tri sélectif)
-- ✅ INCLURE uniquement les tâches qui demandent une planification consciente ou qu'on oublie vraiment : courses, linge, cuisine du soir (menu à décider), ménage profond, admin, réappro stocks, entretien, prep enfants (école, activités)
+- ❌ EXCLURE : "plier le linge" ou "ranger le linge" séparément — c'est implicitement inclus dans la tâche lessive si elle est déjà listée
+- ❌ N'INVENTE JAMAIS de besoin non mentionné par l'utilisateur (réappro couches, alimentation animaux, jardinage...) — inclus ces tâches UNIQUEMENT si l'utilisateur l'a explicitement mentionné
+- ✅ INCLURE uniquement les tâches qui demandent une planification consciente ou qu'on oublie vraiment : courses, lessive (pas le pliage séparé), cuisine du soir (menu à décider), ménage profond, admin, réappro stocks alimentaires, entretien, activités des enfants (sport, culture, rdv)
 - Si animal mentionné dans les équipements : inclus tâches animaux (nourriture, sortie, litière...)
 - Si jardin mentionné : inclus entretien extérieur
 - Si énergie=low : tâches vitales uniquement (cuisine simple, linge, enfants)
