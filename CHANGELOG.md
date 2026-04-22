@@ -6,96 +6,32 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
-## [2026-04-22] — Sprint 6 : Vue semaine + assignation des tâches
+## [2026-04-22b] — Corrections onboarding + profil + vue semaine
 
 ### Ajouté
-- `app/(app)/week/page.tsx` — NEW : vue "Cette semaine" — 7 jours groupés par date, badges assignation colorés (bleu = moi, vert = autre adulte, violet = enfant/fantôme), légende membres, compteur total, état vide élégant ; accessible depuis Aujourd'hui
-- `app/(app)/today/page.tsx` — badge assignation cliquable sur chaque card de tâche (bulle d'initiales colorée, icône 👥 si non assignée)
-- `app/(app)/today/page.tsx` — `AssignSheet` bottom sheet : liste tous les membres du foyer (vrais + fantômes) + option "Foyer" (désassigner) ; coche sur l'assigné courant ; mise à jour DB immédiate via `updateTask`
-- `app/(app)/today/page.tsx` — lien "📅 Cette semaine →" entre Sur le radar et Check-in du soir
-- `docs/SPEC_V1_YOVA.md` — planning ❌ lourd remplacé par vue `/week` légère (liste 7 jours, read-only, pas de grille calendrier)
+- `app/(app)/week/page.tsx` — toggle **7 jours / 30 jours roulants** (vue mois = jours avec tâches uniquement)
+- `CHANGELOG.md` — restauré (avait été supprimé par erreur lors du nettoyage repo)
 
-### Décision produit
-- **Assignation optionnelle (Option A)** : chaque tâche a un assigné facultatif (vrai user ou membre fantôme) ; pas de score d'équité ; l'icône foyer 👥 signifie "n'importe qui peut le faire"
-- **Vue semaine maintenant, pas en V2** : Barbara a besoin de voir son planning pour se coordonner avec Jonathan — la confiance dans Yova nécessite une soupape de vérification
+### Modifié (corrections onboarding)
+- `app/api/onboarding/chat/route.ts` — règle "zéro improvisation" : Claude ne génère QUE les tâches explicitement mentionnées. Exclut couches, préparer enfants école, plier linge (si lessive déjà listée)
+- `app/api/onboarding/create-tasks/route.ts` — déduplication DB : vérification contre tâches existantes avant insertion (anti-doublon si onboarding relancé)
+- `app/(app)/today/page.tsx` — fix refresh automatique au retour depuis le journal (`pathname` comme dépendance useEffect)
+- `app/(app)/today/page.tsx` — délai 1.5s dans `handleComplete` avant appel `completeTask()` (animation visible avant disparition)
+- `app/api/ai/parse-journal/route.ts` — "je vais faire X" = toujours ASSIGNATION, jamais complétion + routage vers Sonnet
 
-### Pilier spec
-- Pilier 1 — Connaissance intime du foyer (Yova sait qui fait quoi)
-- Pilier 3 — Proactivité douce (Barbara voit sa semaine d'un coup d'œil)
+### Supprimé (profil — nettoyage spec V1)
+- `app/(app)/profile/page.tsx` — "CE QU'YOVA SAIT DE TOI" (formulaires manuels)
+- `app/(app)/profile/page.tsx` — slider "MON OBJECTIF" (score d'équité, hors spec V1)
+- `app/(app)/profile/page.tsx` — "Niveau de charge souhaité" (même concept que score d'équité)
+- `app/(app)/profile/page.tsx` — "RACCOURCIS" + liste membres + lien "Notre famille"
+- ~450 lignes de code mort supprimées
 
----
-
-## [2026-04-22] — Sprint 5 : Hotfixes live testing + Deepgram STT
-
-### Ajouté
-- `app/api/voice/transcribe/route.ts` — NEW : proxy Deepgram STT (nova-2, FR, smart_format, numerals=true) ; timeout 15s AbortController ; fallback gracieux si `DEEPGRAM_API_KEY` absente
-- `app/(app)/onboarding/page.tsx` — generating screen : logo Y pulsant + points orbitaux, messages cyclants, "ça prend du temps" après 20s ; `generateError` affiché avec bouton Réessayer
-- `app/(app)/onboarding/page.tsx` — collecte des adultes du foyer : Yova demande les prénoms des autres adultes → `phantom_members` de type `adult`
-- `app/api/onboarding/chat/route.ts` — chips allergies auto : si Claude pose une question sur les allergies, chips `[Aucune allergie 👍|On a des allergies]` injectés automatiquement
-
-### Modifié
-- `app/(app)/onboarding/page.tsx` — double message Yova corrigé : guard `step === 'consent'` empêche double appel `startConversation()`
-- `app/(app)/onboarding/page.tsx` — fin d'onboarding : navigation auto vers `/today` après 1,5 s (suppression bouton intermédiaire)
-- `app/(app)/onboarding/page.tsx` — micro : MediaRecorder → `/api/voice/transcribe` + fallback Web Speech API ; banner orange "🎤 Vérifie la transcription" après dictée
-- `app/api/onboarding/chat/route.ts` — fréquences alignées sur la contrainte DB CHECK : suppression `every_other_day` / `twice_weekly` / `bimonthly`, ajout `semiannual` / `once`
-- `app/api/onboarding/chat/route.ts` — timeout AbortController 30s sur l'appel Claude
-- `app/api/onboarding/create-tasks/route.ts` — validation strict + déduplication par nom : fréquence/durée/effort hors contrainte remplacés par défaut, doublons ignorés
-- `app/(auth)/household/page.tsx` — bouton "Créer le foyer" désactivé tant que `isInitialized === false` (fix race condition authStore)
-- `app/(auth)/register/page.tsx` — champ "Confirmer le mot de passe" : label et placeholder visibles
-- `app/(app)/family/page.tsx` — titre `"Notre famille"` → `"Notre foyer"` ; suppression code mort ; modal de confirmation avant suppression d'un fait mémoire
-- `app/(app)/today/page.tsx` — `fetchTasks` appelé après "Reporter demain" (liste rafraîchie immédiatement)
-- `app/(app)/journal/page.tsx` — brouillon sauvegardé dans `localStorage` (survit aux navigations)
-- `app/api/ai/parse-journal/route.ts` — filtre strict : seuls les messages `role: user/assistant` avec `content: string` envoyés à Claude
-
-### Fix critique
-- **Contrainte DB `frequency`** : Claude générait `every_other_day` / `twice_weekly` → erreur 500. Fix : prompt + validation côté serveur.
-- **Spin infini** : erreurs de `persistTasks` silencieuses → `generateError` state visible sur l'écran de génération.
-
-### Requis (action Jonathan)
-- Ajouter `DEEPGRAM_API_KEY` dans les variables d'environnement Vercel pour activer la transcription Deepgram
-
----
-
-## [2026-04-22] — Sprint 4 : Onboarding agent Claude (conversation libre)
-
-### Modifié
-- `app/(app)/onboarding/page.tsx` — rewrite : Claude pilote la conversation de bout en bout, questions adaptées au foyer, chips optionnelles, 4-8 échanges selon la complexité
-- `app/api/onboarding/chat/route.ts` — nouvelle route : loop Claude stateless, détecte YOVA_DONE, génère les tâches calibrées dans la réponse finale, parse les chips [opt1|opt2]
-
-### Supprimé (absorbé)
-- `/api/onboarding/generate-tasks` — plus nécessaire, Claude génère les tâches directement dans la réponse finale de /api/onboarding/chat
+### Docs
+- `docs/SPEC_V1_YOVA.md` — mise à jour complète : état du build, règles onboarding, features retirées
 
 ### Pilier spec
-- Pilier 1 — Connaissance intime (Claude extrait le contexte naturellement)
-- Pilier 4 — Mode crise (énergie=low → tâches vitales uniquement)
-
-### À valider
-- Test sur device réel (Jonathan) avant merge → main
-
----
-
-## [2026-04-22] — Sprint 3 : Onboarding conversationnel Yova
-
-### Ajouté
-- `app/(app)/onboarding/page.tsx` — rewrite complet : onboarding conversationnel chat-style (11 questions, chips + texte libre), remplace le formulaire multi-étapes + catalogue statique
-- `app/api/onboarding/generate-tasks/route.ts` — Claude Haiku génère 12-18 tâches calibrées (énergie, état courses/lessive/dîner, équipements, enfants, aides extérieures)
-- Calibration J0 : courses faites→+5j, lessive faite→+4j, dîner prévu→demain pour repas
-- Fallback catalogue statique si Claude timeout ou erreur
-
-### Modifié
-- `app/api/onboarding/create-tasks/route.ts` — accepte `householdMeta` et upsert dans `household_profile` (energy_level, external_help)
-
-### Pilier spec
-- Pilier 1 — Connaissance intime du foyer (calibrage J0 précis)
-- Pilier 4 — Mode crise (energy=low → périmètre réduit aux tâches vitales)
-- Spec : `docs/SPEC_V1_YOVA.md` §Onboarding
-
-### Renommé
-- Onglet "Famille" → **"Foyer"** dans la nav bar (`app/(app)/layout.tsx`) — plus inclusif (solo, couple, coloc)
-- `docs/SPEC_V1_YOVA.md` mis à jour en conséquence (toutes occurrences)
-
-### À valider
-- Test sur device réel (Jonathan) avant merge → main
+- Pilier 1 — Connaissance intime du foyer (mémoire narrative remplace formulaires)
+- Pilier 3 — Proactivité douce (zéro improvisation = tâches pertinentes uniquement)
 
 ---
 
