@@ -232,6 +232,9 @@ export default function OnboardingPage() {
 
   const chatRef  = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Guard : empêche startConversation() d'être appelée deux fois
+  // (une fois depuis acceptConsent, une fois depuis le useEffect via refreshProfile)
+  const conversationStarted = useRef(false);
   const userId      = profile?.id;
   const householdId = profile?.household_id;
 
@@ -314,11 +317,13 @@ export default function OnboardingPage() {
         };
         setDonePayload(payload);
         setChips([]);
-        // Brief pause so user reads the conclusion before the loading screen
+        // Pause courte pour lire la conclusion, puis generating screen
+        // shownAt est passé à persistTasks pour garantir un minimum de 3s visible
         setTimeout(() => {
           setStep('generating');
-          void persistTasks(payload);
-        }, 1000);
+          const shownAt = Date.now();
+          void persistTasks(payload, shownAt);
+        }, 700);
       } else {
         setChips(data.chips ?? []);
         setStep('chat');
@@ -343,6 +348,8 @@ export default function OnboardingPage() {
   }, [profile?.ai_journal_consent_at]);
 
   const startConversation = useCallback(() => {
+    if (conversationStarted.current) return; // double-appel impossible
+    conversationStarted.current = true;
     setStep('loading');
     const init: ApiMessage[] = [{ role: 'user', content: 'Commence' }];
     setApiMessages(init);
@@ -467,7 +474,7 @@ export default function OnboardingPage() {
   }, [equipmentList, selectedEquipment, sendMessage]);
 
   // ── Persist tasks ──────────────────────────────────────────────────────────
-  const persistTasks = async (payload: DonePayload) => {
+  const persistTasks = async (payload: DonePayload, shownAt = Date.now()) => {
     setGenerateError(null);
     try {
       let hid = useAuthStore.getState().profile?.household_id;
@@ -517,9 +524,10 @@ export default function OnboardingPage() {
       await fetchTasks(hid);
 
       setTaskCount(data.tasks?.length ?? payload.taskRows.length);
-      // Délai minimum sur le generating screen pour que l'animation soit visible,
-      // puis navigation directe — pas besoin du bouton intermédiaire
-      setTimeout(() => router.push('/today'), 1500);
+      // Garantit 3s minimum sur le generating screen quelle que soit la vitesse DB
+      const MIN_DISPLAY_MS = 3000;
+      const elapsed = Date.now() - shownAt;
+      setTimeout(() => router.push('/today'), Math.max(600, MIN_DISPLAY_MS - elapsed));
     } catch (err) {
       console.error('[onboarding] persistTasks error:', err);
       const msg = err instanceof Error ? err.message : 'Erreur lors de la création.';

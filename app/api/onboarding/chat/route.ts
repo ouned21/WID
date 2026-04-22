@@ -284,24 +284,27 @@ export async function POST(req: NextRequest) {
       : rawText.trim();
 
     // ── Fallback chips si Claude a oublié ─────────────────────────────────
-    // Détecte le type de question et injecte les chips si absentes
+    // Détecte le type de question et injecte les chips si absentes.
+    // Notes :
+    // - \b ne fonctionne pas avant les lettres accentuées (é, è…) en JS → on évite \b sur ces chars
+    // - Claude utilise parfois ":" plutôt que "?" → on ne requiert pas \? pour courses/lessive/dîner/énergie
     if (chips.length === 0) {
       const r = reply.toLowerCase();
-      if (/\bcombien\b.*\bmaison\b|\bmaison\b.*\bcombien\b|\bpersonnes?\b.*\bfoyer\b|\bfoyer\b.*\bcombien\b|\bvous êtes combien\b/.test(r))
+      if (/\bcombien\b.*\bmaison\b|\bmaison\b.*\bcombien\b|\bpersonnes?\b.*\bfoyer\b|\bfoyer\b.*\bcombien\b|\bvous [êe]tes combien\b/.test(r))
         chips = ['1', '2', '3', '4', '5', '6+'];
       else if (/\benfants?\b/.test(r) && /\?/.test(r) && !/pr[eé]nom|[âa]ge|classe|d[eé]tail/.test(r))
         chips = ['Oui', 'Non'];
-      else if (/\ballergi[e]?\b|\bcontrainte[s]?\b.*\balimentaire[s]?\b|\balimentaire[s]?\b.*\bcontrainte[s]?\b/.test(r) && /\?/.test(r))
+      else if (/allergi|contrainte.*alimentaire|alimentaire.*contrainte/.test(r) && /[?:]/.test(r))
         chips = ['Aucune allergie 👍', 'On a des allergies'];
-      else if (/\baide ext[eé]rieure\b|\baide (à la maison|domestique)\b/.test(r) && /\?/.test(r) && !/quel type|précis|fr[eé]quence|combien de fois/.test(r))
+      else if (/aide ext|aide.*maison|aide.*domestique/.test(r) && /[?:]/.test(r) && !/quel type|pr[eé]cis|fr[eé]quence|combien de fois/.test(r))
         chips = ['Oui, on a de l\'aide', 'Non, on gère seuls'];
-      else if (/\b[eé]nergie\b|\b[eé]puis[eé]\b|\fen forme\b|\bfatigue\b|\bniveau\b.*\b[eé]nergie\b/.test(r))
+      else if (/[eé]nergie|[eé]puis[eé]|en forme|fatigue|sentez.*niveau|niveau.*[eé]nergie/.test(r))
         chips = ['Épuisé 😴', 'Ça va 😊', 'En forme 💪'];
-      else if (/\bcourses?\b/.test(r) && /\?/.test(r))
+      else if (/\bcourses?\b/.test(r) && !/pr[eé]nom|enfant|adulte/.test(r))
         chips = ['Faites ✓', 'À faire', 'Livraison 📦'];
-      else if (/\blessiv[e]?\b/.test(r) && /\?/.test(r))
+      else if (/lessiv/.test(r))
         chips = ['Faite ✓', 'À lancer'];
-      else if (/\bd[îi]ner\b|\bsoir\b.*\brepas\b|\brepas\b.*\bsoir\b/.test(r) && /\?/.test(r))
+      else if (/d[îi]ner|soir.*repas|repas.*soir|ce soir.*pr[eé]vu|pr[eé]vu.*ce soir/.test(r))
         chips = ['Prévu ✓', 'Pas encore'];
     }
 
