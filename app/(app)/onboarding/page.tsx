@@ -81,6 +81,7 @@ export default function OnboardingPage() {
   const [chips, setChips]         = useState<string[]>([]);
   const [textInput, setTextInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
   // Done state
@@ -218,6 +219,45 @@ export default function OnboardingPage() {
     void sendMessage(msg);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [equipmentList, selectedEquipment]);
+
+  // ── Voice input ────────────────────────────────────────────────────────────
+  const startRecording = useCallback(async () => {
+    if (isRecording || isThinking) return;
+    const SpeechRecognition =
+      (window as unknown as { SpeechRecognition?: typeof window.SpeechRecognition; webkitSpeechRecognition?: typeof window.SpeechRecognition })
+        .SpeechRecognition ??
+      (window as unknown as { webkitSpeechRecognition?: typeof window.SpeechRecognition })
+        .webkitSpeechRecognition;
+    if (!SpeechRecognition) return; // navigateur non supporté
+
+    try {
+      // Fix PC : demander la permission micro explicitement d'abord
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      return; // permission refusée
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'fr-FR';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart  = () => setIsRecording(true);
+    recognition.onend    = () => setIsRecording(false);
+    recognition.onerror  = () => setIsRecording(false);
+
+    recognition.onresult = (e: SpeechRecognitionEvent) => {
+      const transcript = e.results[0]?.[0]?.transcript ?? '';
+      if (transcript.trim()) {
+        // Auto-envoie directement la réponse vocale
+        void sendMessage(transcript.trim());
+      }
+      setIsRecording(false);
+    };
+
+    recognition.start();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRecording, isThinking]);
 
   // ── Send message ───────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (text: string) => {
@@ -566,7 +606,7 @@ export default function OnboardingPage() {
               )}
 
               {/* Text input — Entrée = envoyer, Shift+Entrée = nouvelle ligne */}
-              <div className="flex gap-2 items-end">
+              <div className="flex gap-2 items-end" style={{ position: 'relative' }}>
                 <textarea
                   ref={inputRef}
                   rows={1}
@@ -596,11 +636,42 @@ export default function OnboardingPage() {
                     overflow: 'hidden',
                   }}
                 />
+                {/* Bouton micro */}
+                <button
+                  onClick={() => void startRecording()}
+                  disabled={isThinking || !!textInput.trim()}
+                  className="rounded-2xl flex items-center justify-center flex-shrink-0 transition-all active:scale-90 disabled:opacity-30"
+                  style={{
+                    width: 48, height: 48,
+                    background: isRecording
+                      ? 'linear-gradient(135deg,#ff3b30,#ff6b6b)'
+                      : 'white',
+                    boxShadow: isRecording
+                      ? '0 0 0 4px rgba(255,59,48,0.2)'
+                      : '0 1px 4px rgba(0,0,0,0.08)',
+                  }}
+                  aria-label="Dicter ma réponse"
+                >
+                  {isRecording ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#ff3b30">
+                      <rect x="6" y="6" width="12" height="12" rx="2"/>
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007aff" strokeWidth="2" strokeLinecap="round">
+                      <rect x="9" y="2" width="6" height="12" rx="3"/>
+                      <path d="M5 10a7 7 0 0 0 14 0"/>
+                      <line x1="12" y1="19" x2="12" y2="22"/>
+                      <line x1="9" y1="22" x2="15" y2="22"/>
+                    </svg>
+                  )}
+                </button>
+
+                {/* Bouton envoyer */}
                 <button
                   onClick={() => void sendMessage(textInput)}
                   disabled={!textInput.trim() || isThinking}
-                  className="rounded-2xl px-5 text-white text-[20px] font-bold disabled:opacity-40 flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg,#007aff,#5856d6)', minWidth: 52 }}
+                  className="rounded-2xl px-4 text-white text-[20px] font-bold disabled:opacity-40 flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg,#007aff,#5856d6)', width: 48, height: 48 }}
                 >
                   {isThinking
                     ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
