@@ -512,6 +512,55 @@ Réponds UNIQUEMENT avec ce JSON.`;
     });
   }
 
+  // ── Routing Haiku / Sonnet ────────────────────────────────────────────────
+  //
+  // Haiku (~3× moins cher) pour les messages simples et courts.
+  // Sonnet pour tout ce qui demande du raisonnement multi-facteurs ou de l'empathie.
+  //
+  // Critères → Sonnet obligatoire :
+  //   • Projet logistique détecté (déménagement, mariage, bébé, travaux…)
+  //   • Message long (> 200 chars) → plusieurs tâches ou contexte riche
+  //   • Charge émotionnelle forte (fatigue, overwhelm)
+  //   • Intent d'assignation ("c'est à moi", "je prends en charge"…)
+  //   • Check-in multi-tours (conversation_history présent)
+  //   • Tâches futures complexes mentionnées
+  //
+  // Haiku suffit :
+  //   • Message court (≤ 200 chars), 1-2 tâches simples passées
+  //   • Pas de projet, pas d'émotion forte, pas d'assignation
+
+  function selectModel(input: string, historyLength: number): { model: string; reason: string } {
+    const t = input.toLowerCase();
+
+    // Multi-tours → contexte conversationnel → Sonnet
+    if (historyLength > 0) return { model: 'claude-sonnet-4-6', reason: 'multi-turn' };
+
+    // Projet logistique → raisonnement complexe → Sonnet
+    const projectKeywords = /d[eé]m[eé]nag|mariage|b[eé]b[eé]|travaux|vacances|rentr[eé]e|r[eé]novation|am[eé]nag/;
+    if (projectKeywords.test(t)) return { model: 'claude-sonnet-4-6', reason: 'project' };
+
+    // Message long → plusieurs tâches ou récit → Sonnet
+    if (input.length > 200) return { model: 'claude-sonnet-4-6', reason: 'long_text' };
+
+    // Charge émotionnelle → empathie nécessaire → Sonnet
+    const emotionKeywords = /[eé]puis[eé]|[àa] bout|je n.?en peux plus|c.?est trop|débord[eé]|overwhelm|burn.?out|craqu[eé]|fatigué|épuis/;
+    if (emotionKeywords.test(t)) return { model: 'claude-sonnet-4-6', reason: 'emotional' };
+
+    // Assignation → détection intent + UPDATE DB → Sonnet (précision critique)
+    const assignKeywords = /c.?est [àa] moi|je prends en charge|je vais m.?en occuper|c.?est pour moi|je m.?en occupe/;
+    if (assignKeywords.test(t)) return { model: 'claude-sonnet-4-6', reason: 'assignment' };
+
+    // Tâches futures planifiées → Sonnet (raisonnement dates)
+    const futureKeywords = /demain|la semaine prochaine|ce week-end|dans [0-9]+ jours|bient[oô]t|on va faire|il faudra/;
+    if (futureKeywords.test(t)) return { model: 'claude-sonnet-4-6', reason: 'future_planning' };
+
+    // Sinon : message court + tâches simples passées → Haiku
+    return { model: 'claude-haiku-4-5', reason: 'simple_completion' };
+  }
+
+  const { model: selectedModel, reason: modelReason } = selectModel(sanitizedText, conversationHistory.length);
+  console.log(`[parse-journal] model=${selectedModel} reason=${modelReason} len=${sanitizedText.length}`);
+
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -521,7 +570,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: selectedModel,
         max_tokens: 3000,
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -630,7 +679,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
       parsed_completions: completions, unmatched_items: unmatched,
       ai_response: parsed.ai_response ?? null,
       tokens_input: usage.tokensInput, tokens_output: usage.tokensOutput, cost_usd: 0,
-      model_used: 'claude-sonnet-4-6', processing_time_ms: Date.now() - startTime,
+      model_used: selectedModel, processing_time_ms: Date.now() - startTime,
       mood_tone: parsed.mood_tone ?? null,
     }).select('id').single();
 
@@ -885,6 +934,8 @@ Réponds UNIQUEMENT avec ce JSON.`;
         project_created: projectCreated ? projectCreated.type : null,
         project_task_count: projectCreated?.taskCount ?? 0,
         mood: parsed.mood_tone,
+        model_used: selectedModel,
+        model_routing_reason: modelReason,
       },
     });
 
