@@ -353,6 +353,52 @@ Suppression de toute la dette V0 incompatible avec la spec :
 
 ---
 
+## 🧩 Décomposition de projets complexes (M3)
+
+Certains besoins ne sont pas une tâche unique mais un **projet multi-étapes**. Exemples : *« organise le déjeuner de dimanche »*, *« prépare l'anniversaire de Léa »*, *« planifie le week-end chez mes parents »*.
+
+### Principe — proposition imparfaite, pas interrogatoire
+
+Yova décompose en **un seul tour de parole**, sans poser de questions quand la réponse peut être devinée. Elle s'appuie sur :
+
+1. **La mémoire structurée** (`household_members`, `household_profile`) : nb de convives = taille foyer par défaut, allergies connues, aides externes récurrentes
+2. **La mémoire narrative** (`agent_memory_facts`, `conversation_turns` via pgvector) : repas aimés, budgets habituels, contraintes récurrentes mentionnées dans les journaux passés
+3. **Les défauts nominaux** : créneau raisonnable (courses la veille, prépa H-2), budget standard, pas d'invités
+
+Elle propose un **projet parent + 3-6 sous-tâches liées** avec `next_due_at` calibrés. L'user ajuste via les micro-actions (reporter, réassigner, pas pertinent) ou corrige en langage naturel (*« on sera 7, mes parents viennent »* → recalibrage).
+
+### Ce qu'elle ne fait PAS
+
+- ❌ Poser plus d'**une** question clarifiante (et seulement si un fait critique manque vraiment et n'a pas de défaut raisonnable)
+- ❌ Demander ce qu'elle peut déduire de la mémoire (allergies, goûts, budget, qui cuisine)
+- ❌ Demander des préférences catégorielles ("entrée ? dessert ? apéro ?") — elle propose, l'user écarte
+
+### Règle des défauts
+
+| Info manquante | Défaut assumé |
+|---|---|
+| Nb convives | `household_size` |
+| Budget | "normal" (pas de contrainte évoquée dans la mémoire) |
+| Invités | Aucun sauf mention explicite dans le prompt |
+| Régimes spéciaux | Uniquement les allergies/préférences déjà en mémoire |
+| Créneaux | Courses la veille après-midi · prépa H-2 avant repas |
+| Qui fait quoi | Assignation selon les patterns passés (qui cuisine habituellement) |
+
+### Stack technique
+
+- **Modèle** : Sonnet 4.5 (pas Haiku — raisonnement multi-étapes + ton empathique)
+- **Input** : prompt user + contexte mémoire complet (members, profile, last N facts, last M conversation turns pertinents via pgvector)
+- **Output structuré** : `{ project: {title, description}, subtasks: [{name, duration, next_due_at, assigned_to, frequency:'once'}] }`
+- **DB** : pas de nouvelle table — sous-tâches insérées dans `household_tasks` avec un champ `parent_project_id` (migration à prévoir) pour grouper dans l'UI
+
+### Critère de succès M3
+
+- Sur 10 prompts projets variés (repas, anniv, week-end, rentrée, rdv pédiatre avec courses associées), Yova produit en **1 tour** une décomposition utilisable sans plus de 1 correction user en moyenne.
+- Temps de réponse < 8s.
+- 0 % de questions superflues (faits déjà en mémoire).
+
+---
+
 ## 🗓️ Roadmap de build — 6 mois
 
 ### Mois 1 — Fondations pivot
@@ -368,11 +414,12 @@ Suppression de toute la dette V0 incompatible avec la spec :
 - Agent retrouve les faits pertinents
 - **Livrable** : Yova se souvient vraiment
 
-### Mois 3 — Parler à Yova (vocal)
+### Mois 3 — Parler à Yova (vocal) + décomposition de projets
 - Surface chat + vocal (STT + TTS)
 - Check-in du soir guidé
 - Historique conversations
-- **Livrable** : rituel vocal du soir fonctionnel
+- **Décomposition de projets complexes** (voir section dédiée ci-dessous) : Sonnet décompose "organise le déjeuner dimanche" en 4-6 sous-tâches liées (menu, liste courses, courses, prépa) à partir de la mémoire foyer + défauts nominaux, sans interrogatoire
+- **Livrable** : rituel vocal du soir fonctionnel + un seul tour de parole pour lancer un projet
 
 ### Mois 4 — Détection de dérives
 - Job quotidien analyse activité
