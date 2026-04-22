@@ -77,7 +77,7 @@ Pour les questions ouvertes (taille du foyer, prénoms enfants, contraintes...),
 QUAND TU AS TOUTES LES INFORMATIONS :
 1. Écris une phrase de conclusion chaleureuse (1-2 phrases, ex: "Parfait, j'ai tout ce qu'il me faut !")
 2. Puis exactement sur une nouvelle ligne : YOVA_DONE
-3. Puis immédiatement le JSON brut (PAS de ```json, PAS de balises, juste le JSON directement) :
+3. Puis immédiatement le JSON brut (PAS de blocs code, PAS de balises, juste le JSON directement) :
 
 {
   "context": {
