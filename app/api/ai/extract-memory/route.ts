@@ -209,6 +209,28 @@ Certains faits méritent d'être enregistrés dans la fiche structurée du membr
 - Le \`member_name\` DOIT être exactement le prénom d'un phantom de cette liste : ${phantomNames}. Si le prénom n'est pas dans la liste, n'extrais rien.
 - Confidence < 0.8 = skippé côté serveur. N'invente jamais.
 
+### IMPORTANT — format check-in du soir
+Le message peut être au format question/réponse (check-in guidé : "Comment ça va ?" "Et à la maison ?"…). **Ignore les questions Yova**, extrais les faits des réponses user peu importe le format. Si l'user mentionne l'anniversaire / la classe / une allergie d'un membre connu, tu DOIS produire un \`structured_updates\` — c'est une info structurée critique, pas un fait narratif flou.
+
+### Exemples obligatoires à suivre
+
+Exemple 1 (anniversaire, format check-in) :
+Input : "Comment ça va ? l'anniversaire d'Eva c'est le 13 mai"
+Output structured_updates : [{"member_name": "Eva", "field": "birth_date", "value": "${currentYear}-05-13", "confidence": 0.95}]
+(ne pas créer de fait narratif "événement le 13 mai" — c'est un birthday structuré)
+
+Exemple 2 (classe, forme parlée) :
+Input : "Tina rentre en CE1 en septembre"
+Output structured_updates : [{"member_name": "Tina", "field": "school_class", "value": "CE1", "confidence": 0.9}]
+
+Exemple 3 (allergie) :
+Input : "Eva est allergique aux arachides"
+Output structured_updates : [{"member_name": "Eva", "field": "allergies", "value": ["arachides"], "confidence": 0.95}]
+
+Exemple 4 (date relative — NE PAS extraire) :
+Input : "l'anniversaire de Tina c'est dans 2 mois"
+Output structured_updates : [] (date relative ignorée)
+
 ### Format de sortie
 
 Retourne UNIQUEMENT ce JSON (sans markdown) :
