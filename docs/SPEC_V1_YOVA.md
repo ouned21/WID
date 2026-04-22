@@ -287,7 +287,7 @@ Remplace le formulaire multi-étapes + catalogue statique.
 
 ## ✅ État actuel du build (2026-04-24 — sprint 15bis inclus)
 
-### Sprint 15bis — Check-in conversationnel contextualisé (2026-04-24, PR à venir)
+### Sprint 15bis — Check-in conversationnel contextualisé (2026-04-24, PR #10 mergée)
 - `POST /api/ai/checkin-opener` (Sonnet 4.6, timeout 8s, max_tokens 120) : une seule question tailored, max 25 mots, ton confident. Charge en parallèle profiles + phantoms + `households.yova_narrative` + `agent_memory_facts` (10) + `observations` non-ack (10) + `conversation_turns` (10) + dernier opener < 30h (pour rotation).
 - `utils/checkinOpener.ts` (logique pure, testable) : `buildOpenerCandidates` ordonne les signaux selon la priorité validée Jonathan (`upcoming_event_urgent` < 3j > `observation_alert` > `upcoming_event_near` 3-7j > `recent_mention` < 48h > `narrative` > `fallback`). `pickOpenerWithRotation` descend d'un cran si `source_detail` identique au dernier opener (anti-harcèlement). `isMemoryEmpty` court-circuite Sonnet au premier contact (retourne *"On apprend à se connaître — raconte-moi ta soirée"*). `buildContextBlock` formate le contexte injecté dans le prompt (tronqué à 8 facts, 3 user turns < 72h, 3 alerts max).
 - Migration `20260424_sprint15bis_checkin_openers_log.sql` : table `checkin_openers_log` (question, source, source_detail, is_static_fallback, was_answered post-hoc) + index + RLS (select membres foyer, insert service_role).
