@@ -1,7 +1,7 @@
 # Yova V1 — Spec produit
 
 > **Doc de référence épinglé.** Toute feature V1 doit être traçable à cette spec.
-> Dernière mise à jour : 2026-04-23 (sprint 15 — nettoyage bugs UX critiques pré-Barbara)
+> Dernière mise à jour : 2026-04-24 (sprint 15bis — check-in conversationnel contextualisé)
 
 ---
 
@@ -285,9 +285,17 @@ Remplace le formulaire multi-étapes + catalogue statique.
 
 ---
 
-## ✅ État actuel du build (2026-04-23 — sprint 15 inclus)
+## ✅ État actuel du build (2026-04-24 — sprint 15bis inclus)
 
-### Sprint 15 — Nettoyage bugs UX critiques pré-Barbara (2026-04-23, PR à venir)
+### Sprint 15bis — Check-in conversationnel contextualisé (2026-04-24, PR à venir)
+- `POST /api/ai/checkin-opener` (Sonnet 4.6, timeout 8s, max_tokens 120) : une seule question tailored, max 25 mots, ton confident. Charge en parallèle profiles + phantoms + `households.yova_narrative` + `agent_memory_facts` (10) + `observations` non-ack (10) + `conversation_turns` (10) + dernier opener < 30h (pour rotation).
+- `utils/checkinOpener.ts` (logique pure, testable) : `buildOpenerCandidates` ordonne les signaux selon la priorité validée Jonathan (`upcoming_event_urgent` < 3j > `observation_alert` > `upcoming_event_near` 3-7j > `recent_mention` < 48h > `narrative` > `fallback`). `pickOpenerWithRotation` descend d'un cran si `source_detail` identique au dernier opener (anti-harcèlement). `isMemoryEmpty` court-circuite Sonnet au premier contact (retourne *"On apprend à se connaître — raconte-moi ta soirée"*). `buildContextBlock` formate le contexte injecté dans le prompt (tronqué à 8 facts, 3 user turns < 72h, 3 alerts max).
+- Migration `20260424_sprint15bis_checkin_openers_log.sql` : table `checkin_openers_log` (question, source, source_detail, is_static_fallback, was_answered post-hoc) + index + RLS (select membres foyer, insert service_role).
+- `app/(app)/journal/page.tsx` : **option A non-bloquant** — la bubble statique sprint 15 s'affiche instantanément au mount, un useEffect parallèle appelle l'opener SI `isInEveningWindow(now) && !hasCheckinForCurrentWindow(now, profile.last_checkin_at)`. Quand Sonnet répond (2-5s), swap silencieux de la bubble par la version tailored — verrouillé dès que l'user écrit ou envoie (évite le swap pendant que l'user tape). Fallback gracieux sur les 3 accroches sprint 15 si timeout/échec.
+- Règles non négociables gravées dans le code : garde-fou serveur hors fenêtre (400), marqueur "tailored" muet (pas de badge visuel — Yova ne se vante pas de sa mémoire), aucune logique d'insistance après réponse esquive (conv 100% libre post-opener, acquis sprint 15 préservé).
+- 25/25 tests unitaires sur `checkinOpener.ts` (priorité inter-buckets, rotation, fallback mémoire vide, ignore turns > 72h, troncature facts, observations non-alert ignorées).
+
+### Sprint 15 — Nettoyage bugs UX critiques pré-Barbara (2026-04-23, PR #9 mergée)
 - **(A) Parent de projet jamais completable auto** : `app/api/ai/parse-journal/route.ts` select `parent_project_id` sur `household_tasks`, puis skip toute completion dont `task_id` est référencé comme parent (via helper `utils/projectParent.ts`). Un parent se complète uniquement via 100% sous-tâches done (règle sprint 12 intacte). Plus jamais de "Anniversaire d'Eva FAIT" quand l'user tape *"l'anniv d'Eva c'est le 13 mai"*.
 - **(B) CTA check-in du soir ne réapparaît plus après complétion** : migration `20260423_sprint15_checkin_tracking.sql` (colonne `profiles.last_checkin_at timestamptz`). `parse-journal` met à jour `last_checkin_at = NOW()` si le message tombe dans la fenêtre 20h→04h (heure Paris via `Intl.DateTimeFormat`, robuste aux fuseaux serveur). `/today` masque la CTA via helper `hasCheckinForCurrentWindow(now, last_checkin_at)`. Fenêtre fixe 20h → 04h ; reset 20h le lendemain.
 - **(C) Journal en conversation libre 100%** : suppression du flow check-in imposé (`CHECKIN_QUESTIONS`, `checkinStep`, `checkinAnswers`, `sendCheckin`, progress bar 3 points, branche conditionnelle `isEveningTime` du welcome). Bouton envoyer + Cmd+Enter routent toujours vers `send()`. Accroche Yova adaptée à l'heure locale conservée comme bubble d'ouverture. Décision Jonathan : les 3 questions hardcodées "font formulaire, pas IA/Yova" → refonte conversationnelle contextualisée planifiée en sprint 15bis.
@@ -370,8 +378,6 @@ Suppression de toute la dette V0 incompatible avec la spec :
 - Détection de dérives : 4 patterns (`cooking_drift`, `balance_drift`, `journal_silence`, `task_overdue_cluster`)
 
 ### Prochains sprints (à prioriser avec Jonathan)
-
-- **Sprint 15bis — Check-in conversationnel contextualisé** ⭐⭐⭐ (spin-off sprint 15, Piliers 1+3) : remplacer l'accroche d'ouverture statique du journal par **une seule question tailored** générée par Sonnet depuis la mémoire (narrative + facts récents + observations actives + énergie foyer). Exemples attendus : *"Hier tu m'as dit que Léa couvait quelque chose — ça s'est confirmé ?"* / *"Barbara dort < 6h depuis 4 nuits, comment elle tient ?"* / *"Ça fait 10 jours que vous n'avez pas cuisiné, qu'est-ce qui te pèse ?"*. Après cette question d'ouverture, conv 100% libre (pas de séquence 3 questions). Remplace le flow check-in hardcodé supprimé sprint 15. Dépend de : mémoire longue (sprint 6 ✅) + observations (déjà présentes). Durée estimée : 2-3 jours.
 
 - **Sprint 16 — Consolidation de tâches chevauchantes** ⭐⭐ (issu retours sprint 12, Pilier 3 pur) : Yova détecte quand une sous-tâche de projet ("Faire les courses pour le déjeuner") recoupe une tâche récurrente existante ("Faire les courses" mercredi) et propose proactivement : *« Tu as déjà les courses mer. 29, je groupe avec le déjeuner dimanche pour que tu y ailles qu'une fois ? »*. Dépend de : mémoire longue (sprint 6 ✅) + similarité sémantique sur noms de tâches. Mois 3-4 roadmap. Durée : 3-4 j.
 

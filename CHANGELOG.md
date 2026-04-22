@@ -6,6 +6,42 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-24] — Sprint 15bis : Check-in conversationnel contextualisé (Piliers 1+3)
+
+### Ajouté
+- `utils/checkinOpener.ts` — logique pure pour choisir le signal d'ouverture depuis la mémoire du foyer : `buildOpenerCandidates`, `pickOpenerWithRotation`, `isMemoryEmpty`, `buildContextBlock`, `daysUntilNextBirthday`. Priorité validée Jonathan : `upcoming_event_urgent` (< 3j) > `observation_alert` > `upcoming_event_near` (3-7j) > `recent_mention` (< 48h) > `narrative` > `fallback`
+- `utils/checkinOpener.test.ts` — 25 tests (priorité, rotation anti-harcèlement, fallback mémoire vide, troncature contexte, ignore turns > 72h)
+- `app/api/ai/checkin-opener/route.ts` — POST Sonnet 4.6, max 25 mots, ton confident. Charge en parallèle profiles + phantoms + households.yova_narrative + agent_memory_facts + observations non-ack + conversation_turns + dernier opener < 30h (rotation). Timeout 8s, fallback silencieux. Garde-fou serveur : refuse hors fenêtre soir (coût)
+- `supabase/migrations/20260424_sprint15bis_checkin_openers_log.sql` — table `checkin_openers_log` (household_id, user_id, question, source, source_detail, is_static_fallback, generated_at, was_answered, answered_at) + index (household_id, generated_at DESC) + RLS select membres foyer / insert service_role uniquement
+
+### Modifié
+- `app/(app)/journal/page.tsx` — **Option A (swap non-bloquant)** : la bubble statique sprint 15 s'affiche instantanément au mount (zéro latence perçue) ; un useEffect parallèle déclenche `POST /api/ai/checkin-opener` SI `isInEveningWindow(now) && !hasCheckinForCurrentWindow(now, profile.last_checkin_at)`. Quand la réponse Sonnet arrive (2-5s typique), on swap silencieusement la bubble par la version tailored — **sauf** si l'user a déjà commencé à écrire ou à envoyer (verrou `openerLockedRef` sur `text.length > 0 || messages.length > 0`). Résultat : aucune attente visible, le tailored remplace gracieusement s'il arrive à temps, le statique tient sinon. Import `checkinWindow` helpers
+
+### Règles produit (décisions sprint 15bis)
+- **Marqueur tailored = muet** : Yova ne signale pas visuellement que la question vient de sa mémoire. La question doit taper juste, pas la badge "✦ depuis ta mémoire". Discrétion de confident
+- **Rotation anti-harcèlement** : si `source_detail` du pick = celui du dernier opener < 30h → on descend d'un cran. Jamais deux soirs de suite sur le même signal précis. Retombe au fallback si tous les candidats sont épuisés
+- **Premier check-in (mémoire vide) = court-circuit Sonnet** : helper `isMemoryEmpty` détecte l'absence totale de facts/narrative/obs/turns/birthdays. Retourne directement l'accroche statique *"On apprend à se connaître — raconte-moi ta soirée, je retiens tout pour la suite."* Pas d'appel Sonnet gaspillé au premier contact (coût + latence + évite le fallback générique qui sonne faux)
+- **Priorité priorise l'imminent sur le chronique** : un anniv dans 2 jours prime un `cooking_drift` alert de 12 jours. Un événement familial raté fait plus mal qu'une observation chronique (choix produit Jonathan, ordre gravé dans `buildOpenerCandidates`)
+- **User qui esquive = on lâche** : la spec 15bis dit "conv 100% libre après la question d'ouverture". Aucune logique d'insistance prévue — si l'user répond "rien de spécial", Yova bascule en conv ouverte, pas de relance sur le topic. Un confident qui relance après "ça va" passe pour lourd
+- **Sonnet uniquement dans la fenêtre soir** : garde-fou serveur (rejet 400 hors 20h-04h) + garde-fou client (useEffect skip). Zéro appel gaspillé hors fenêtre check-in
+- **Swap non-bloquant (option A)** : l'user ne doit jamais attendre Sonnet. La bubble statique s'affiche au mount, le tailored la remplace en arrière-plan si Sonnet répond à temps (avant interaction). Décision Jonathan : pas de skeleton bloquant, pas de pré-génération cron (infra à ajouter), pas de streaming (UX bizarre sur 25 mots). Le statique devient la vraie fondation UX ; le tailored = bonus qui tombe quand il tombe
+
+### Pourquoi
+Sprint 15 a supprimé la séquence de 3 questions hardcodées ("formulaire, pas IA"). Restait à refonder le rituel du soir côté mémoire active — montrer que Yova connaît le foyer. L'opener tailored est le signal le plus lisible de la mémoire longue : une question qui tape juste = Pilier 1 (connaissance intime) rendu visible + Pilier 3 (proactivité douce) activé au bon moment, sans jamais se transformer en coach.
+
+### Piliers spec
+- Pilier 1 — Connaissance intime du foyer (la question d'ouverture prouve que Yova retient les faits, anniversaires, derniers échanges, observations)
+- Pilier 3 — Proactivité douce (timing = fenêtre check-in, ton = confident, rotation = pas de harcèlement, lâcher-prise = pas de coach)
+
+### Pré-merge — validation
+- `npx tsc --noEmit` : OK
+- `npx vitest run utils/checkinOpener.test.ts` : 25/25 sprint 15bis
+- Suite globale : 120/121 (1 fail pré-existant `utils/security.test.ts` sans rapport, noté sprint 14 & 15)
+- `npx next build` : à compiler avant merge
+- Démo device réel : 5 scénarios attendus (cooking_drift / anniv < 7j / mention récente / mémoire vide / hors fenêtre) — à faire par Jonathan
+
+---
+
 ## [2026-04-23] — Sprint 15 : Nettoyage bugs UX critiques (confiance produit pré-Barbara)
 
 ### Ajouté
