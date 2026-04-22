@@ -187,21 +187,28 @@ function ProjectCard({
   );
 }
 
-/** Sprint 12 — Card de confirmation après décomposition Yova (organise/prépare/planifie…). */
+const DURATION_LABEL_FR: Record<number, string> = {
+  5: '5 min', 15: '15 min', 30: '30 min', 60: '1h', 120: '2h+',
+};
+
+/** Sprint 12 — Card de confirmation après décomposition Yova (organise/prépare/planifie…).
+ *  L'user voit directement les sous-tâches créées — pas besoin de naviguer vers /today
+ *  pour comprendre ce que Yova a fait. Inline-view only (actions en sprint 13). */
 function DecomposedProjectCard({ project }: { project: ProjectDecomposed }) {
   const targetLabel = project.target_date
     ? new Date(project.target_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
     : null;
+
   return (
     <div className="mb-3 ml-10">
-      <Link
-        href="/today"
-        className="block rounded-2xl overflow-hidden active:scale-[0.98] transition-transform"
+      <div
+        className="rounded-2xl overflow-hidden"
         style={{
           background: 'linear-gradient(135deg, #5856d6, #764ba2)',
           boxShadow: '0 4px 16px rgba(88,86,214,0.25)',
         }}
       >
+        {/* En-tête */}
         <div className="px-4 py-3.5 flex items-center gap-3">
           <span className="text-[22px]">📋</span>
           <div className="flex-1 min-w-0">
@@ -212,11 +219,44 @@ function DecomposedProjectCard({ project }: { project: ProjectDecomposed }) {
               {targetLabel ? ` · ${targetLabel}` : ''}
             </p>
           </div>
-          <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+        </div>
+
+        {/* Liste des sous-tâches */}
+        <div style={{ background: 'rgba(255,255,255,0.08)' }}>
+          {project.subtasks.map((s, i) => {
+            const dueDate = new Date(s.next_due_at);
+            const dateShort = dueDate.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+            const durationLabel = DURATION_LABEL_FR[s.duration_minutes] ?? `${s.duration_minutes} min`;
+            return (
+              <div
+                key={i}
+                className="px-4 py-2.5 flex items-start gap-2.5"
+                style={i > 0 ? { borderTop: '0.5px solid rgba(255,255,255,0.12)' } : {}}
+              >
+                <span className="text-[11px] font-semibold text-white/50 leading-[1.2] mt-0.5 flex-shrink-0 w-4">{i + 1}.</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium text-white leading-snug">{s.name}</p>
+                  <p className="text-[11px] text-white/60 mt-0.5">
+                    {dateShort} · ⏱ {durationLabel}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer : lien vers /today pour ajuster */}
+        <Link
+          href="/today"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 active:bg-white/10 transition-colors"
+          style={{ background: 'rgba(255,255,255,0.12)', borderTop: '0.5px solid rgba(255,255,255,0.18)' }}
+        >
+          <span className="text-[12px] font-semibold text-white">Voir sur Aujourd&apos;hui · ajuster</span>
+          <svg width="12" height="12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
             <path d="M9 18l6-6-6-6" />
           </svg>
-        </div>
-      </Link>
+        </Link>
+      </div>
     </div>
   );
 }

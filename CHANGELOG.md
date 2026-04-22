@@ -28,11 +28,18 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 - **Single-question flow** (stateful) : quand Yova doit poser une question, elle stocke `{pending_project: {original_prompt, missing}}` dans `conversation_turns.extracted_facts` (speaker=agent). Au message user suivant (< 10 min), parse-journal fusionne la réponse avec le prompt original et relance la décomposition
 - **Parent auto-complété** : le parent n'a pas de bouton "Fait" dans l'UI — il se complète implicitement quand tous ses enfants sont done (rendu visuel : progress bar 100 %)
 
+### Ajustements post-démo (mêmes commits, sprint 12)
+- **Fix /today — projets avec sous-tâches futures** (`0c24b9d`) : le filtre limitait les projets aux tâches overdue+today, donc un projet pour dimanche n'apparaissait nulle part. `groupTasksByProject` désormais appliqué à toutes les tâches filtrées
+- **Fix durées Sonnet** (`3f5c856`) : prompt système sous-estimait systématiquement (courses 15 min, repas 30 min). Ajout d'une table de repères concrets : courses événement = long (60 min) mini, repas familial = long mini
+- **Fix check-in bypass** (`92352fb`) : si le user tape un projet clair ("organise le déjeuner dimanche") pendant le check-in du soir, on route direct vers `send()` → `parse-journal` au lieu d'attendre que les 3 questions soient répondues
+- **Fix assignation par défaut** : `assigned_to` reste `null` (foyer) si Sonnet ne détecte pas de pattern mémoire. Avant : on forçait l'assignation sur l'initiateur du prompt, ce qui dumpait tout sur une seule personne
+- **UI /journal enrichie** : la card "Projet préparé" affiche maintenant inline les sous-tâches (nom + date + durée) plutôt qu'un simple décompte. Consultation directe sans quitter la conversation
+
 ### Pré-merge — validation
 - `npx tsc --noEmit` : OK
 - `npx vitest run utils/projectDecomposition.test.ts` : 16/16 passed
 - `npx next build` : OK (route `/api/ai/decompose-project` compilée)
-- Eval manuelle des 10 prompts : à lancer en preview Vercel (`EVAL_COOKIE=... npx tsx scripts/eval-decompose.ts`)
+- Tests démo device réel OK : 2 projets décomposés ("déjeuner dimanche" 6 tâches, "week-end chez les parents" 5 tâches), cohérence validée
 
 ---
 

@@ -145,7 +145,7 @@ Ex : "organise un dîner avec mes potes" → tu ne sais pas combien.
 ## Règles
 
 - Sous-tâches DATÉES sur créneaux réalistes.
-- Assigne uniquement aux UUID de Membres. Sinon null.
+- **Assignation par défaut = null (foyer)**. N'assigne à un UUID QUE si un fait mémorisé établit un pattern clair ("Barbara cuisine le dimanche", "Jonathan fait les courses"). N'assigne PAS systématiquement à l'utilisateur qui demande — il a pas forcément envie de tout faire.
 - N'invente aucun fait. Défaut nominal > question.
 - MAXIMUM 1 pending_question. Sinon décompose même imparfaitement.
 
@@ -385,7 +385,10 @@ export async function decomposeProjectCore(input: DecomposeCoreInput): Promise<D
     scoring_category: 'household_management',
     duration_estimate: s.duration_estimate,
     physical_effort: 'light',
-    assigned_to: s.assigned_to ?? userId,
+    // null = foyer (tout le monde peut la prendre). Ne PAS forcer userId par
+    // défaut — l'user typant le prompt n'est pas forcément celui qui fait
+    // tout. Si Yova n'a pas de pattern mémoire clair, laisser foyer.
+    assigned_to: s.assigned_to,
     is_active: true, is_fixed_assignment: false, notifications_enabled: true,
     created_by: userId,
     next_due_at: s.next_due_at,
