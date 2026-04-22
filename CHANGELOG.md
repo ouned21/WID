@@ -6,6 +6,16 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-23] — Sprint 15ter : Réordonnancement `/today` — tâches avant projets
+
+### Modifié
+- `app/(app)/today/page.tsx` — section « À faire aujourd'hui » déplacée **avant** la section « Projets en cours ». Ordre final : Card « Maintenant » → À faire aujourd'hui → Projets en cours → Sur le radar → Cette semaine → Check-in du soir. Déplacement d'un bloc JSX, zéro logique data touchée.
+
+### Pourquoi
+Validé après démo sprint 15. Spec onglet Aujourd'hui : *« ouvre l'app, vois ce qui compte, zéro charge mentale »* — l'user doit voir ce qu'il a à cocher avant le panorama de ses projets. Les projets sont un contexte, pas une action immédiate.
+
+---
+
 ## [2026-04-23] — Sprint 15 : Nettoyage bugs UX critiques (confiance produit pré-Barbara)
 
 ### Ajouté

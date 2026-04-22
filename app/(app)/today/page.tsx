@@ -656,27 +656,6 @@ export default function TodayPage() {
         </div>
       )}
 
-      {/* Projets en cours (Sprint 12) */}
-      {projectsToShow.length > 0 && (
-        <section className="space-y-2">
-          <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide px-1">
-            Projets en cours
-          </p>
-          {projectsToShow.map((g) => (
-            <ProjectGroupCard
-              key={g.parent.id}
-              parent={g.parent}
-              subtasks={g.subtasks}
-              doneChildIds={completedIds}
-              allMembers={allMembers}
-              currentUserId={profile?.id ?? ''}
-              onOpenActions={setActionsTaskId}
-              onCompleteChild={handleComplete}
-            />
-          ))}
-        </section>
-      )}
-
       {/* 3. À faire aujourd'hui */}
       {aTFaire.length > 0 && (
         <section className="space-y-2">
@@ -695,6 +674,27 @@ export default function TodayPage() {
               currentUserId={profile?.id ?? ''}
               onOpenAssign={setAssigningTaskId}
               onOpenActions={setActionsTaskId}
+            />
+          ))}
+        </section>
+      )}
+
+      {/* Projets en cours (Sprint 12) */}
+      {projectsToShow.length > 0 && (
+        <section className="space-y-2">
+          <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide px-1">
+            Projets en cours
+          </p>
+          {projectsToShow.map((g) => (
+            <ProjectGroupCard
+              key={g.parent.id}
+              parent={g.parent}
+              subtasks={g.subtasks}
+              doneChildIds={completedIds}
+              allMembers={allMembers}
+              currentUserId={profile?.id ?? ''}
+              onOpenActions={setActionsTaskId}
+              onCompleteChild={handleComplete}
             />
           ))}
         </section>
