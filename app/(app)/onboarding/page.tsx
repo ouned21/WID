@@ -192,6 +192,7 @@ export default function OnboardingPage() {
   const [textInput, setTextInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [fromVoice, setFromVoice]   = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
   // Done state
@@ -354,6 +355,7 @@ export default function OnboardingPage() {
       if (transcript.trim()) {
         // Met dans le textarea pour que l'utilisateur puisse vérifier avant d'envoyer
         setTextInput(transcript.trim());
+        setFromVoice(true);
         setTimeout(() => inputRef.current?.focus(), 50);
       }
       setIsRecording(false);
@@ -370,6 +372,7 @@ export default function OnboardingPage() {
 
     setTextInput('');
     setChips([]);
+    setFromVoice(false);
 
     const userDisplay: DisplayMessage = { role: 'user', text: trimmed };
     setDisplay(prev => [...prev, userDisplay]);
@@ -719,6 +722,14 @@ export default function OnboardingPage() {
           {/* Chat input */}
           {step === 'chat' && !showEquipment && (
             <>
+              {/* Hint transcription vocale */}
+              {fromVoice && textInput && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px]"
+                  style={{ background: '#fff8ec', color: '#ff9500', border: '1px solid #ffe0a0' }}>
+                  <span>🎤</span>
+                  <span>Vérifie la transcription — corrige si besoin avant d&apos;envoyer.</span>
+                </div>
+              )}
               {/* Text input — Entrée = envoyer, Shift+Entrée = nouvelle ligne */}
               <div className="flex gap-2 items-end" style={{ position: 'relative' }}>
                 <textarea
@@ -727,6 +738,7 @@ export default function OnboardingPage() {
                   value={textInput}
                   onChange={e => {
                     setTextInput(e.target.value);
+                    setFromVoice(false); // user edited → clear voice hint
                     // Auto-resize
                     e.target.style.height = 'auto';
                     e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
