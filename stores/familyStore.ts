@@ -68,7 +68,30 @@ export function ageFromDate(isoDate: string | null): number | null {
   let age = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  // Sprint 14 — si la date est dans le futur (ex: auto-sync d'anniversaire
+  // sans année de naissance explicite), on n'affiche pas l'âge
+  if (age < 0) return null;
   return age;
+}
+
+/**
+ * Sprint 14 — nombre de jours avant le prochain anniversaire à partir
+ * d'une date ISO. Utile quand l'user a dit "anniv le 13 mai" sans préciser
+ * l'année de naissance : on affiche "anniv dans X jours" plutôt que l'âge.
+ * Retourne null si la date est absente ou déjà passée dans l'année en cours.
+ */
+export function daysUntilNextBirthday(isoDate: string | null): number | null {
+  if (!isoDate) return null;
+  const birth = new Date(isoDate);
+  if (isNaN(birth.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const thisYear = new Date(today.getFullYear(), birth.getMonth(), birth.getDate());
+  const target = thisYear.getTime() < today.getTime()
+    ? new Date(today.getFullYear() + 1, birth.getMonth(), birth.getDate())
+    : thisYear;
+  const diff = Math.round((target.getTime() - today.getTime()) / 86_400_000);
+  return diff;
 }
 
 /** Formate une date ISO en 'DD/MM/YYYY' pour l'affichage */

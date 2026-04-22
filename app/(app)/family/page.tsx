@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 import {
   useFamilyStore,
   ageFromDate,
+  daysUntilNextBirthday,
   type AddMemberPayload,
 } from '@/stores/familyStore';
 import { createClient } from '@/lib/supabase';
@@ -697,6 +698,9 @@ function MemberCard({ member, onEdit, onDelete }: {
   onDelete: () => void;
 }) {
   const age = ageFromDate(member.birth_date);
+  // Sprint 14 — si age = null mais birth_date présente, la date est dans le
+  // futur (anniv auto-syncé sans année de naissance). On affiche "anniv dans X j".
+  const daysToBirthday = age === null && member.birth_date ? daysUntilNextBirthday(member.birth_date) : null;
   const allergies = member.specifics?.allergies ?? [];
   const activities = member.specifics?.activities ?? [];
 
@@ -719,6 +723,11 @@ function MemberCard({ member, onEdit, onDelete }: {
             )}
             {age !== null && (
               <span className="text-[14px] text-[#8e8e93]">{age} ans</span>
+            )}
+            {age === null && daysToBirthday !== null && (
+              <span className="text-[14px] text-[#8e8e93]">
+                🎂 {daysToBirthday === 0 ? "aujourd'hui" : daysToBirthday === 1 ? 'demain' : `dans ${daysToBirthday} j`}
+              </span>
             )}
           </div>
 

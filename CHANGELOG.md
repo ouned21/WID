@@ -6,6 +6,42 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-22h] — Sprint 14 : Auto-sync faits structurés + nettoyage data legacy
+
+### Ajouté
+- `app/api/ai/extract-memory/route.ts` — extension Haiku pour détecter 3 champs structurés (`birth_date`, `school_class`, `allergies`) et les écrire direct dans `phantom_members`. Matching prénom : exact (normalisé) prioritaire, fallback Levenshtein ≤ 2 avec gap ≥ 1 vs second candidat. Skip silencieux si confidence < 0.8 ou prénom ambigu. Trace audit systématique dans `agent_memory_facts` (visible sous "Ce que Yova sait")
+- `app/api/ai/extract-memory/memory.test.ts` — 14 tests unitaires (normalizeName, levenshtein, matchPhantomByName, applyStructuredUpdates avec merge allergies)
+- `utils/projectDecomposition.ts` — helper `projectTitleSimilarity` (Jaccard sur tokens, stop-words FR filtrés, seuil strict 0.6 pour détection doublon) + 4 tests
+- `lib/decomposeProjectCore.ts` — détection de doublon projet (< 14 j, similarité ≥ 0.6) avant appel Sonnet. Émet `kind: 'duplicate'` avec question "remplacer / ajouter à côté ?" stockée dans `conversation_turns.extracted_facts.pending_project_duplicate`. Helpers exportés : `findPendingDuplicate`, `interpretDuplicateAnswer`. Flag `skipDuplicateCheck` pour bypass après décision user
+- `scripts/backfill-orphan-project-tasks.ts` — script Node dry-run/--apply qui détecte les tâches `once` avec `parent_project_id=null` candidates à être ratachées à un parent existant (similarité titre + fenêtre ±7 j autour du parent)
+
+### Modifié
+- `app/api/ai/parse-journal/route.ts` — router étendu : détecte `pending_project_duplicate` récent (< 10 min), interprète la réponse user (remplacer/ajouter/ambigu), archive l'ancien parent + enfants si "remplacer", bypass dup-check si "ajouter". Re-pose la question si décision ambiguë
+- `app/api/ai/decompose-project/route.ts` — handle `kind: 'duplicate'` dans la réponse JSON (champ `pending_duplicate`)
+- `app/(app)/journal/page.tsx` — nouveau type message `memory_note` : bubble discrète "📌 Fiche Eva · anniversaire : 13 mai" rendue après la réponse Yova quand `extract-memory` retourne des `structured_updates`. Refresh du store household pour propager la MAJ dans `/family`
+- `app/(app)/week/page.tsx` — masque les tâches parent de projet du grid jour-par-jour (cohérent avec `/today` qui les masque déjà via `ProjectGroupCard`). Sous-tâches continuent à porter leur chip coloré. Section "Projets à venir" (> 7 j) garde les parents visibles — c'est la vue projets
+
+### Pourquoi
+Sprint 13 avait livré des fondations solides (actions inline, assignation phantom, chips projet) mais laissait 4 frictions issues de la démo : (1) l'user devait toujours resaisir l'anniv / la classe / les allergies dans `/family` même après l'avoir dit à Yova, (2) lancer 2 fois le même projet créait des doublons silencieux, (3) les rows parent polluaient le grid `/week`, (4) la migration sprint 12 avait laissé des sous-tâches orphelines en DB. Sprint 14 referme la boucle de mémoire structurée et nettoie la dette.
+
+### Règles produit (décisions sprint 14)
+- **Dates relatives ignorées** : "dans 2 mois" / "la semaine prochaine" ne sont PAS extraites. Uniquement dates explicites convertibles en ISO (year défaulte à l'année courante si la date n'est pas passée, sinon année suivante)
+- **school_class tel quel** : "Grande Section", "CE1", "6ème" écrits sans normalisation
+- **Allergies merge dédupliqué** : jamais d'écrasement — perdre une allergie = danger réel
+- **Feedback discret** : bubble "📌" après la réponse Yova (pas de confirmation bloquante, mais zéro signal fait douter — compromis trouvé)
+- **Anti-doublon strict** : seuil Jaccard 0.6 — mieux laisser passer un doublon (fix en 2 clics) que bloquer un vrai projet avec une question inutile
+
+### Piliers spec
+- Pilier 1 — Connaissance intime du foyer (fiches membres se mettent à jour toutes seules)
+- Pilier 3 — Proactivité douce (Yova détecte le doublon et demande avant de ré-empiler des tâches)
+
+### Pré-merge — validation
+- `npx tsc --noEmit` : OK
+- `npx vitest run` : 37/37 sprint 14 (14 memory + 23 projectDecomposition dont 4 nouveaux anti-doublon). Suite globale : 65 passed + 1 failed pré-existant sur `utils/security.test.ts` (sanitizeUserInput, sans rapport avec sprint 14)
+- `npx next build` : OK
+
+---
+
 ## [2026-04-22g] — Sprint 13 : Actions inline chat + phantom assignation + chip projet /week
 
 ### Ajouté

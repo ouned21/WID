@@ -88,6 +88,18 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  if (result.kind === 'duplicate') {
+    return NextResponse.json({
+      ok: true,
+      pending_question: result.question,
+      pending_duplicate: {
+        existing_title: result.existing_title,
+        existing_date: result.existing_date,
+      },
+      project_decomposed: null,
+    });
+  }
+
   return NextResponse.json({
     ok: true,
     pending_question: null,

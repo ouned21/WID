@@ -1,5 +1,30 @@
 import { describe, it, expect } from 'vitest';
-import { detectProjectIntent, validateDecomposition, ValidationError } from './projectDecomposition';
+import { detectProjectIntent, validateDecomposition, ValidationError, projectTitleSimilarity } from './projectDecomposition';
+
+describe('projectTitleSimilarity (Sprint 14)', () => {
+  it('détecte un doublon clair malgré tournure différente', () => {
+    expect(projectTitleSimilarity('Déjeuner dimanche', 'organise le déjeuner dimanche'))
+      .toBeGreaterThanOrEqual(0.6);
+  });
+
+  it('ne matche pas deux projets distincts', () => {
+    expect(projectTitleSimilarity('Déjeuner dimanche', 'organise le week-end chez mes parents'))
+      .toBeLessThan(0.6);
+  });
+
+  it('ignore stop-words et verbes projet', () => {
+    const s = projectTitleSimilarity(
+      'Anniversaire de Léa',
+      'prépare anniversaire Léa',
+    );
+    expect(s).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it('renvoie 0 sur tokens vides', () => {
+    expect(projectTitleSimilarity('', '')).toBe(0);
+    expect(projectTitleSimilarity('a b c', 'le de')).toBe(0);
+  });
+});
 
 describe('detectProjectIntent', () => {
   it('détecte les prompts projet typiques', () => {

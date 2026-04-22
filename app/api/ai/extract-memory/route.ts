@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import {
+  extractStructuredFallback,
+  applyStructuredUpdates,
+  mergeStructuredUpdates,
+  type PhantomRow,
+  type StructuredUpdate,
+} from '@/lib/structuredMemory';
+
+// Re-exports conservés pour les tests historiques (sprint 14)
+export {
+  normalizeName,
+  levenshtein,
+  matchPhantomByName,
+  extractStructuredFallback,
+  applyStructuredUpdates,
+} from '@/lib/structuredMemory';
 
 /**
  * POST /api/ai/extract-memory
@@ -33,6 +49,10 @@ const FACT_TYPE_EMOJI: Record<string, string> = {
   tension: '⚡',
   milestone: '🌟',
 };
+
+// ── Sprint 14 — helpers (matchPhantomByName, extractStructuredFallback,
+// applyStructuredUpdates, mergeStructuredUpdates) déplacés dans
+// lib/structuredMemory.ts. Cf. imports + re-exports en haut du fichier.
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies();
@@ -66,7 +86,7 @@ export async function POST(request: NextRequest) {
   // Charger les membres pour le contexte
   const [membersRes, phantomsRes] = await Promise.all([
     admin.from('profiles').select('id, display_name').eq('household_id', householdId),
-    admin.from('phantom_members').select('id, display_name').eq('household_id', householdId),
+    admin.from('phantom_members').select('id, display_name, specifics').eq('household_id', householdId),
   ]);
 
   const members = membersRes.data ?? [];
@@ -76,6 +96,11 @@ export async function POST(request: NextRequest) {
     ...members.map((m) => `- [${m.id}] ${m.display_name} (membre)`),
     ...phantoms.map((p) => `- [phantom:${p.id}] ${p.display_name} (enfant/fantôme)`),
   ].join('\n');
+
+  // Liste des prénoms phantoms pour le prompt (structured_updates)
+  const phantomNames = phantoms.map((p) => p.display_name).join(', ') || '(aucun)';
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const currentYear = new Date().getFullYear();
 
   const existingBlock = existingFacts && existingFacts.length > 0
     ? existingFacts.map((f) => `[${f.fact_type}] ${f.content}`).join('\n')
@@ -115,6 +140,46 @@ Extrais entre 0 et 3 NOUVEAUX faits sur les membres ou le foyer qui méritent d'
 - tension : surcharge, stress, déséquilibre (transitoire)
 - milestone : événement marquant (nouveau job, naissance, rentrée scolaire)
 
+## Faits structurés à écrire dans les fiches membres (nouveau — sprint 14)
+
+Certains faits méritent d'être enregistrés dans la fiche structurée du membre concerné (et pas seulement en mémoire narrative). Trois champs uniquement :
+
+- **birth_date** : date de naissance / anniversaire d'un enfant ou adulte fantôme
+- **school_class** : classe scolaire d'un enfant (CP, CE1, 6ème, etc.) — forme courte telle que dit l'user
+- **allergies** : allergies alimentaires / intolérances
+
+### Règles d'extraction structurée — strictes
+- Aujourd'hui : ${todayIso} (année courante : ${currentYear})
+- **birth_date** : convertis en YYYY-MM-DD. Si année absente ("le 13 mai"), utilise ${currentYear} si la date n'est pas passée, sinon ${currentYear + 1}. **Si date relative ("dans 2 mois", "la semaine prochaine", "bientôt") → NE PAS EXTRAIRE** (n'ajoute rien aux structured_updates)
+- **school_class** : forme courte trimée ("CE1", "6ème", "Grande Section"). Ne corrige pas l'user.
+- **allergies** : liste de strings en français, minuscules ("arachides", "fruits à coque"). Une allergie par entrée.
+- Le \`member_name\` DOIT être exactement le prénom d'un phantom de cette liste : ${phantomNames}. Si le prénom n'est pas dans la liste, n'extrais rien.
+- Confidence < 0.8 = skippé côté serveur. N'invente jamais.
+
+### IMPORTANT — format check-in du soir
+Le message peut être au format question/réponse (check-in guidé : "Comment ça va ?" "Et à la maison ?"…). **Ignore les questions Yova**, extrais les faits des réponses user peu importe le format. Si l'user mentionne l'anniversaire / la classe / une allergie d'un membre connu, tu DOIS produire un \`structured_updates\` — c'est une info structurée critique, pas un fait narratif flou.
+
+### Exemples obligatoires à suivre
+
+Exemple 1 (anniversaire, format check-in) :
+Input : "Comment ça va ? l'anniversaire d'Eva c'est le 13 mai"
+Output structured_updates : [{"member_name": "Eva", "field": "birth_date", "value": "${currentYear}-05-13", "confidence": 0.95}]
+(ne pas créer de fait narratif "événement le 13 mai" — c'est un birthday structuré)
+
+Exemple 2 (classe, forme parlée) :
+Input : "Tina rentre en CE1 en septembre"
+Output structured_updates : [{"member_name": "Tina", "field": "school_class", "value": "CE1", "confidence": 0.9}]
+
+Exemple 3 (allergie) :
+Input : "Eva est allergique aux arachides"
+Output structured_updates : [{"member_name": "Eva", "field": "allergies", "value": ["arachides"], "confidence": 0.95}]
+
+Exemple 4 (date relative — NE PAS extraire) :
+Input : "l'anniversaire de Tina c'est dans 2 mois"
+Output structured_updates : [] (date relative ignorée)
+
+### Format de sortie
+
 Retourne UNIQUEMENT ce JSON (sans markdown) :
 {
   "facts": [
@@ -126,10 +191,18 @@ Retourne UNIQUEMENT ce JSON (sans markdown) :
       "about_phantom_id": "uuid-du-fantôme-si-applicable-sinon-null",
       "replaces": false
     }
+  ],
+  "structured_updates": [
+    {
+      "member_name": "Eva",
+      "field": "birth_date | school_class | allergies",
+      "value": "2019-05-13" | "CE1" | ["arachides"],
+      "confidence": 0.95
+    }
   ]
 }
 
-Si aucun fait VRAIMENT nouveau → retourne { "facts": [] }`;
+Si aucun fait VRAIMENT nouveau → \`facts: []\`. Si aucun fait structuré détecté → \`structured_updates: []\`.`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -154,14 +227,17 @@ Si aucun fait VRAIMENT nouveau → retourne { "facts": [] }`;
     const data = await response.json();
     const rawContent = data.content?.[0]?.text ?? '{"facts":[]}';
 
-    let parsed: { facts: Array<{
-      fact_type: string;
-      content: string;
-      confidence: number;
-      about_user_id: string | null;
-      about_phantom_id: string | null;
-      replaces?: boolean;
-    }> };
+    let parsed: {
+      facts: Array<{
+        fact_type: string;
+        content: string;
+        confidence: number;
+        about_user_id: string | null;
+        about_phantom_id: string | null;
+        replaces?: boolean;
+      }>;
+      structured_updates?: StructuredUpdate[];
+    };
 
     try {
       // Nettoyer les éventuels backticks markdown
@@ -173,7 +249,6 @@ Si aucun fait VRAIMENT nouveau → retourne { "facts": [] }`;
     }
 
     const facts = parsed.facts ?? [];
-    if (facts.length === 0) return NextResponse.json({ ok: true, inserted: 0 });
 
     // ── Déduplication par overlap de mots ───────────────────────────────────
     // Évite les insertions si un fait très similaire existe déjà
@@ -246,8 +321,29 @@ Si aucun fait VRAIMENT nouveau → retourne { "facts": [] }`;
       }
     }
 
-    console.log(`[extract-memory] ${toInsert.length} fait(s) mémorisé(s) pour le foyer ${householdId}`);
-    return NextResponse.json({ ok: true, inserted: toInsert.length, facts: toInsert });
+    // ── Sprint 14 — Auto-sync faits structurés vers phantom_members ────────
+    // Combine Haiku (principal) + regex déterministe (fallback/doublon).
+    const fallbackUpdates = extractStructuredFallback(text, phantoms.map((p) => p.display_name));
+    const mergedUpdates = mergeStructuredUpdates(parsed.structured_updates, fallbackUpdates);
+    if (fallbackUpdates.length > 0 && (!parsed.structured_updates || parsed.structured_updates.length === 0)) {
+      console.log(`[extract-memory] fallback regex a détecté ${fallbackUpdates.length} fait(s) non vus par Haiku`);
+    }
+
+    const applied = await applyStructuredUpdates({
+      admin,
+      householdId,
+      journalId: journalId ?? null,
+      phantoms: phantoms as PhantomRow[],
+      updates: mergedUpdates,
+    });
+
+    console.log(`[extract-memory] ${toInsert.length} fait(s) mémorisé(s) + ${applied.length} champ(s) fiche(s) (haiku: ${(parsed.structured_updates ?? []).length}, regex: ${fallbackUpdates.length}) pour le foyer ${householdId}`);
+    return NextResponse.json({
+      ok: true,
+      inserted: toInsert.length,
+      facts: toInsert,
+      structured_updates: applied,
+    });
 
   } catch (err) {
     console.error('[extract-memory] Error:', err);

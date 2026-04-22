@@ -14,6 +14,7 @@ import { logAiUsage, extractUsageFromResponse } from '@/utils/aiLogger';
 import {
   validateDecomposition,
   ValidationError,
+  projectTitleSimilarity,
   type DecomposedSubtask,
 } from '@/utils/projectDecomposition';
 
@@ -34,6 +35,7 @@ export type DecomposeCoreInput = {
   householdId: string;
   supabase: SupabaseClient;       // anon (lecture avec RLS)
   admin: SupabaseClient;          // service role (inserts)
+  skipDuplicateCheck?: boolean;   // Sprint 14 — bypass quand user a choisi "ajouter"
 };
 
 export type DecomposeCoreOutput =
@@ -58,6 +60,12 @@ export type DecomposeCoreOutput =
       kind: 'pending';
       question: string;
       missing: string | null;
+    }
+  | {
+      kind: 'duplicate';
+      question: string;
+      existing_title: string;
+      existing_date: string | null;
     }
   | {
       kind: 'error';
@@ -169,7 +177,7 @@ Réponds UNIQUEMENT avec l'objet JSON, sans préambule, sans markdown.`;
 
 export async function decomposeProjectCore(input: DecomposeCoreInput): Promise<DecomposeCoreOutput> {
   const startTime = Date.now();
-  const { prompt, userId, userName, householdId, supabase, admin } = input;
+  const { prompt, userId, userName, householdId, supabase, admin, skipDuplicateCheck } = input;
 
   if (!ANTHROPIC_API_KEY) {
     return { kind: 'error', http_status: 503, error: 'IA indisponible' };
@@ -235,6 +243,68 @@ export async function decomposeProjectCore(input: DecomposeCoreInput): Promise<D
   const turnsBlock = turns.length > 0
     ? turns.map((t) => `${t.speaker === 'user' ? 'User' : 'Yova'} : ${t.content.slice(0, 200)}`).join('\n')
     : '';
+
+  // ── Sprint 14 — Détection de doublon projet (bypass si skipDuplicateCheck) ──
+  // Cherche un parent actif existant dont le titre ressemble au prompt user ET
+  // dont la date cible est dans les 14 prochains jours. Seuil strict (0.6).
+  if (!skipDuplicateCheck) {
+    const in14Days = new Date(Date.now() + 14 * 86400000).toISOString();
+    const { data: activeParents } = await supabase
+      .from('household_tasks')
+      .select('id, name, next_due_at, parent_project_id')
+      .eq('household_id', householdId)
+      .eq('is_active', true)
+      .is('parent_project_id', null)
+      .eq('frequency', 'once')
+      .not('next_due_at', 'is', null)
+      .lte('next_due_at', in14Days)
+      .gte('next_due_at', new Date().toISOString())
+      .limit(50);
+
+    let duplicate: { id: string; name: string; next_due_at: string | null } | null = null;
+    if (activeParents && activeParents.length > 0) {
+      const candidateIds = activeParents.map((t) => t.id);
+      const { data: children } = await supabase
+        .from('household_tasks')
+        .select('parent_project_id')
+        .eq('household_id', householdId)
+        .in('parent_project_id', candidateIds);
+      const parentIds = new Set((children ?? []).map((c) => c.parent_project_id).filter(Boolean));
+
+      for (const p of activeParents) {
+        if (!parentIds.has(p.id)) continue;
+        const sim = projectTitleSimilarity(p.name, prompt);
+        if (sim >= 0.6) {
+          duplicate = { id: p.id, name: p.name, next_due_at: p.next_due_at };
+          break;
+        }
+      }
+    }
+
+    if (duplicate) {
+      const dateStr = duplicate.next_due_at
+        ? new Date(duplicate.next_due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+        : 'bientôt';
+      const question = `Tu as déjà un "${duplicate.name}" prévu le ${dateStr}. Tu veux le remplacer ou j'ajoute à côté ?`;
+      await admin.from('conversation_turns').insert({
+        household_id: householdId, user_id: userId, speaker: 'agent',
+        content: question, source: 'chat',
+        extracted_facts: {
+          pending_project_duplicate: {
+            original_prompt: prompt,
+            existing_parent_id: duplicate.id,
+            existing_title: duplicate.name,
+          },
+        },
+      });
+      return {
+        kind: 'duplicate',
+        question,
+        existing_title: duplicate.name,
+        existing_date: duplicate.next_due_at,
+      };
+    }
+  }
 
   const todayIso = new Date().toISOString().slice(0, 10);
   const systemPrompt = buildSystemPrompt({
@@ -460,6 +530,46 @@ export async function decomposeProjectCore(input: DecomposeCoreInput): Promise<D
  * Récupère un pending_project récent (< 10 min) stocké par Yova, si l'user
  * vient de répondre à une question unique. Renvoie null sinon.
  */
+/**
+ * Sprint 14 — Récupère un pending_project_duplicate récent (< 10 min).
+ * Renvoie le contexte + la réponse user attendue ('remplacer' | 'ajouter').
+ */
+export async function findPendingDuplicate(
+  supabase: SupabaseClient,
+  householdId: string,
+): Promise<{ original_prompt: string; existing_parent_id: string; existing_title: string } | null> {
+  const { data } = await supabase.from('conversation_turns')
+    .select('extracted_facts, created_at')
+    .eq('household_id', householdId).eq('speaker', 'agent')
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (!data) return null;
+  const ageMs = Date.now() - new Date(data.created_at).getTime();
+  if (ageMs > 10 * 60 * 1000) return null;
+  const facts = data.extracted_facts as Record<string, unknown> | null;
+  const p = facts?.pending_project_duplicate as {
+    original_prompt?: unknown; existing_parent_id?: unknown; existing_title?: unknown;
+  } | undefined;
+  if (!p || typeof p.original_prompt !== 'string' || typeof p.existing_parent_id !== 'string' || typeof p.existing_title !== 'string') {
+    return null;
+  }
+  return {
+    original_prompt: p.original_prompt,
+    existing_parent_id: p.existing_parent_id,
+    existing_title: p.existing_title,
+  };
+}
+
+/**
+ * Sprint 14 — Détecte la décision user (remplacer/ajouter) après un
+ * pending_project_duplicate. Retourne 'replace' | 'add' | null si ambigu.
+ */
+export function interpretDuplicateAnswer(text: string): 'replace' | 'add' | null {
+  const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (/\b(remplace|remplacer|remplacement|a la place|annule|annuler|supprime)\b/.test(t)) return 'replace';
+  if (/\b(ajoute|ajouter|a cote|en plus|les deux|garde|conserve|oui.*ajoute|separe|separement)\b/.test(t)) return 'add';
+  return null;
+}
+
 export async function findPendingProject(
   supabase: SupabaseClient,
   householdId: string,

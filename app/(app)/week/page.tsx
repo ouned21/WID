@@ -362,33 +362,90 @@ export default function WeekPage() {
     return tasks.filter((t) => t.parent_project_id === filteredProjectId || t.id === filteredProjectId);
   }, [tasks, filteredProjectId]);
 
-  /** Tasks groupées par jour */
+  /** Tasks groupées par jour (Sprint 14 — masque les parents de projet du grid).
+   * Les parents sont toujours visibles dans "Projets à venir" (section > 7j).
+   * Cohérence avec /today où ProjectGroupCard masque déjà les parents du grid. */
   const grouped = useMemo(() => {
+    const parentIdsSet = new Set(parentIdToTitle.keys());
     const map = new Map<string, TaskListItem[]>();
     for (const day of days) {
       map.set(localDateKey(day), []);
     }
     for (const task of filteredTasks) {
       if (!task.next_due_at) continue;
+      if (parentIdsSet.has(task.id)) continue; // masque le parent (sous-tâches gardent le chip)
       const key = localDateKey(new Date(task.next_due_at));
       if (map.has(key)) map.get(key)!.push(task);
     }
     return map;
-  }, [filteredTasks, days]);
+  }, [filteredTasks, days, parentIdToTitle]);
 
   const totalCount = useMemo(
     () => [...grouped.values()].reduce((acc, t) => acc + t.length, 0),
     [grouped],
   );
 
-  /** Projets ponctuels (frequency=once) hors de la fenêtre */
-  const projectTasks = useMemo(() => {
-    const sevenDaysFromNow = getSevenDaysFromNow();
+  /**
+   * Sprint 14 — Projets en cours (parents uniquement) à afficher SOUS le grid.
+   * Sémantique fidèle à "Projets à venir" : on liste les projets parents
+   * actifs, avec leur progression et leur prochaine échéance. Les sous-tâches
+   * > 7 j ne polluent plus la vue semaine — basculer en "Mois" pour les voir.
+   */
+  type UpcomingProject = {
+    parentId: string;
+    title: string;
+    doneCount: number;
+    totalCount: number;
+    nextDate: Date | null;
+  };
+  const upcomingProjects = useMemo<UpcomingProject[]>(() => {
     if (viewMode === 'month') return [];
-    return filteredTasks
-      .filter((t) => t.frequency === 'once' && t.next_due_at && new Date(t.next_due_at) >= sevenDaysFromNow)
-      .sort((a, b) => new Date(a.next_due_at!).getTime() - new Date(b.next_due_at!).getTime());
-  }, [filteredTasks, viewMode]);
+    // En filtre projet : on cache la liste (l'user est déjà focus sur 1 projet)
+    if (filteredProjectId) return [];
+
+    const parentIds = new Set<string>();
+    for (const t of tasks) if (t.parent_project_id) parentIds.add(t.parent_project_id);
+
+    const childrenByParent = new Map<string, TaskListItem[]>();
+    for (const t of tasks) {
+      if (t.parent_project_id && parentIds.has(t.parent_project_id)) {
+        const list = childrenByParent.get(t.parent_project_id) ?? [];
+        list.push(t);
+        childrenByParent.set(t.parent_project_id, list);
+      }
+    }
+
+    const items: UpcomingProject[] = [];
+    for (const t of tasks) {
+      if (!parentIds.has(t.id)) continue;
+      const children = childrenByParent.get(t.id) ?? [];
+      const total = children.length;
+      if (total === 0) continue;
+      const done = children.filter((c) => !c.is_active).length;
+      if (done === total) continue; // projet terminé → on masque
+
+      const activeDates = children
+        .filter((c) => c.is_active && c.next_due_at)
+        .map((c) => new Date(c.next_due_at!).getTime());
+      const parentDate = t.next_due_at ? new Date(t.next_due_at).getTime() : null;
+      const candidates = [...activeDates, ...(parentDate ? [parentDate] : [])];
+      const nextTs = candidates.length > 0 ? Math.min(...candidates) : null;
+
+      items.push({
+        parentId: t.id,
+        title: t.name,
+        doneCount: done,
+        totalCount: total,
+        nextDate: nextTs ? new Date(nextTs) : null,
+      });
+    }
+
+    return items.sort((a, b) => {
+      const da = a.nextDate?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const db = b.nextDate?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return da - db;
+    });
+  }, [tasks, viewMode, filteredProjectId]);
 
   const filteredProjectTitle = filteredProjectId ? parentIdToTitle.get(filteredProjectId) ?? null : null;
 
@@ -514,49 +571,6 @@ export default function WeekPage() {
         );
       })()}
 
-      {/* ── Projets à venir (semaine uniquement) ── */}
-      {projectTasks.length > 0 && (
-        <div>
-          <div className="flex items-baseline gap-2 px-1 mb-2">
-            <p className="text-[13px] font-semibold uppercase tracking-wide text-[#8e8e93]">Projets à venir</p>
-            <p className="text-[12px] text-[#c7c7cc] ml-auto">{projectTasks.length} tâche{projectTasks.length > 1 ? 's' : ''}</p>
-          </div>
-          <div className="space-y-1.5">
-            {projectTasks.map((task) => {
-              const dateLabel = new Date(task.next_due_at!).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
-              const pInfo = projectInfoFor(task);
-              return (
-                <button
-                  key={task.id}
-                  onClick={() => setActionsTaskId(task.id)}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-white rounded-2xl active:bg-[#f8f8fa] transition-colors text-left"
-                  style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.07)' }}
-                  aria-label={`Actions sur ${task.name}`}
-                >
-                  <MemberBadge task={task} allMembers={allMembers} currentUserId={profile?.id ?? ''} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-[15px] font-medium text-[#1c1c1e] truncate">{task.name}</p>
-                      {pInfo && (
-                        <ProjectChip
-                          parentId={pInfo.parentId}
-                          title={pInfo.title}
-                          onClick={(e) => { e.stopPropagation(); setFilteredProjectId(pInfo.parentId); }}
-                        />
-                      )}
-                    </div>
-                    {task.duration_estimate && (
-                      <p className="text-[12px] text-[#8e8e93] mt-0.5">⏱ {DURATION_LABEL[task.duration_estimate] ?? task.duration_estimate}</p>
-                    )}
-                  </div>
-                  <span className="text-[11px] text-[#8e8e93] flex-shrink-0">{dateLabel}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* ── Jours ── */}
       {visibleDays.map((day) => {
         const key = localDateKey(day);
@@ -601,6 +615,56 @@ export default function WeekPage() {
           </div>
         );
       })}
+
+      {/* ── Projets en cours (semaine uniquement, sous le grid) ── */}
+      {upcomingProjects.length > 0 && (
+        <div className="pt-2">
+          <div className="flex items-baseline gap-2 px-1 mb-2">
+            <p className="text-[13px] font-semibold uppercase tracking-wide text-[#8e8e93]">Projets en cours</p>
+            <p className="text-[12px] text-[#c7c7cc] ml-auto">{upcomingProjects.length} projet{upcomingProjects.length > 1 ? 's' : ''}</p>
+          </div>
+          <div className="space-y-1.5">
+            {upcomingProjects.map((p) => {
+              const c = projectChipColor(p.parentId);
+              const dateLabel = p.nextDate
+                ? p.nextDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+                : '—';
+              const progress = p.totalCount > 0 ? p.doneCount / p.totalCount : 0;
+              return (
+                <button
+                  key={p.parentId}
+                  onClick={() => setFilteredProjectId(p.parentId)}
+                  className="w-full flex items-center gap-3 px-4 py-3 bg-white rounded-2xl active:bg-[#f8f8fa] transition-colors text-left"
+                  style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.07)' }}
+                  aria-label={`Filtrer par projet ${p.title}`}
+                >
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[13px]"
+                    style={{ background: c.bg, color: c.fg }}
+                  >
+                    ✨
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-medium text-[#1c1c1e] truncate">{p.title}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="flex-1 h-1.5 rounded-full" style={{ background: '#f0f2f8' }}>
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${Math.round(progress * 100)}%`, background: c.fg }}
+                        />
+                      </div>
+                      <span className="text-[11px] text-[#8e8e93] flex-shrink-0">
+                        {p.doneCount}/{p.totalCount}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-[#8e8e93] flex-shrink-0">{dateLabel}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Undo toast (archive) */}
       {archivedToast && (
