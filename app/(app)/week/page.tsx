@@ -1,19 +1,17 @@
 'use client';
 
 /**
- * Page "Cette semaine" — Vue de coordination foyer sur 7 jours
- *
- * Objectif : permettre à Barbara et Jonathan de voir d'un coup d'œil
- * ce qui est planifié cette semaine et qui fait quoi.
- * Read-only — pas de planning lourd, juste de la visibilité.
+ * Page "Cette semaine / Ce mois" — Vue de coordination foyer
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import type { TaskListItem, HouseholdMember } from '@/types/database';
+
+type ViewMode = 'week' | 'month';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -51,12 +49,29 @@ function getNextSevenDays(): Date[] {
   });
 }
 
+/** Retourne tous les jours du mois en cours */
+function getDaysOfCurrentMonth(): Date[] {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  return Array.from({ length: daysInMonth }, (_, i) => {
+    const d = new Date(year, month, i + 1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+}
+
 /** Date dans 7 jours à minuit */
 function getSevenDaysFromNow(): Date {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() + 7);
   return d;
+}
+
+function getMonthLabel(): string {
+  return new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 }
 
 /** Clé YYYY-MM-DD locale (pas UTC) */
@@ -180,6 +195,7 @@ export default function WeekPage() {
   const { profile } = useAuthStore();
   const { tasks, loading: tasksLoading, fetchTasks } = useTaskStore();
   const { allMembers, fetchHousehold, loading: householdLoading } = useHouseholdStore();
+  const [viewMode, setViewMode] = useState<ViewMode>('week');
 
   useEffect(() => {
     if (!profile?.household_id) return;
@@ -188,9 +204,11 @@ export default function WeekPage() {
     fetchHousehold(hid);
   }, [profile?.household_id, fetchTasks, fetchHousehold]);
 
-  const days = useMemo(() => getNextSevenDays(), []);
+  const weekDays  = useMemo(() => getNextSevenDays(), []);
+  const monthDays = useMemo(() => getDaysOfCurrentMonth(), []);
+  const days = viewMode === 'week' ? weekDays : monthDays;
 
-  /** Tasks groupées par jour (clé = YYYY-MM-DD local) */
+  /** Tasks groupées par jour */
   const grouped = useMemo(() => {
     const map = new Map<string, TaskListItem[]>();
     for (const day of days) {
@@ -198,11 +216,8 @@ export default function WeekPage() {
     }
     for (const task of tasks) {
       if (!task.next_due_at) continue;
-      const taskDate = new Date(task.next_due_at);
-      const key = localDateKey(taskDate);
-      if (map.has(key)) {
-        map.get(key)!.push(task);
-      }
+      const key = localDateKey(new Date(task.next_due_at));
+      if (map.has(key)) map.get(key)!.push(task);
     }
     return map;
   }, [tasks, days]);
@@ -212,13 +227,14 @@ export default function WeekPage() {
     [grouped],
   );
 
-  /** Tâches de projet (frequency=once) au-delà des 7 jours, triées par date */
+  /** Projets ponctuels (frequency=once) hors de la fenêtre */
   const projectTasks = useMemo(() => {
     const sevenDaysFromNow = getSevenDaysFromNow();
+    if (viewMode === 'month') return [];
     return tasks
       .filter((t) => t.frequency === 'once' && t.next_due_at && new Date(t.next_due_at) >= sevenDaysFromNow)
       .sort((a, b) => new Date(a.next_due_at!).getTime() - new Date(b.next_due_at!).getTime());
-  }, [tasks]);
+  }, [tasks, viewMode]);
 
   const isLoading = (tasksLoading || householdLoading) && tasks.length === 0;
 
@@ -230,26 +246,52 @@ export default function WeekPage() {
     );
   }
 
+  // En vue mois, on n'affiche que les jours qui ont des tâches (ou passés/aujourd'hui)
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const visibleDays = viewMode === 'month'
+    ? days.filter((d) => (grouped.get(localDateKey(d))?.length ?? 0) > 0 || d <= today)
+    : days;
+
   return (
     <div className="space-y-4 pb-8">
 
       {/* ── En-tête ── */}
       <div className="pt-1">
-        <Link
-          href="/today"
-          className="inline-flex items-center gap-1 text-[14px] text-[#007aff] font-medium mb-3"
-        >
+        <Link href="/today" className="inline-flex items-center gap-1 text-[14px] text-[#007aff] font-medium mb-3">
           <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
             <path d="M15 18l-6-6 6-6" />
           </svg>
           Aujourd&apos;hui
         </Link>
-        <h1 className="text-[28px] font-bold text-[#1c1c1e] leading-tight">Cette semaine</h1>
-        <p className="text-[14px] text-[#8e8e93] mt-0.5">
-          {totalCount > 0
-            ? `${totalCount} tâche${totalCount > 1 ? 's' : ''} planifiée${totalCount > 1 ? 's' : ''} pour le foyer`
-            : 'Vue de coordination foyer'}
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-[28px] font-bold text-[#1c1c1e] leading-tight">
+              {viewMode === 'week' ? 'Cette semaine' : 'Ce mois'}
+            </h1>
+            <p className="text-[14px] text-[#8e8e93] mt-0.5">
+              {totalCount > 0
+                ? `${totalCount} tâche${totalCount > 1 ? 's' : ''} planifiée${totalCount > 1 ? 's' : ''} pour le foyer`
+                : viewMode === 'week' ? 'Vue de coordination foyer' : getMonthLabel()}
+            </p>
+          </div>
+          {/* Toggle Semaine / Mois */}
+          <div className="flex rounded-xl overflow-hidden p-0.5 flex-shrink-0" style={{ background: '#f0f2f8' }}>
+            <button onClick={() => setViewMode('week')}
+              className="px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-all"
+              style={viewMode === 'week'
+                ? { background: 'white', color: '#007aff', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }
+                : { color: '#8e8e93' }}>
+              7 j
+            </button>
+            <button onClick={() => setViewMode('month')}
+              className="px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-all"
+              style={viewMode === 'month'
+                ? { background: 'white', color: '#007aff', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }
+                : { color: '#8e8e93' }}>
+              Mois
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* ── Légende membres ── */}
@@ -257,19 +299,18 @@ export default function WeekPage() {
         <MemberLegend allMembers={allMembers} currentUserId={profile?.id ?? ''} />
       )}
 
-      {/* ── Semaine vide ── */}
+      {/* ── Vide ── */}
       {totalCount === 0 && (
-        <div
-          className="rounded-2xl bg-white px-4 py-12 text-center"
-          style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.06)' }}
-        >
+        <div className="rounded-2xl bg-white px-4 py-12 text-center" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.06)' }}>
           <p className="text-[40px] mb-2">✨</p>
-          <p className="text-[17px] font-semibold text-[#1c1c1e]">Semaine tranquille</p>
-          <p className="text-[14px] text-[#8e8e93] mt-1">Aucune tâche planifiée sur les 7 prochains jours</p>
+          <p className="text-[17px] font-semibold text-[#1c1c1e]">
+            {viewMode === 'week' ? 'Semaine tranquille' : 'Mois tranquille'}
+          </p>
+          <p className="text-[14px] text-[#8e8e93] mt-1">Aucune tâche planifiée</p>
         </div>
       )}
 
-      {/* ── Projets à venir (tâches once, au-delà de 7 jours) ── */}
+      {/* ── Projets à venir (semaine uniquement) ── */}
       {projectTasks.length > 0 && (
         <div>
           <div className="flex items-baseline gap-2 px-1 mb-2">
@@ -278,21 +319,14 @@ export default function WeekPage() {
           </div>
           <div className="space-y-1.5">
             {projectTasks.map((task) => {
-              const dueDate = new Date(task.next_due_at!);
-              const dateLabel = dueDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+              const dateLabel = new Date(task.next_due_at!).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
               return (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-3 px-4 py-3 bg-white rounded-2xl"
-                  style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.07)' }}
-                >
+                <div key={task.id} className="flex items-center gap-3 px-4 py-3 bg-white rounded-2xl" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.07)' }}>
                   <MemberBadge task={task} allMembers={allMembers} currentUserId={profile?.id ?? ''} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[15px] font-medium text-[#1c1c1e] truncate">{task.name}</p>
                     {task.duration_estimate && (
-                      <p className="text-[12px] text-[#8e8e93] mt-0.5">
-                        ⏱ {DURATION_LABEL[task.duration_estimate] ?? task.duration_estimate}
-                      </p>
+                      <p className="text-[12px] text-[#8e8e93] mt-0.5">⏱ {DURATION_LABEL[task.duration_estimate] ?? task.duration_estimate}</p>
                     )}
                   </div>
                   <span className="text-[11px] text-[#8e8e93] flex-shrink-0">{dateLabel}</span>
@@ -304,51 +338,39 @@ export default function WeekPage() {
       )}
 
       {/* ── Jours ── */}
-      {days.map((day) => {
+      {visibleDays.map((day) => {
         const key = localDateKey(day);
         const dayTasks = grouped.get(key) ?? [];
         const isToday = day.toDateString() === new Date().toDateString();
+        const isPast = day < today && !isToday;
         const label = getDayLabel(day);
         const dateStr = getDayDate(day);
 
+        // En vue mois, masquer les jours passés vides
+        if (viewMode === 'month' && isPast && dayTasks.length === 0) return null;
+
         return (
-          <div key={key}>
-            {/* Label jour */}
+          <div key={key} style={{ opacity: isPast ? 0.5 : 1 }}>
             <div className="flex items-baseline gap-2 px-1 mb-2">
-              <p
-                className={`text-[13px] font-semibold uppercase tracking-wide ${
-                  isToday ? 'text-[#007aff]' : 'text-[#8e8e93]'
-                }`}
-              >
+              <p className={`text-[13px] font-semibold uppercase tracking-wide ${isToday ? 'text-[#007aff]' : 'text-[#8e8e93]'}`}>
                 {label}
               </p>
-              {dateStr && (
-                <p className="text-[12px] text-[#c7c7cc]">{dateStr}</p>
-              )}
+              {dateStr && <p className="text-[12px] text-[#c7c7cc]">{dateStr}</p>}
               {dayTasks.length > 0 && (
-                <p className="text-[12px] text-[#c7c7cc] ml-auto">
-                  {dayTasks.length} tâche{dayTasks.length > 1 ? 's' : ''}
-                </p>
+                <p className="text-[12px] text-[#c7c7cc] ml-auto">{dayTasks.length} tâche{dayTasks.length > 1 ? 's' : ''}</p>
               )}
             </div>
 
-            {/* Tâches du jour */}
             {dayTasks.length === 0 ? (
-              <div
-                className="rounded-2xl px-4 py-3 text-[13px] text-[#c7c7cc] italic"
-                style={{ background: 'white', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}
-              >
-                Rien de prévu
-              </div>
+              viewMode === 'week' ? (
+                <div className="rounded-2xl px-4 py-3 text-[13px] text-[#c7c7cc] italic" style={{ background: 'white', boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
+                  Rien de prévu
+                </div>
+              ) : null
             ) : (
               <div className="space-y-1.5">
                 {dayTasks.map((task) => (
-                  <WeekTaskRow
-                    key={task.id}
-                    task={task}
-                    allMembers={allMembers}
-                    currentUserId={profile?.id ?? ''}
-                  />
+                  <WeekTaskRow key={task.id} task={task} allMembers={allMembers} currentUserId={profile?.id ?? ''} />
                 ))}
               </div>
             )}
