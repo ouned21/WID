@@ -10,6 +10,7 @@ import { useHouseholdStore } from '@/stores/householdStore';
 import { useMemoryStore, FACT_TYPE_EMOJI, FACT_TYPE_LABEL } from '@/stores/memoryStore';
 import { createClient } from '@/lib/supabase';
 import { TaskActionsSheet } from '@/components/TaskActionsSheet';
+import { isInEveningWindow, hasCheckinForCurrentWindow } from '@/utils/checkinWindow';
 import type { TaskListItem, HouseholdMember } from '@/types/database';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -604,6 +605,41 @@ export default function JournalPage() {
   // L'accroche d'ouverture s'adapte à l'heure locale mais l'input ne force rien.
   const currentHour = new Date().getHours();
 
+  // ── Sprint 15bis : ouverture tailored dans la fenêtre check-in du soir ──
+  // Option A validée (non-bloquant) : la bubble statique s'affiche instantanément
+  // au mount ; le fetch Sonnet tourne en arrière-plan et swap la bubble
+  // silencieusement si la réponse arrive avant que l'user commence à écrire
+  // ou à envoyer. Zéro latence perçue, fallback gracieux si Sonnet traîne.
+  const [openerQuestion, setOpenerQuestion] = useState<string | null>(null);
+  // Verrouille le swap dès que l'user interagit (tape ou envoie) pour éviter
+  // qu'une bubble se change sous ses yeux pendant qu'il est en train d'écrire.
+  const openerLockedRef = useRef(false);
+  useEffect(() => {
+    if (!profile?.household_id) return;
+    const now = new Date();
+    const inWindow = isInEveningWindow(now);
+    const alreadyDone = hasCheckinForCurrentWindow(now, profile.last_checkin_at ?? null);
+    if (!inWindow || alreadyDone) return;
+
+    let cancelled = false;
+    fetch('/api/ai/checkin-opener', { method: 'POST' })
+      .then(async (r) => {
+        if (!r.ok) return null;
+        return (await r.json()) as { question?: string };
+      })
+      .then((data) => {
+        if (cancelled || openerLockedRef.current) return;
+        if (data?.question) setOpenerQuestion(data.question);
+      })
+      .catch(() => { /* silencieux — bubble statique déjà affichée */ });
+    return () => { cancelled = true; };
+  }, [profile?.household_id, profile?.last_checkin_at]);
+
+  // Verrouille la bubble dès que l'user commence à taper ou ajoute un message.
+  useEffect(() => {
+    if (text.length > 0 || messages.length > 0) openerLockedRef.current = true;
+  }, [text, messages.length]);
+
   // ── Vocal STT ──
   const [isListening, setIsListening] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
@@ -937,16 +973,20 @@ export default function JournalPage() {
       {/* ── Zone de chat ── */}
       <div className="mx-4">
 
-        {/* Message d'accueil Yova si conversation vide — accroche contextuelle à l'heure (sprint 15 : conv libre 100%) */}
+        {/* Message d'accueil Yova si conversation vide
+            Sprint 15bis (option A non-bloquant) : la bubble statique s'affiche
+            instantanément ; si l'opener tailored arrive avant que l'user
+            commence à écrire, on swap silencieusement via `openerQuestion`. */}
         {messages.length === 0 && !isDone && (
           <div className="mb-4">
             <YovaBubble
               content={
-                currentHour >= 20 || currentHour < 4
+                openerQuestion ??
+                (currentHour >= 20 || currentHour < 4
                   ? "Bonsoir. Comment s'est passée la journée ? Raconte-moi ce que t'as géré — je retiens tout pour alléger la suite."
                   : currentHour < 12
                   ? "Salut. T'as quelque chose à me raconter sur hier soir ou ce matin ? Je prends note."
-                  : "Raconte. Ce que t'as fait, ce qui t'a pesé, ce qui t'inquiète — je m'en souviens pour toi."
+                  : "Raconte. Ce que t'as fait, ce qui t'a pesé, ce qui t'inquiète — je m'en souviens pour toi.")
               }
               moodTone={null}
             />
