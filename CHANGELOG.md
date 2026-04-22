@@ -6,6 +6,24 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-22] — Sprint 4 : Onboarding agent Claude (conversation libre)
+
+### Modifié
+- `app/(app)/onboarding/page.tsx` — rewrite : Claude pilote la conversation de bout en bout, questions adaptées au foyer, chips optionnelles, 4-8 échanges selon la complexité
+- `app/api/onboarding/chat/route.ts` — nouvelle route : loop Claude stateless, détecte YOVA_DONE, génère les tâches calibrées dans la réponse finale, parse les chips [opt1|opt2]
+
+### Supprimé (absorbé)
+- `/api/onboarding/generate-tasks` — plus nécessaire, Claude génère les tâches directement dans la réponse finale de /api/onboarding/chat
+
+### Pilier spec
+- Pilier 1 — Connaissance intime (Claude extrait le contexte naturellement)
+- Pilier 4 — Mode crise (énergie=low → tâches vitales uniquement)
+
+### À valider
+- Test sur device réel (Jonathan) avant merge → main
+
+---
+
 ## [2026-04-22] — Sprint 3 : Onboarding conversationnel Yova
 
 ### Ajouté
