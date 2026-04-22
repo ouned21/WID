@@ -35,6 +35,7 @@ const EQUIP_CAT_LABELS: Record<string, string> = {
 type DonePayload = {
   taskRows:      Record<string, unknown>[];
   children:      { name: string; age: number; school_class: string | null }[];
+  adults:        { name: string }[];
   householdMeta: { energy_level: string; has_external_help: boolean; external_help_description: string | null } | null;
 };
 
@@ -308,6 +309,7 @@ export default function OnboardingPage() {
         const payload: DonePayload = {
           taskRows:      data.taskRows      ?? [],
           children:      data.children      ?? [],
+          adults:        (data as { adults?: { name: string }[] }).adults ?? [],
           householdMeta: data.householdMeta ?? null,
         };
         setDonePayload(payload);
@@ -475,13 +477,22 @@ export default function OnboardingPage() {
       }
       if (!hid) throw new Error('Foyer introuvable — rechargez la page.');
 
-      const phantomMembers = payload.children.map(c => ({
-        display_name: c.name,
-        member_type:  'child',
-        birth_date:   null,
-        school_class: c.school_class ?? null,
-        specifics:    {},
-      }));
+      const phantomMembers = [
+        ...payload.children.map(c => ({
+          display_name: c.name,
+          member_type:  'child',
+          birth_date:   null,
+          school_class: c.school_class ?? null,
+          specifics:    {},
+        })),
+        ...(payload.adults ?? []).map(a => ({
+          display_name: a.name,
+          member_type:  'adult',
+          birth_date:   null,
+          school_class: null,
+          specifics:    {},
+        })),
+      ];
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 30_000);

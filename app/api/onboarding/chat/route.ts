@@ -48,6 +48,7 @@ UNE SEULE QUESTION PAR MESSAGE — surtout pour les questions avec suggestions r
 INFORMATIONS À COLLECTER (toutes nécessaires avant de générer) :
 - householdSize : nombre de personnes dans le foyer
 - hasChildren + childrenRaw : y a-t-il des enfants ? Si oui, prénoms et âges (ex: "Léa 7 ans, Tom 4 ans")
+- adultsRaw : si householdSize > 1, demande le prénom des autres adultes du foyer (partenaire, colocataire…). Question courte, ex: "Et les autres adultes, comment ils s'appellent ?" Si l'utilisateur est seul avec des enfants, adultsRaw = "".
 - constraints : allergies ou contraintes alimentaires ("" si aucune)
 - hasExternalHelp + externalHelpRaw : aide extérieure (femme de ménage, baby-sitter, livraison repas...) ("" si aucune)
 - equipment : liste des équipements disponibles — IMPORTANT : quand tu poses cette question, termine ton message exactement par [SHOW_EQUIPMENT] (sans rien après). Le frontend affichera une sélection visuelle à l'utilisateur. Tu n'as pas besoin de lister les équipements toi-même.
@@ -111,6 +112,9 @@ QUAND TU AS TOUTES LES INFORMATIONS :
   ],
   "children": [
     { "name": "<string>", "age": <number>, "school_class": "<string ou null>" }
+  ],
+  "adults": [
+    { "name": "<string>" }
   ],
   "householdMeta": {
     "energy_level": "<low|medium|high>",
@@ -223,6 +227,7 @@ export async function POST(req: NextRequest) {
             mental_load_score: number; next_due_at: string;
           }[];
           children: { name: string; age: number; school_class: string | null }[];
+          adults: { name: string }[];
           householdMeta: { energy_level: string; has_external_help: boolean; external_help_description: string | null };
         };
 
@@ -253,6 +258,7 @@ export async function POST(req: NextRequest) {
           done: true,
           taskRows,
           children:      parsed.children      ?? [],
+          adults:        parsed.adults        ?? [],
           householdMeta: parsed.householdMeta ?? null,
         });
       } catch (parseErr) {
