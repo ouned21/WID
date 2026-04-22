@@ -77,15 +77,18 @@ const GENERATING_STEPS = [
   { icon: '✨', text: 'Dernières finitions…' },
 ];
 
-function GeneratingScreen() {
+function GeneratingScreen({ error, onRetry }: { error?: string | null; onRetry?: () => void }) {
   const [stepIdx, setStepIdx] = useState(0);
+  const [tooLong, setTooLong] = useState(false);
 
   useEffect(() => {
+    if (error) return;
     const id = setInterval(() => {
       setStepIdx(i => (i + 1) % GENERATING_STEPS.length);
     }, 1800);
-    return () => clearInterval(id);
-  }, []);
+    const longTimer = setTimeout(() => setTooLong(true), 20_000);
+    return () => { clearInterval(id); clearTimeout(longTimer); };
+  }, [error]);
 
   const current = GENERATING_STEPS[stepIdx];
 
@@ -144,35 +147,55 @@ function GeneratingScreen() {
           Quelques secondes, promis.
         </p>
 
-        {/* Étape courante */}
-        <div
-          key={stepIdx}
-          className="flex items-center gap-3 px-5 py-3.5 rounded-2xl"
-          style={{
-            background: 'rgba(255,255,255,0.07)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            animation: 'yova-fade-up 0.4s ease forwards',
-            minWidth: 240,
-          }}
-        >
-          <span className="text-[22px]">{current.icon}</span>
-          <p className="text-[15px] font-medium text-white/90">{current.text}</p>
-        </div>
-
-        {/* Progress dots */}
-        <div className="flex gap-1.5 mt-8">
-          {GENERATING_STEPS.map((_, i) => (
+        {/* Erreur */}
+        {error ? (
+          <div className="mt-6 flex flex-col items-center gap-4 px-4 text-center">
+            <div className="rounded-2xl px-5 py-4 max-w-[300px]"
+              style={{ background: 'rgba(255,59,48,0.15)', border: '1px solid rgba(255,59,48,0.4)' }}>
+              <p className="text-[13px] text-white/80 leading-relaxed">{error}</p>
+            </div>
+            {onRetry && (
+              <button onClick={onRetry}
+                className="rounded-2xl px-6 py-3 text-[15px] font-bold text-white"
+                style={{ background: 'linear-gradient(135deg,#007aff,#5856d6)' }}>
+                Réessayer
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Étape courante */}
             <div
-              key={i}
-              className="rounded-full transition-all duration-500"
+              key={stepIdx}
+              className="flex items-center gap-3 px-5 py-3.5 rounded-2xl"
               style={{
-                width:  i === stepIdx ? 20 : 6,
-                height: 6,
-                background: i === stepIdx ? '#007aff' : 'rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.07)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                animation: 'yova-fade-up 0.4s ease forwards',
+                minWidth: 240,
               }}
-            />
-          ))}
-        </div>
+            >
+              <span className="text-[22px]">{current.icon}</span>
+              <p className="text-[15px] font-medium text-white/90">{current.text}</p>
+            </div>
+
+            {/* Progress dots */}
+            <div className="flex gap-1.5 mt-8">
+              {GENERATING_STEPS.map((_, i) => (
+                <div key={i} className="rounded-full transition-all duration-500"
+                  style={{ width: i === stepIdx ? 20 : 6, height: 6,
+                    background: i === stepIdx ? '#007aff' : 'rgba(255,255,255,0.2)' }} />
+              ))}
+            </div>
+
+            {/* Message si ça prend trop longtemps */}
+            {tooLong && (
+              <p className="mt-6 text-[13px] text-center px-6" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                C&apos;est plus long que prévu… Vérifie ta connexion ou recharge la page.
+              </p>
+            )}
+          </>
+        )}
       </div>
     </>
   );
@@ -201,9 +224,10 @@ export default function OnboardingPage() {
   const [selectedEquipment, setSelectedEquipment] = useState<Set<string>>(new Set());
   const [showEquipment, setShowEquipment]       = useState(false);
 
-  const [donePayload, setDonePayload] = useState<DonePayload | null>(null);
-  const [taskCount, setTaskCount]     = useState(0);
-  const [finishing, setFinishing]     = useState(false);
+  const [donePayload, setDonePayload]   = useState<DonePayload | null>(null);
+  const [taskCount, setTaskCount]       = useState(0);
+  const [finishing, setFinishing]       = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   const chatRef  = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -442,6 +466,7 @@ export default function OnboardingPage() {
 
   // ── Persist tasks ──────────────────────────────────────────────────────────
   const persistTasks = async (payload: DonePayload) => {
+    setGenerateError(null);
     try {
       let hid = useAuthStore.getState().profile?.household_id;
       if (!hid) {
@@ -458,8 +483,12 @@ export default function OnboardingPage() {
         specifics:    {},
       }));
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30_000);
+
       const res = await fetch('/api/onboarding/create-tasks', {
         method: 'POST',
+        signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           taskRows:         payload.taskRows,
@@ -468,6 +497,8 @@ export default function OnboardingPage() {
           customSuggestions: [],
         }),
       });
+      clearTimeout(timeout);
+
       const data = await res.json() as { tasks?: { id: string }[]; error?: string };
       if (!res.ok) throw new Error(data.error ?? `Erreur ${res.status}`);
 
@@ -478,8 +509,8 @@ export default function OnboardingPage() {
       setStep('done');
     } catch (err) {
       console.error('[onboarding] persistTasks error:', err);
-      setError(err instanceof Error ? err.message : 'Erreur lors de la création. Rechargez la page.');
-      setStep('chat'); // go back to chat so user sees the error
+      const msg = err instanceof Error ? err.message : 'Erreur lors de la création.';
+      setGenerateError(msg);
     }
   };
 
@@ -586,7 +617,12 @@ export default function OnboardingPage() {
 
   // ── Generating screen ──────────────────────────────────────────────────────
   if (step === 'generating') {
-    return <GeneratingScreen />;
+    return (
+      <GeneratingScreen
+        error={generateError}
+        onRetry={donePayload ? () => { setGenerateError(null); void persistTasks(donePayload); } : undefined}
+      />
+    );
   }
 
   // ── Chat UI (chat + done) ──────────────────────────────────────────────────
