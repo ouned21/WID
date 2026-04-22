@@ -136,9 +136,9 @@ RÈGLES DE GÉNÉRATION DES TÂCHES (à appliquer dans le JSON final) :
 - Chaque tâche doit avoir un nom UNIQUE — aucun doublon dans la liste
 - N'inclus PAS les tâches couvertes par l'aide extérieure (ex: si femme de ménage → pas de ménage)
 - Si enfants : inclus tâches enfants (préparation école, devoirs, activités, réappro couches/hygiène si < 3 ans)
-- ❌ EXCLURE absolument : bain du soir, douche, brossage dents, coucher des enfants, repas du matin — ce sont des rituels automatiques que personne n'oublie, ils génèrent du bruit sans valeur
-- ❌ EXCLURE : sortir les poubelles quotidiennement (inclure seulement si collecte hebdomadaire ou spécifique)
-- ✅ INCLURE les tâches qui demandent une planification ou qu'on oublie vraiment : courses, linge, cuisine du soir, ménage, admin, réappro stocks, maintenance
+- ❌ EXCLURE absolument ces rituels automatiques que personne n'oublie : bain du soir, douche, brossage dents, coucher des enfants, repas du matin, débarrasser la table, faire/laver la vaisselle, faire son lit — ils génèrent du bruit sans aucune valeur
+- ❌ EXCLURE : sortir les poubelles quotidiennement (inclure seulement la collecte hebdomadaire ou le tri sélectif)
+- ✅ INCLURE uniquement les tâches qui demandent une planification consciente ou qu'on oublie vraiment : courses, linge, cuisine du soir (menu à décider), ménage profond, admin, réappro stocks, entretien, prep enfants (école, activités)
 - Si animal mentionné dans les équipements : inclus tâches animaux (nourriture, sortie, litière...)
 - Si jardin mentionné : inclus entretien extérieur
 - Si énergie=low : tâches vitales uniquement (cuisine simple, linge, enfants)
