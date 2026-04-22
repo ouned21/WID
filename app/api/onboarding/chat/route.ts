@@ -135,14 +135,27 @@ RÈGLES DE GÉNÉRATION DES TÂCHES (à appliquer dans le JSON final) :
 - Entre 10 et 18 tâches, adaptées à CE foyer spécifiquement
 - Chaque tâche doit avoir un nom UNIQUE — aucun doublon dans la liste
 - N'inclus PAS les tâches couvertes par l'aide extérieure (ex: si femme de ménage → pas de ménage)
-- Si enfants : inclus tâches enfants liées à l'organisation (devoirs, activités sportives/culturelles, rdv médicaux). ⚠️ "réappro couches/lingettes" = UNIQUEMENT si l'utilisateur mentionne explicitement un bébé en couches (< 2 ans) — pas pour des enfants scolarisés.
-- ❌ EXCLURE absolument ces rituels automatiques que personne n'oublie : bain du soir, douche, brossage dents, coucher des enfants, repas du matin, débarrasser la table, faire/laver la vaisselle, faire son lit, préparer les enfants pour l'école (routine quotidienne évidente), vérifier/ranger les affaires d'école, préparer le cartable — ils génèrent du bruit sans aucune valeur
-- ❌ EXCLURE : sortir les poubelles quotidiennement (inclure seulement la collecte hebdomadaire ou le tri sélectif)
-- ❌ EXCLURE : "plier le linge" ou "ranger le linge" séparément — c'est implicitement inclus dans la tâche lessive si elle est déjà listée
-- ❌ N'INVENTE JAMAIS de besoin non mentionné par l'utilisateur (réappro couches, alimentation animaux, jardinage...) — inclus ces tâches UNIQUEMENT si l'utilisateur l'a explicitement mentionné
-- ✅ INCLURE uniquement les tâches qui demandent une planification consciente ou qu'on oublie vraiment : courses, lessive (pas le pliage séparé), cuisine du soir (menu à décider), ménage profond, admin, réappro stocks alimentaires, entretien, activités des enfants (sport, culture, rdv)
-- Si animal mentionné dans les équipements : inclus tâches animaux (nourriture, sortie, litière...)
-- Si jardin mentionné : inclus entretien extérieur
+
+🔴 RÈGLE ABSOLUE — ZÉRO IMPROVISATION :
+Tu ne génères QUE des tâches dont le besoin a été EXPLICITEMENT mentionné par l'utilisateur dans la conversation.
+Avant d'inclure une tâche, pose-toi cette question : "L'utilisateur a-t-il mentionné ce besoin en mots ?"
+Si la réponse est NON → tu n'inclus PAS cette tâche, peu importe si tu penses qu'elle est logique.
+Exemples de ce qui est INTERDIT sans mention explicite :
+  ❌ couches, lingettes, nourriture bébé → seulement si l'user a dit "j'ai un bébé en couches"
+  ❌ nourriture animaux, sortir le chien → seulement si l'user a mentionné un animal
+  ❌ jardinage, tonte → seulement si l'user a mentionné un jardin
+  ❌ nettoyage haute chaise, surfaces repas bébé → seulement si l'user a mentionné un bébé
+  ❌ vêtements/affaires enfants → seulement si l'user l'a évoqué explicitement
+
+❌ EXCLURE absolument ces rituels automatiques que personne n'oublie : bain, douche, brossage dents, coucher des enfants, repas du matin, débarrasser la table, faire/laver la vaisselle, faire son lit, préparer les enfants pour l'école, vérifier/ranger les affaires d'école, préparer le cartable, nettoyer les surfaces après repas
+❌ EXCLURE : sortir les poubelles quotidiennement (collecte hebdo ou tri sélectif uniquement)
+❌ EXCLURE : "plier le linge" ou "ranger le linge" — implicite si la lessive est déjà listée
+
+✅ TÂCHES AUTORISÉES sans mention explicite (besoins universels d'un foyer) :
+  courses alimentaires, lessive, cuisine du soir, ménage (sol, salle de bain, WC), rangement général, admin courrier/factures
+
+- Si animal dans équipements → tâches animaux autorisées
+- Si jardin dans équipements → entretien extérieur autorisé
 - Si énergie=low : tâches vitales uniquement (cuisine simple, linge, enfants)
 - Calibre next_due_at selon l'état actuel (date actuelle : ${todayISO}) :
   * Courses "done" → prochaine dans ~5 jours
