@@ -4,6 +4,7 @@ import {
   levenshtein,
   matchPhantomByName,
   applyStructuredUpdates,
+  extractStructuredFallback,
 } from './route';
 
 type PhantomRow = { id: string; display_name: string; specifics: Record<string, unknown> | null };
@@ -167,6 +168,43 @@ describe('applyStructuredUpdates', () => {
     expect(applied[0].value).toEqual(['arachides', 'fruits à coque']);
     const updateCall = admin._calls.find((c) => c.op === 'update');
     expect(updateCall?.patch).toEqual({ specifics: { allergies: ['arachides', 'fruits à coque'] } });
+  });
+
+  it('extractStructuredFallback — anniv format check-in', () => {
+    const updates = extractStructuredFallback(
+      "Comment ça va ? l'anniversaire d'Eva c'est le 13 mai\n\nEt à la maison ? ok",
+      ['Eva', 'Tina'],
+    );
+    const eva = updates.find((u) => u.member_name === 'Eva' && u.field === 'birth_date');
+    expect(eva).toBeTruthy();
+    expect(typeof eva!.value).toBe('string');
+    expect(eva!.value).toMatch(/^\d{4}-05-13$/);
+  });
+
+  it('extractStructuredFallback — classe scolaire', () => {
+    const updates = extractStructuredFallback('Tina rentre en CE1 en septembre', ['Eva', 'Tina']);
+    expect(updates).toContainEqual(expect.objectContaining({
+      member_name: 'Tina', field: 'school_class', value: 'CE1',
+    }));
+  });
+
+  it('extractStructuredFallback — allergie', () => {
+    const updates = extractStructuredFallback('Eva est allergique aux arachides', ['Eva']);
+    expect(updates).toContainEqual(expect.objectContaining({
+      member_name: 'Eva', field: 'allergies',
+    }));
+    const a = updates.find((u) => u.field === 'allergies');
+    expect(a!.value).toEqual(['arachides']);
+  });
+
+  it('extractStructuredFallback — skip si prénom pas dans phantoms', () => {
+    const updates = extractStructuredFallback("l'anniv de Bertrand c'est le 3 mars", ['Eva', 'Tina']);
+    expect(updates).toHaveLength(0);
+  });
+
+  it('extractStructuredFallback — date relative ignorée (pas de match regex)', () => {
+    const updates = extractStructuredFallback("l'anniv de Tina c'est dans 2 mois", ['Tina']);
+    expect(updates.filter((u) => u.field === 'birth_date')).toHaveLength(0);
   });
 
   it('écrit school_class tel quel (pas de normalisation)', async () => {

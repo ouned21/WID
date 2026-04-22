@@ -107,6 +107,158 @@ function isIsoDate(s: unknown): s is string {
   return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s).getTime());
 }
 
+// ── Sprint 14 — Fallback regex déterministe ───────────────────────────────
+// Ceinture + bretelles. Haiku n'est pas fiable à 100% pour le format check-in
+// (Q/R) où il préfère narrer qu'extraire. Le fallback regex couvre les 3
+// patterns les plus fréquents : "anniv de X le DD mois" / "X rentre en CLASSE"
+// / "X est allergique à Y". Si Haiku ne retourne rien de structuré mais que
+// ces patterns matchent → on extrait quand même.
+
+const MONTHS_FR: Record<string, number> = {
+  janvier: 1, janv: 1, jan: 1,
+  fevrier: 2, fev: 2,
+  mars: 3,
+  avril: 4, avr: 4,
+  mai: 5,
+  juin: 6,
+  juillet: 7, juil: 7,
+  aout: 8,
+  septembre: 9, sept: 9, sep: 9,
+  octobre: 10, oct: 10,
+  novembre: 11, nov: 11,
+  decembre: 12, dec: 12,
+};
+
+function normalizeAccents(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Extrait des structured_updates déterministes à partir du texte brut.
+ * Utilisé en fallback / en doublon de Haiku.
+ * Exporté pour tests.
+ */
+export function extractStructuredFallback(
+  text: string,
+  phantomNames: string[],
+): StructuredUpdate[] {
+  if (!text || phantomNames.length === 0) return [];
+  const norm = normalizeAccents(text);
+  const updates: StructuredUpdate[] = [];
+
+  // Normalisation des prénoms phantoms pour matching
+  const phantomNorms = phantomNames.map((n) => ({ original: n, norm: normalizeAccents(n) }));
+
+  // Pattern 1 : "anniv(ersaire)? de X (c'est)? le DD mois" ou "anniv de X le DD/MM"
+  // On capture le prénom et la date
+  const anniv1 = /anniv(?:ersaire)?\s+d[eu']?\s*([a-zA-ZÀ-ÿ-]+)[^\d]{0,40}?(\d{1,2})\s+(janvier|janv|jan|fevrier|fev|mars|avril|avr|mai|juin|juillet|juil|aout|septembre|sept|sep|octobre|oct|novembre|nov|decembre|dec)/gi;
+  const anniv2 = /anniv(?:ersaire)?\s+d[eu']?\s*([a-zA-ZÀ-ÿ-]+)[^\d]{0,40}?(\d{1,2})[\/-](\d{1,2})(?:[\/-](\d{2,4}))?/gi;
+
+  let m: RegExpExecArray | null;
+  const normForRegex = norm; // déjà normalisé pour robustesse
+
+  // Pattern anniv avec mois en lettres
+  while ((m = anniv1.exec(normForRegex)) !== null) {
+    const rawName = m[1];
+    const day = parseInt(m[2], 10);
+    const monthKey = m[3].replace(/\./g, '');
+    const month = MONTHS_FR[monthKey];
+    if (!month || day < 1 || day > 31) continue;
+    const matched = phantomNorms.find((p) => p.norm === rawName);
+    if (!matched) continue;
+    // Année : courante si pas encore passée, sinon suivante
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const thisYear = new Date(currentYear, month - 1, day);
+    const year = thisYear.getTime() < now.getTime() - 86400000 ? currentYear + 1 : currentYear;
+    const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    if (!updates.some((u) => u.member_name === matched.original && u.field === 'birth_date')) {
+      updates.push({ member_name: matched.original, field: 'birth_date', value: iso, confidence: 0.92 });
+    }
+  }
+
+  // Pattern anniv avec format DD/MM
+  while ((m = anniv2.exec(normForRegex)) !== null) {
+    const rawName = m[1];
+    const day = parseInt(m[2], 10);
+    const month = parseInt(m[3], 10);
+    let year = m[4] ? parseInt(m[4], 10) : NaN;
+    if (!Number.isFinite(year)) {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const thisYear = new Date(currentYear, month - 1, day);
+      year = thisYear.getTime() < now.getTime() - 86400000 ? currentYear + 1 : currentYear;
+    } else if (year < 100) {
+      year += 2000;
+    }
+    if (month < 1 || month > 12 || day < 1 || day > 31) continue;
+    const matched = phantomNorms.find((p) => p.norm === rawName);
+    if (!matched) continue;
+    const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    if (!updates.some((u) => u.member_name === matched.original && u.field === 'birth_date')) {
+      updates.push({ member_name: matched.original, field: 'birth_date', value: iso, confidence: 0.92 });
+    }
+  }
+
+  // Pattern 2 : "X (rentre|entre|passe|est) en CLASSE" — CLASSE = CP, CE1, CE2, CM1, CM2, 6eme, 5eme, 4eme, 3eme, seconde, premiere, terminale, petite/moyenne/grande section, maternelle
+  const classRegex = /([a-zA-ZÀ-ÿ-]+)\s+(?:rentre|entre|passe|est)\s+en\s+(cp|ce1|ce2|cm1|cm2|6eme|6e|5eme|5e|4eme|4e|3eme|3e|seconde|premiere|terminale|petite\s+section|moyenne\s+section|grande\s+section|maternelle|creche)/gi;
+  while ((m = classRegex.exec(normForRegex)) !== null) {
+    const rawName = m[1];
+    const klass = m[2].trim();
+    const matched = phantomNorms.find((p) => p.norm === rawName);
+    if (!matched) continue;
+    // Remettre en forme propre (upper pour CP/CE*/CM*, capitaliser pour "Grande Section" etc.)
+    let displayClass = klass.toUpperCase();
+    if (/(section|maternelle|creche|seconde|premiere|terminale)/.test(klass)) {
+      displayClass = klass.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    } else {
+      displayClass = klass.replace(/eme/, 'ème').toUpperCase();
+      if (/^\d/.test(displayClass)) displayClass = displayClass.toLowerCase();
+    }
+    if (!updates.some((u) => u.member_name === matched.original && u.field === 'school_class')) {
+      updates.push({ member_name: matched.original, field: 'school_class', value: displayClass, confidence: 0.9 });
+    }
+  }
+
+  // Pattern 3 : "X est allergique (à|aux)? Y" ou "X a une allergie (à|aux)? Y"
+  const allergyRegex = /([a-zA-ZÀ-ÿ-]+)\s+(?:est\s+allergique|a\s+une\s+allergie)\s+(?:à\s+|a\s+|aux\s+|au\s+)?([a-zA-ZÀ-ÿ, -]+?)(?:\.|$|\n|,\s+(?:et|pour|mais))/gi;
+  while ((m = allergyRegex.exec(normForRegex)) !== null) {
+    const rawName = m[1];
+    const allergensRaw = m[2].trim();
+    const matched = phantomNorms.find((p) => p.norm === rawName);
+    if (!matched) continue;
+    const allergens = allergensRaw
+      .split(/,|\s+et\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 1 && s.length < 40);
+    if (allergens.length === 0) continue;
+    if (!updates.some((u) => u.member_name === matched.original && u.field === 'allergies')) {
+      updates.push({ member_name: matched.original, field: 'allergies', value: allergens, confidence: 0.9 });
+    }
+  }
+
+  return updates;
+}
+
+/** Merge Haiku updates + regex fallback updates, sans doublons (même membre/field). */
+function mergeStructuredUpdates(
+  haiku: StructuredUpdate[] | undefined,
+  fallback: StructuredUpdate[],
+): StructuredUpdate[] {
+  const base: StructuredUpdate[] = Array.isArray(haiku) ? [...haiku] : [];
+  for (const f of fallback) {
+    const dup = base.some(
+      (u) =>
+        typeof u.member_name === 'string' &&
+        typeof f.member_name === 'string' &&
+        u.member_name.toLowerCase() === (f.member_name as string).toLowerCase() &&
+        u.field === f.field,
+    );
+    if (!dup) base.push(f);
+  }
+  return base;
+}
+
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -375,15 +527,22 @@ Si aucun fait VRAIMENT nouveau → \`facts: []\`. Si aucun fait structuré déte
     }
 
     // ── Sprint 14 — Auto-sync faits structurés vers phantom_members ────────
+    // Combine Haiku (principal) + regex déterministe (fallback/doublon).
+    const fallbackUpdates = extractStructuredFallback(text, phantoms.map((p) => p.display_name));
+    const mergedUpdates = mergeStructuredUpdates(parsed.structured_updates, fallbackUpdates);
+    if (fallbackUpdates.length > 0 && (!parsed.structured_updates || parsed.structured_updates.length === 0)) {
+      console.log(`[extract-memory] fallback regex a détecté ${fallbackUpdates.length} fait(s) non vus par Haiku`);
+    }
+
     const applied = await applyStructuredUpdates({
       admin,
       householdId,
       journalId: journalId ?? null,
       phantoms: phantoms as PhantomRow[],
-      updates: parsed.structured_updates ?? [],
+      updates: mergedUpdates,
     });
 
-    console.log(`[extract-memory] ${toInsert.length} fait(s) mémorisé(s) + ${applied.length} champ(s) fiche(s) pour le foyer ${householdId}`);
+    console.log(`[extract-memory] ${toInsert.length} fait(s) mémorisé(s) + ${applied.length} champ(s) fiche(s) (haiku: ${(parsed.structured_updates ?? []).length}, regex: ${fallbackUpdates.length}) pour le foyer ${householdId}`);
     return NextResponse.json({
       ok: true,
       inserted: toInsert.length,
