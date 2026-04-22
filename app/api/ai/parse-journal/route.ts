@@ -8,7 +8,12 @@ import { logAiUsage, extractUsageFromResponse } from '@/utils/aiLogger';
 import { computeTaskScore } from '@/utils/taskScoring';
 import { loadTo10 } from '@/utils/designSystem';
 import { detectProjectIntent } from '@/utils/projectDecomposition';
-import { decomposeProjectCore, findPendingProject } from '@/lib/decomposeProjectCore';
+import {
+  decomposeProjectCore,
+  findPendingProject,
+  findPendingDuplicate,
+  interpretDuplicateAnswer,
+} from '@/lib/decomposeProjectCore';
 
 function serviceClient() {
   return createServiceClient(
@@ -257,12 +262,47 @@ export async function POST(request: NextRequest) {
     ? await findPendingProject(supabase as never, householdId)
     : null;
 
-  const routeToDecompose = pending !== null || detectProjectIntent(sanitizedText);
+  // Sprint 14 — pending_project_duplicate (user doit choisir remplacer/ajouter)
+  const pendingDup = conversationHistory.length === 0 && !pending
+    ? await findPendingDuplicate(supabase as never, householdId)
+    : null;
+
+  let skipDuplicateCheck = false;
+  let dupRoutePrompt: string | null = null;
+  if (pendingDup) {
+    const decision = interpretDuplicateAnswer(sanitizedText);
+    if (decision === 'add') {
+      skipDuplicateCheck = true;
+      dupRoutePrompt = pendingDup.original_prompt;
+    } else if (decision === 'replace') {
+      // Archive l'ancien parent + ses enfants, puis décompose fresh
+      await admin.from('household_tasks').update({ is_active: false })
+        .eq('household_id', householdId).eq('id', pendingDup.existing_parent_id);
+      await admin.from('household_tasks').update({ is_active: false })
+        .eq('household_id', householdId).eq('parent_project_id', pendingDup.existing_parent_id);
+      skipDuplicateCheck = true;
+      dupRoutePrompt = pendingDup.original_prompt;
+    } else {
+      // Ambigu → re-ask (même question, pas de nouveau turn user)
+      return NextResponse.json({
+        needs_clarification: true,
+        clarification_question: `Je n'ai pas saisi — tu veux remplacer le "${pendingDup.existing_title}" ou l'ajouter à côté ?`,
+        completions: [], auto_created: [], unmatched: [],
+        project_created: null, project_decomposed: null,
+        ai_response: `Je n'ai pas saisi — tu veux remplacer le "${pendingDup.existing_title}" ou l'ajouter à côté ?`,
+        mood_tone: null,
+      });
+    }
+  }
+
+  const routeToDecompose = pending !== null || pendingDup !== null || detectProjectIntent(sanitizedText);
 
   if (routeToDecompose) {
-    const decomposePrompt = pending
-      ? `${pending.original_prompt} — précision : ${sanitizedText}`
-      : sanitizedText;
+    const decomposePrompt = dupRoutePrompt
+      ? dupRoutePrompt
+      : pending
+        ? `${pending.original_prompt} — précision : ${sanitizedText}`
+        : sanitizedText;
 
     const result = await decomposeProjectCore({
       prompt: decomposePrompt,
@@ -271,6 +311,7 @@ export async function POST(request: NextRequest) {
       householdId,
       supabase: supabase as never,
       admin: admin as never,
+      skipDuplicateCheck,
     });
 
     // Journal d'audit même quand on route (pas de completion créée)
@@ -281,7 +322,9 @@ export async function POST(request: NextRequest) {
         ? `J'ai préparé ton projet : ${result.title} · ${result.subtask_count} tâches planifiées.`
         : result.kind === 'pending'
           ? result.question
-          : (result.user_message ?? result.error),
+          : result.kind === 'duplicate'
+            ? result.question
+            : (result.user_message ?? result.error),
       tokens_input: 0, tokens_output: 0, cost_usd: 0,
       model_used: 'claude-sonnet-4-6', processing_time_ms: Date.now() - startTime,
       mood_tone: null,
@@ -294,7 +337,7 @@ export async function POST(request: NextRequest) {
       }, { status: result.http_status });
     }
 
-    if (result.kind === 'pending') {
+    if (result.kind === 'pending' || result.kind === 'duplicate') {
       return NextResponse.json({
         needs_clarification: true,
         clarification_question: result.question,

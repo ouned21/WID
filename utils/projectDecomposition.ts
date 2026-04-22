@@ -33,6 +33,48 @@ export function detectProjectIntent(text: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Sprint 14 — Anti-doublon projet
+// ---------------------------------------------------------------------------
+
+/**
+ * Mots "vides" que l'on ignore dans la similarité de titres projet.
+ * Strict par design (décision produit sprint 14) — on préfère rater un doublon
+ * que bloquer un vrai nouveau projet par une question inutile.
+ */
+const PROJECT_STOPWORDS = new Set([
+  'le', 'la', 'les', 'un', 'une', 'des', 'du', 'de', 'd', 'l',
+  'à', 'a', 'au', 'aux', 'avec', 'pour', 'chez', 'mon', 'ma', 'mes',
+  'ton', 'ta', 'tes', 'son', 'sa', 'ses', 'notre', 'nos', 'votre', 'vos',
+  'organise', 'organiser', 'prepare', 'preparer', 'prépare', 'préparer',
+  'planifie', 'planifier', 'prevois', 'prévois', 'prévoir', 'fais', 'faire',
+  'ce', 'cette', 'ces', 'et',
+]);
+
+function tokenizeProjectTitle(s: string): Set<string> {
+  return new Set(
+    s.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 3 && !PROJECT_STOPWORDS.has(w)),
+  );
+}
+
+/**
+ * Similarité Jaccard entre deux titres projet (tokens significatifs seulement).
+ * Retourne 0..1. Strict : seuil de match recommandé ≥ 0.6 (item 3 sprint 14).
+ */
+export function projectTitleSimilarity(a: string, b: string): number {
+  const ta = tokenizeProjectTitle(a);
+  const tb = tokenizeProjectTitle(b);
+  if (ta.size === 0 || tb.size === 0) return 0;
+  let inter = 0;
+  for (const t of ta) if (tb.has(t)) inter++;
+  const union = ta.size + tb.size - inter;
+  return union === 0 ? 0 : inter / union;
+}
+
+// ---------------------------------------------------------------------------
 // Types sortie Sonnet
 // ---------------------------------------------------------------------------
 

@@ -61,10 +61,18 @@ type ParseResponse = {
 
 type HistoryMessage = { role: 'user' | 'assistant'; content: string };
 
+type StructuredUpdate = {
+  phantom_id: string;
+  member_name: string;
+  field: 'birth_date' | 'school_class' | 'allergies';
+  value: string | string[];
+};
+
 type ChatMessage =
   | { id: string; type: 'user'; content: string }
   | { id: string; type: 'yova'; content: string; moodTone?: string | null; isQuestion?: boolean }
   | { id: string; type: 'result'; data: ParseResponse }
+  | { id: string; type: 'memory_note'; updates: StructuredUpdate[] }
   | { id: string; type: 'typing' };
 
 type PastJournal = {
@@ -149,6 +157,46 @@ function TypingBubble() {
               className="w-2 h-2 rounded-full bg-white/70 animate-bounce"
               style={{ animationDelay: `${i * 0.15}s` }}
             />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Sprint 14 — Note discrète quand Yova met à jour la fiche d'un membre */
+function MemoryNote({ updates }: { updates: StructuredUpdate[] }) {
+  const FIELD_LABEL: Record<string, string> = {
+    birth_date: 'anniversaire',
+    school_class: 'classe',
+    allergies: 'allergies',
+  };
+  function formatValue(u: StructuredUpdate): string {
+    if (u.field === 'birth_date' && typeof u.value === 'string') {
+      const d = new Date(u.value);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+      }
+    }
+    if (Array.isArray(u.value)) return u.value.join(', ');
+    return String(u.value);
+  }
+  return (
+    <div className="mb-3 flex justify-center">
+      <div
+        className="inline-flex items-start gap-2 rounded-2xl px-3 py-2 text-[12px] text-[#3c3c43]"
+        style={{ background: '#f5f3ff', maxWidth: '90%' }}
+      >
+        <span>📌</span>
+        <div className="flex flex-col gap-0.5">
+          {updates.map((u) => (
+            <span key={`${u.phantom_id}-${u.field}`}>
+              <span className="font-semibold">{u.member_name}</span>
+              {' · '}
+              <span className="text-[#6e6e73]">{FIELD_LABEL[u.field] ?? u.field}</span>
+              {' : '}
+              <span>{formatValue(u)}</span>
+            </span>
           ))}
         </div>
       </div>
@@ -769,7 +817,17 @@ export default function JournalPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ journalId: data.journalId, text: combinedText, householdId: hid }),
-          }).catch(() => {});
+          })
+            .then((r) => r.json())
+            .then((memRes) => {
+              if (!memRes?.ok) return;
+              const updates = Array.isArray(memRes.structured_updates) ? memRes.structured_updates : [];
+              if (updates.length > 0) {
+                setMessages((prev) => [...prev, { id: uid(), type: 'memory_note', updates }]);
+                fetchHousehold(hid);
+              }
+            })
+            .catch(() => {});
         }
       } catch {
         setMessages((prev) => prev.filter((m) => m.id !== typingId));
@@ -864,7 +922,13 @@ export default function JournalPage() {
         })
           .then((r) => r.json())
           .then((memRes) => {
-            if (memRes?.ok) setTimeout(() => fetchMemory(capturedHouseholdId), 800);
+            if (!memRes?.ok) return;
+            const updates = Array.isArray(memRes.structured_updates) ? memRes.structured_updates : [];
+            if (updates.length > 0) {
+              setMessages((prev) => [...prev, { id: uid(), type: 'memory_note', updates }]);
+              fetchHousehold(capturedHouseholdId);
+            }
+            setTimeout(() => fetchMemory(capturedHouseholdId), 800);
           })
           .catch(() => {});
       }
@@ -1025,6 +1089,7 @@ export default function JournalPage() {
               currentUserId={profile?.id ?? ''}
             />
           );
+          if (msg.type === 'memory_note') return <MemoryNote key={msg.id} updates={msg.updates} />;
           return null;
         })}
 

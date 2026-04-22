@@ -362,19 +362,23 @@ export default function WeekPage() {
     return tasks.filter((t) => t.parent_project_id === filteredProjectId || t.id === filteredProjectId);
   }, [tasks, filteredProjectId]);
 
-  /** Tasks groupées par jour */
+  /** Tasks groupées par jour (Sprint 14 — masque les parents de projet du grid).
+   * Les parents sont toujours visibles dans "Projets à venir" (section > 7j).
+   * Cohérence avec /today où ProjectGroupCard masque déjà les parents du grid. */
   const grouped = useMemo(() => {
+    const parentIdsSet = new Set(parentIdToTitle.keys());
     const map = new Map<string, TaskListItem[]>();
     for (const day of days) {
       map.set(localDateKey(day), []);
     }
     for (const task of filteredTasks) {
       if (!task.next_due_at) continue;
+      if (parentIdsSet.has(task.id)) continue; // masque le parent (sous-tâches gardent le chip)
       const key = localDateKey(new Date(task.next_due_at));
       if (map.has(key)) map.get(key)!.push(task);
     }
     return map;
-  }, [filteredTasks, days]);
+  }, [filteredTasks, days, parentIdToTitle]);
 
   const totalCount = useMemo(
     () => [...grouped.values()].reduce((acc, t) => acc + t.length, 0),

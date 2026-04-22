@@ -34,6 +34,79 @@ const FACT_TYPE_EMOJI: Record<string, string> = {
   milestone: '🌟',
 };
 
+// ── Sprint 14 — auto-sync faits structurés vers phantom_members ───────────
+// Helpers partagés (exportés pour tests).
+export function normalizeName(s: string): string {
+  return s.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+}
+
+export function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  const prev = new Array(b.length + 1);
+  const curr = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+  }
+  return prev[b.length];
+}
+
+type PhantomRow = { id: string; display_name: string; specifics: Record<string, unknown> | null };
+
+/**
+ * Retourne le phantom matchant un prénom mentionné dans le journal.
+ * - Match exact (normalisé) prioritaire
+ * - Sinon fallback Levenshtein ≤ 2
+ * - Si plus d'un candidat → null (ambigu, skip)
+ */
+export function matchPhantomByName(
+  name: string,
+  phantoms: PhantomRow[],
+): PhantomRow | null {
+  const n = normalizeName(name);
+  if (!n) return null;
+  const exact = phantoms.filter((p) => normalizeName(p.display_name) === n);
+  if (exact.length === 1) return exact[0];
+  if (exact.length > 1) return null; // ambigu
+  // Fuzzy : distance ≤ 2 ET clairement meilleur que tous les autres candidats
+  // (gap ≥ 2 avec le 2e plus proche) — évite qu'une typo matche plusieurs prénoms.
+  const scored = phantoms
+    .map((p) => ({ p, d: levenshtein(normalizeName(p.display_name), n) }))
+    .sort((a, b) => a.d - b.d);
+  if (scored.length === 0 || scored[0].d > 2) return null;
+  if (scored.length === 1) return scored[0].p;
+  if (scored[1].d - scored[0].d < 1) return null; // strictement meilleur requis
+  return scored[0].p;
+}
+
+type StructuredUpdate = {
+  member_name?: unknown;
+  field?: unknown;
+  value?: unknown;
+  confidence?: unknown;
+};
+
+type AppliedUpdate = {
+  phantom_id: string;
+  member_name: string;
+  field: 'birth_date' | 'school_class' | 'allergies';
+  value: string | string[];
+};
+
+function isIsoDate(s: unknown): s is string {
+  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s).getTime());
+}
+
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -66,7 +139,7 @@ export async function POST(request: NextRequest) {
   // Charger les membres pour le contexte
   const [membersRes, phantomsRes] = await Promise.all([
     admin.from('profiles').select('id, display_name').eq('household_id', householdId),
-    admin.from('phantom_members').select('id, display_name').eq('household_id', householdId),
+    admin.from('phantom_members').select('id, display_name, specifics').eq('household_id', householdId),
   ]);
 
   const members = membersRes.data ?? [];
@@ -76,6 +149,11 @@ export async function POST(request: NextRequest) {
     ...members.map((m) => `- [${m.id}] ${m.display_name} (membre)`),
     ...phantoms.map((p) => `- [phantom:${p.id}] ${p.display_name} (enfant/fantôme)`),
   ].join('\n');
+
+  // Liste des prénoms phantoms pour le prompt (structured_updates)
+  const phantomNames = phantoms.map((p) => p.display_name).join(', ') || '(aucun)';
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const currentYear = new Date().getFullYear();
 
   const existingBlock = existingFacts && existingFacts.length > 0
     ? existingFacts.map((f) => `[${f.fact_type}] ${f.content}`).join('\n')
@@ -115,6 +193,24 @@ Extrais entre 0 et 3 NOUVEAUX faits sur les membres ou le foyer qui méritent d'
 - tension : surcharge, stress, déséquilibre (transitoire)
 - milestone : événement marquant (nouveau job, naissance, rentrée scolaire)
 
+## Faits structurés à écrire dans les fiches membres (nouveau — sprint 14)
+
+Certains faits méritent d'être enregistrés dans la fiche structurée du membre concerné (et pas seulement en mémoire narrative). Trois champs uniquement :
+
+- **birth_date** : date de naissance / anniversaire d'un enfant ou adulte fantôme
+- **school_class** : classe scolaire d'un enfant (CP, CE1, 6ème, etc.) — forme courte telle que dit l'user
+- **allergies** : allergies alimentaires / intolérances
+
+### Règles d'extraction structurée — strictes
+- Aujourd'hui : ${todayIso} (année courante : ${currentYear})
+- **birth_date** : convertis en YYYY-MM-DD. Si année absente ("le 13 mai"), utilise ${currentYear} si la date n'est pas passée, sinon ${currentYear + 1}. **Si date relative ("dans 2 mois", "la semaine prochaine", "bientôt") → NE PAS EXTRAIRE** (n'ajoute rien aux structured_updates)
+- **school_class** : forme courte trimée ("CE1", "6ème", "Grande Section"). Ne corrige pas l'user.
+- **allergies** : liste de strings en français, minuscules ("arachides", "fruits à coque"). Une allergie par entrée.
+- Le \`member_name\` DOIT être exactement le prénom d'un phantom de cette liste : ${phantomNames}. Si le prénom n'est pas dans la liste, n'extrais rien.
+- Confidence < 0.8 = skippé côté serveur. N'invente jamais.
+
+### Format de sortie
+
 Retourne UNIQUEMENT ce JSON (sans markdown) :
 {
   "facts": [
@@ -126,10 +222,18 @@ Retourne UNIQUEMENT ce JSON (sans markdown) :
       "about_phantom_id": "uuid-du-fantôme-si-applicable-sinon-null",
       "replaces": false
     }
+  ],
+  "structured_updates": [
+    {
+      "member_name": "Eva",
+      "field": "birth_date | school_class | allergies",
+      "value": "2019-05-13" | "CE1" | ["arachides"],
+      "confidence": 0.95
+    }
   ]
 }
 
-Si aucun fait VRAIMENT nouveau → retourne { "facts": [] }`;
+Si aucun fait VRAIMENT nouveau → \`facts: []\`. Si aucun fait structuré détecté → \`structured_updates: []\`.`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -154,14 +258,17 @@ Si aucun fait VRAIMENT nouveau → retourne { "facts": [] }`;
     const data = await response.json();
     const rawContent = data.content?.[0]?.text ?? '{"facts":[]}';
 
-    let parsed: { facts: Array<{
-      fact_type: string;
-      content: string;
-      confidence: number;
-      about_user_id: string | null;
-      about_phantom_id: string | null;
-      replaces?: boolean;
-    }> };
+    let parsed: {
+      facts: Array<{
+        fact_type: string;
+        content: string;
+        confidence: number;
+        about_user_id: string | null;
+        about_phantom_id: string | null;
+        replaces?: boolean;
+      }>;
+      structured_updates?: StructuredUpdate[];
+    };
 
     try {
       // Nettoyer les éventuels backticks markdown
@@ -173,7 +280,6 @@ Si aucun fait VRAIMENT nouveau → retourne { "facts": [] }`;
     }
 
     const facts = parsed.facts ?? [];
-    if (facts.length === 0) return NextResponse.json({ ok: true, inserted: 0 });
 
     // ── Déduplication par overlap de mots ───────────────────────────────────
     // Évite les insertions si un fait très similaire existe déjà
@@ -246,8 +352,22 @@ Si aucun fait VRAIMENT nouveau → retourne { "facts": [] }`;
       }
     }
 
-    console.log(`[extract-memory] ${toInsert.length} fait(s) mémorisé(s) pour le foyer ${householdId}`);
-    return NextResponse.json({ ok: true, inserted: toInsert.length, facts: toInsert });
+    // ── Sprint 14 — Auto-sync faits structurés vers phantom_members ────────
+    const applied = await applyStructuredUpdates({
+      admin,
+      householdId,
+      journalId: journalId ?? null,
+      phantoms: phantoms as PhantomRow[],
+      updates: parsed.structured_updates ?? [],
+    });
+
+    console.log(`[extract-memory] ${toInsert.length} fait(s) mémorisé(s) + ${applied.length} champ(s) fiche(s) pour le foyer ${householdId}`);
+    return NextResponse.json({
+      ok: true,
+      inserted: toInsert.length,
+      facts: toInsert,
+      structured_updates: applied,
+    });
 
   } catch (err) {
     console.error('[extract-memory] Error:', err);
@@ -256,3 +376,111 @@ Si aucun fait VRAIMENT nouveau → retourne { "facts": [] }`;
 }
 
 export { FACT_TYPE_EMOJI };
+
+// ── Sprint 14 — Apply structured updates ──────────────────────────────────
+// Exporté pour tests.
+
+type SupabaseAdmin = ReturnType<typeof serviceClient>;
+
+export async function applyStructuredUpdates(args: {
+  admin: SupabaseAdmin;
+  householdId: string;
+  journalId: string | null;
+  phantoms: PhantomRow[];
+  updates: StructuredUpdate[];
+}): Promise<AppliedUpdate[]> {
+  const { admin, householdId, journalId, phantoms, updates } = args;
+  if (!Array.isArray(updates) || updates.length === 0) return [];
+
+  const applied: AppliedUpdate[] = [];
+
+  for (const u of updates) {
+    const name = typeof u.member_name === 'string' ? u.member_name.trim() : '';
+    const field = u.field;
+    const value = u.value;
+    const confidence = typeof u.confidence === 'number' ? u.confidence : 0;
+
+    if (!name || confidence < 0.8) continue;
+    if (field !== 'birth_date' && field !== 'school_class' && field !== 'allergies') continue;
+
+    const match = matchPhantomByName(name, phantoms);
+    if (!match) continue; // ambigu ou introuvable
+
+    // Validation par champ + construction du patch
+    const patch: Record<string, unknown> = {};
+    let appliedValue: string | string[] | null = null;
+
+    if (field === 'birth_date') {
+      if (!isIsoDate(value)) continue;
+      patch.birth_date = value;
+      appliedValue = value;
+    } else if (field === 'school_class') {
+      if (typeof value !== 'string') continue;
+      const v = value.trim().slice(0, 40);
+      if (!v) continue;
+      patch.school_class = v;
+      appliedValue = v;
+    } else if (field === 'allergies') {
+      const arr = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
+      const cleaned = arr
+        .map((x) => (typeof x === 'string' ? x.trim().toLowerCase() : ''))
+        .filter((x) => x.length > 1 && x.length < 60);
+      if (cleaned.length === 0) continue;
+
+      // MERGE dédupliqué (jamais replace — décision produit sprint 14)
+      const existing = match.specifics && typeof match.specifics === 'object'
+        ? (match.specifics as { allergies?: unknown }).allergies
+        : undefined;
+      const existingArr: string[] = Array.isArray(existing)
+        ? existing.filter((x): x is string => typeof x === 'string')
+        : [];
+      const merged = Array.from(new Set([...existingArr.map((x) => x.toLowerCase().trim()), ...cleaned]));
+      const nextSpecifics = { ...(match.specifics as Record<string, unknown> | null ?? {}), allergies: merged };
+      patch.specifics = nextSpecifics;
+      appliedValue = merged;
+    }
+
+    const { error } = await admin
+      .from('phantom_members')
+      .update(patch)
+      .eq('id', match.id)
+      .eq('household_id', householdId);
+
+    if (error) {
+      console.error('[extract-memory] structured update failed:', match.display_name, field, error.message);
+      continue;
+    }
+
+    // Mise à jour locale de l'objet phantom (au cas où 2 updates touchent le même membre)
+    if (field === 'allergies') {
+      match.specifics = patch.specifics as Record<string, unknown>;
+    }
+
+    // Trace audit dans agent_memory_facts (visible dans "Ce que Yova sait")
+    const traceContent = field === 'birth_date'
+      ? `Anniversaire de ${match.display_name} : ${appliedValue}`
+      : field === 'school_class'
+        ? `${match.display_name} est en ${appliedValue}`
+        : `${match.display_name} — allergies : ${(appliedValue as string[]).join(', ')}`;
+
+    await admin.from('agent_memory_facts').insert({
+      household_id: householdId,
+      about_phantom_id: match.id,
+      about_user_id: null,
+      fact_type: 'context',
+      content: traceContent.slice(0, 500),
+      confidence: Math.min(1, confidence),
+      source_journal_id: journalId,
+      is_active: true,
+    });
+
+    applied.push({
+      phantom_id: match.id,
+      member_name: match.display_name,
+      field,
+      value: appliedValue as string | string[],
+    });
+  }
+
+  return applied;
+}
