@@ -138,15 +138,15 @@ export default function RegisterPage() {
               </div>
             )}
           </div>
-          <div className="px-4 py-3">
-            <label className="text-[13px] text-[#8e8e93] block mb-1">Confirmer le mot de passe</label>
+          <div className="px-4 py-3" style={{ borderTop: '1.5px solid #f2f2f7' }}>
+            <label className="text-[13px] font-semibold text-[#1c1c1e] block mb-1">Confirmer le mot de passe</label>
             <input
               type={showPw ? 'text' : 'password'}
               required
               autoComplete="new-password"
               value={passwordConfirm}
               onChange={(e) => setPasswordConfirm(e.target.value)}
-              className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#c7c7cc]"
+              className="w-full text-[17px] text-[#1c1c1e] bg-transparent outline-none placeholder:text-[#8e8e93]"
               placeholder="Retape le mot de passe"
             />
             {passwordConfirm.length > 0 && !passwordsMatch && (
