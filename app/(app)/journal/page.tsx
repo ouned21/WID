@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useMemoryStore, FACT_TYPE_EMOJI, FACT_TYPE_LABEL } from '@/stores/memoryStore';
 import { createClient } from '@/lib/supabase';
+import { detectProjectIntent } from '@/utils/projectDecomposition';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -448,6 +449,15 @@ export default function JournalPage() {
   const sendCheckin = async () => {
     const trimmed = text.trim();
     if (!trimmed || trimmed.length < 2 || sending) return;
+
+    // Sprint 12 — bypass check-in si l'user énonce un projet clair.
+    // Le check-in est un rituel émotionnel guidé ; un prompt projet mérite
+    // une décomposition immédiate, pas d'être stocké 3 étapes plus tard.
+    if (detectProjectIntent(trimmed)) {
+      await send();
+      return;
+    }
+
     setText('');
 
     const newAnswers = [...checkinAnswers, trimmed];
