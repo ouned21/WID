@@ -221,12 +221,16 @@ export async function POST(req: NextRequest) {
         const now = new Date();
         now.setHours(9, 0, 0, 0);
 
+        const VALID_FREQUENCIES = new Set(['daily','every_other_day','twice_weekly','weekly','biweekly','monthly','quarterly','yearly']);
+        const VALID_DURATIONS   = new Set(['very_short','short','medium','long','very_long']);
+        const VALID_EFFORTS     = new Set(['none','light','medium','high']);
+
         const taskRows = (parsed.tasks ?? []).map(t => ({
           name:               t.name,
           category_id:        CATEGORY_IDS[t.category] ?? CATEGORY_IDS.cleaning,
-          frequency:          t.frequency          || 'weekly',
-          duration_estimate:  t.duration_estimate  || 'short',
-          physical_effort:    t.physical_effort    || 'medium',
+          frequency:          VALID_FREQUENCIES.has(t.frequency) ? t.frequency : 'weekly',
+          duration_estimate:  VALID_DURATIONS.has(t.duration_estimate) ? t.duration_estimate : 'short',
+          physical_effort:    VALID_EFFORTS.has(t.physical_effort) ? t.physical_effort : 'medium',
           mental_load_score:  Math.min(5, Math.max(1, t.mental_load_score ?? 3)),
           scoring_category:   t.category           || 'cleaning',
           is_active:          true,
