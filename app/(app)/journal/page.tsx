@@ -262,7 +262,11 @@ export default function JournalPage() {
   const [speechError, setSpeechError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const textBeforeRecognitionRef = useRef(''); // texte dans la zone avant de démarrer le micro
-  const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+  // Détecté côté client uniquement (évite hydration mismatch SSR/client)
+  const [isSpeechSupported, setIsSpeechSupported] = useState(false);
+  useEffect(() => {
+    setIsSpeechSupported('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+  }, []);
 
   const toggleListening = () => {
     if (!isSpeechSupported) return;
@@ -295,10 +299,17 @@ export default function JournalPage() {
     };
     recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
       setIsListening(false);
-      if (e.error === 'not-allowed') setSpeechError('Micro refusé — clique sur le 🔒 et autorise le micro.');
-      else if (e.error === 'no-speech') setSpeechError(null); // silence normal
-      else if (e.error === 'audio-capture') setSpeechError('Aucun micro détecté — branche un micro et réessaie.');
-      else setSpeechError('Erreur micro : ' + e.error);
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        setSpeechError('Micro non autorisé — ouvre le site dans Safari (pas en app), puis autorise le micro dans les réglages.');
+      } else if (e.error === 'no-speech') {
+        setSpeechError(null); // silence normal
+      } else if (e.error === 'audio-capture') {
+        setSpeechError('Aucun micro détecté.');
+      } else if (e.error === 'network') {
+        setSpeechError('Connexion requise pour la dictée.');
+      } else {
+        setSpeechError('Erreur micro : ' + e.error);
+      }
     };
     recognition.onend = () => { setIsListening(false); finalTranscript = ''; };
     recognitionRef.current = recognition;
@@ -817,8 +828,8 @@ export default function JournalPage() {
                 style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
                 autoFocus
               />
-              {/* Bouton micro */}
-              {isSpeechSupported && (
+              {/* Bouton micro — masqué si non supporté (iOS PWA notamment) */}
+              {isSpeechSupported ? (
                 <button
                   onClick={toggleListening}
                   disabled={sending}
@@ -844,6 +855,21 @@ export default function JournalPage() {
                     </svg>
                   )}
                 </button>
+              ) : (
+                /* Micro non disponible — indice discret */
+                <div
+                  className="flex-shrink-0 w-[46px] h-[46px] rounded-2xl flex items-center justify-center opacity-30"
+                  style={{ background: 'rgba(0,0,0,0.05)' }}
+                  title="Dictée non disponible — ouvre dans Safari pour activer"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round">
+                    <rect x="9" y="2" width="6" height="12" rx="3" />
+                    <path d="M5 10a7 7 0 0014 0" />
+                    <line x1="12" y1="19" x2="12" y2="22" />
+                    <line x1="9" y1="22" x2="15" y2="22" />
+                    <line x1="3" y1="3" x2="21" y2="21" stroke="#ff3b30" strokeWidth="2" />
+                  </svg>
+                </div>
               )}
               <button
                 onClick={isEveningTime && checkinStep < 3 && !isDone ? sendCheckin : send}
