@@ -491,12 +491,11 @@ export default function JournalPage() {
     if (!trimmed || trimmed.length < 2 || sending) return;
 
     // Sprint 12 — bypass check-in si l'user énonce un projet clair.
-    // Il faut aussi désactiver le check-in côté état (checkinStep=3 + isDone)
-    // sinon la bulle Q1 welcome reste affichée et l'input suivant repart dans
-    // sendCheckin au lieu du flow projet.
+    // checkinStep=3 suffit pour cacher la bulle Q1 welcome ET router les
+    // inputs suivants vers send() (cf. conditions `checkinStep < 3`).
+    // Ne PAS toucher isDone sinon l'input disparaît.
     if (detectProjectIntent(trimmed)) {
       setCheckinStep(3);
-      setIsDone(true);
       await send();
       return;
     }
