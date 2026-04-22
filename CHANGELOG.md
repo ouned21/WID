@@ -6,6 +6,42 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-23] — Sprint 15 : Nettoyage bugs UX critiques (confiance produit pré-Barbara)
+
+### Ajouté
+- `supabase/migrations/20260423_sprint15_checkin_tracking.sql` — colonne `profiles.last_checkin_at timestamptz` (idempotent). Horodate le dernier message journal dans la fenêtre soir (20h-04h) ; masque la CTA `/today` dès qu'un message y a été envoyé
+- `utils/checkinWindow.ts` — helpers `parisHour`, `isInEveningWindow`, `currentWindowStart`, `hasCheckinForCurrentWindow` (fenêtre fixe 20h Paris → 04h du lendemain, robuste aux fuseaux serveur via `Intl.DateTimeFormat`). Heure Paris, pas UTC ni local runner
+- `utils/checkinWindow.test.ts` — 16 tests unitaires (transitions 20h/04h, traversée de minuit, fenêtre courante vs last_checkin_at passé/présent/précédent)
+- `utils/projectParent.ts` — helpers `buildProjectParentIdSet` + `isProjectParent` pour factoriser la règle "un parent de projet ne se complète jamais auto"
+- `utils/projectParent.test.ts` — 8 tests unitaires dont un scénario end-to-end (filtre completions sur parents préserve uniquement les tâches simples)
+
+### Modifié
+- `app/api/ai/parse-journal/route.ts` — (A) select `household_tasks` étend à `parent_project_id` + skip systématique des completions sur tasks référencées comme parents (règle "se complète implicitement quand 100% sous-tâches done" sprint 12, préservée). (B) Après insert `user_journals`, si `isInEveningWindow(now)` → UPDATE `profiles.last_checkin_at = NOW()` pour l'user courant. Aucune condition sur la longueur/qualité du message : ≥ 1 message dans la fenêtre = check-in compté
+- `app/(app)/today/page.tsx` — CTA check-in : `isEvening = hour >= 20` remplacé par `showCheckinCta = isInEveningWindow(now) && !hasCheckinForCurrentWindow(now, profile.last_checkin_at)`. Disparaît dès qu'un message a été envoyé dans la fenêtre courante ; réapparaît naturellement à la prochaine fenêtre (20h le lendemain)
+- `app/(app)/journal/page.tsx` — refonte en conversation libre 100% (C). Suppression : `checkinStep`, `checkinAnswers`, `CHECKIN_QUESTIONS` (3 questions hardcodées), `sendCheckin`, `isEveningTime`, la progress bar 3 points, la branche conditionnelle 20h du welcome, import `detectProjectIntent`. Le bouton envoyer et Cmd+Enter routent toujours vers `send()`. Le bouton "+ Nouveau" reset uniquement le thread. Accroche Yova adaptée à l'heure locale conservée comme bubble d'ouverture
+- `types/database.ts` — ajout `Profile.last_checkin_at: string | null`
+
+### Pourquoi
+Sprint 14 a livré les fondations data (auto-sync faits + anti-doublon projet) mais 3 bugs démo tuaient la confiance : (A) le parseur marquait le parent "Anniversaire d'Eva" comme FAIT quand l'user parlait de la date d'anniversaire, (B) la CTA check-in du soir réapparaissait en boucle même après complétion, (C) impossible d'ouvrir le journal en conv libre après 20h — le flow 3-questions était imposé. Sprint 15 ferme ces 3 fuites avant tests Barbara.
+
+### Règles produit (décisions sprint 15)
+- **Parent de projet jamais completable auto** : règle mécanique, aucune exception. Un parent se complète seulement via 100% de ses sous-tâches (règle sprint 12 intacte)
+- **Fenêtre soir fixe 20h Paris → 04h du lendemain** : pas de fenêtre glissante 24h. Reset à 20h chaque soir. Hors fenêtre = CTA invisible (pas "toujours visible la journée")
+- **≥ 1 message = check-in compté** : pas de détection sémantique. Si l'user a parlé à Yova dans la fenêtre soir, c'est compté. Check-in abandonné ou juste un "ok merci" → compte quand même. Reformulation vers conv contextualisée = sprint 15bis
+- **Check-in guidé supprimé, pas mis en feature flag** : décision Jonathan — les 3 questions hardcodées "font formulaire, pas IA/Yova". Refonte dédiée en sprint 15bis (Sonnet génère une ouverture tailored depuis mémoire narrative + facts + observations)
+
+### Piliers spec
+- Pilier 1 — Connaissance intime du foyer (un parent de projet ne se "souvient" plus à tort)
+- Pilier 3 — Proactivité douce (plus de rappel CTA qui harcèle après complétion)
+
+### Pré-merge — validation
+- `npx tsc --noEmit` : OK
+- `npx vitest run utils/checkinWindow.test.ts utils/projectParent.test.ts` : 24/24 nouveaux tests sprint 15
+- Suite globale : 95/96 (1 fail pré-existant `utils/security.test.ts` sans rapport, noté sprint 14)
+- `npx next build` : compile OK (`✓ Compiled successfully`, TypeScript OK). Échec "page data collection" local par `.env.local` absent dans le worktree — reproduit identique sur main, levé en prod Vercel via env injectées
+
+---
+
 ## [2026-04-22h] — Sprint 14 : Auto-sync faits structurés + nettoyage data legacy
 
 ### Ajouté

@@ -174,3 +174,22 @@ Avantage : on peut merger souvent sans casser les users existants.
 | **Claude (Sonnet)** | Implémentation code, debug, docs, migrations, tests manuels techniques |
 | **Claude (Opus)** | Sollicité ponctuellement sur décisions produit majeures ou bugs complexes |
 | **Barbara** | Beta-testeuse du foyer (sprint 5+) |
+
+### ⚠️ Ce que Jonathan NE tranche PAS (kick-off sprint & en cours de route)
+
+Jonathan n'est **pas** là pour arbitrer des questions techniques. Ne jamais lui poser :
+- Choix d'implémentation (quelle table, quelle colonne, quel hook, quel fichier toucher)
+- Choix d'architecture ou de refacto
+- Choix de lib/dép/framework
+- Stratégies de test unitaire ou de structure de code
+- Nommage de variables, de fonctions, de routes API
+
+Ces décisions reviennent à Claude, qui les prend en s'appuyant sur SPEC_V1_YOVA.md, AGENTS.md et le code existant.
+
+Jonathan tranche uniquement :
+- **Design & ergonomie** (ex : 2 boutons vs toggle ? bloquant ou non ?)
+- **Fonctionnalité produit** (ex : un check-in abandonné compte-t-il comme fait ?)
+- **Utilisation de l'app** (ex : quelle fenêtre temporelle a du sens pour un user en surcharge ?)
+- **Priorisation & scope** (ex : on bundle ou on sort de la scope ?)
+
+En kick-off sprint, lister les ambiguïtés produit/UX **uniquement**. Formuler les questions côté user, pas côté code (❌ "on ajoute une colonne `last_checkin_at` ou on query `user_journals` ?" → ✅ "un check-in abandonné avant la 3e question compte-t-il comme fait ?").

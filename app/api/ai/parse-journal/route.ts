@@ -19,6 +19,8 @@ import {
   applyStructuredUpdates,
   type PhantomRow as StructuredPhantomRow,
 } from '@/lib/structuredMemory';
+import { isInEveningWindow } from '@/utils/checkinWindow';
+import { buildProjectParentIdSet } from '@/utils/projectParent';
 
 function serviceClient() {
   return createServiceClient(
@@ -407,7 +409,7 @@ export async function POST(request: NextRequest) {
 
   const [tasksRes, membersRes, phantomsRes, categoriesRes, memoryRes, householdRes] = await Promise.all([
     supabase.from('household_tasks')
-      .select('id, name, scoring_category, frequency, duration_estimate')
+      .select('id, name, scoring_category, frequency, duration_estimate, parent_project_id')
       .eq('household_id', householdId).eq('is_active', true),
     supabase.from('profiles').select('id, display_name').eq('household_id', householdId),
     supabase.from('phantom_members').select('id, display_name').eq('household_id', householdId),
@@ -851,14 +853,31 @@ Réponds UNIQUEMENT avec ce JSON.`;
       console.error('[parse-journal] Journal insert error:', journalError);
     }
 
+    // Sprint 15 — marquer un check-in du soir si le message tombe dans la
+    // fenêtre 20h-04h (heure Paris). Masque la CTA /today pour la fenêtre courante.
+    if (isInEveningWindow(new Date())) {
+      await admin
+        .from('profiles')
+        .update({ last_checkin_at: new Date().toISOString() })
+        .eq('id', user.id);
+    }
+
     // ─── Insérer les complétions sur tâches existantes ────────────────────
     // Garde-fou : on valide que le task_id existe vraiment dans le foyer
     // (évite les hallucinations de UUID par le modèle)
     const validTaskIds = new Set(tasks.map((t) => t.id));
+    // Sprint 15 — parents de projet (task référencée par ≥ 1 autre task via parent_project_id)
+    // ne doivent JAMAIS être complétées via le parseur. Elles se complètent
+    // implicitement quand 100% sous-tâches done (règle sprint 12).
+    const projectParentIds = buildProjectParentIdSet(tasks);
     for (const comp of completions) {
       if (!comp.task_id || comp.confidence < 0.3) continue;
       if (!validTaskIds.has(comp.task_id)) {
         console.warn('[parse-journal] task_id halluciné ignoré:', comp.task_id, comp.task_name);
+        continue;
+      }
+      if (projectParentIds.has(comp.task_id)) {
+        console.log('[parse-journal] completion parent de projet ignorée (règle sprint 15):', comp.task_id, comp.task_name);
         continue;
       }
       await admin.from('task_completions').insert({
