@@ -51,6 +51,14 @@ function getNextSevenDays(): Date[] {
   });
 }
 
+/** Date dans 7 jours à minuit */
+function getSevenDaysFromNow(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 7);
+  return d;
+}
+
 /** Clé YYYY-MM-DD locale (pas UTC) */
 function localDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -204,6 +212,14 @@ export default function WeekPage() {
     [grouped],
   );
 
+  /** Tâches de projet (frequency=once) au-delà des 7 jours, triées par date */
+  const projectTasks = useMemo(() => {
+    const sevenDaysFromNow = getSevenDaysFromNow();
+    return tasks
+      .filter((t) => t.frequency === 'once' && t.next_due_at && new Date(t.next_due_at) >= sevenDaysFromNow)
+      .sort((a, b) => new Date(a.next_due_at!).getTime() - new Date(b.next_due_at!).getTime());
+  }, [tasks]);
+
   const isLoading = (tasksLoading || householdLoading) && tasks.length === 0;
 
   if (isLoading) {
@@ -250,6 +266,40 @@ export default function WeekPage() {
           <p className="text-[40px] mb-2">✨</p>
           <p className="text-[17px] font-semibold text-[#1c1c1e]">Semaine tranquille</p>
           <p className="text-[14px] text-[#8e8e93] mt-1">Aucune tâche planifiée sur les 7 prochains jours</p>
+        </div>
+      )}
+
+      {/* ── Projets à venir (tâches once, au-delà de 7 jours) ── */}
+      {projectTasks.length > 0 && (
+        <div>
+          <div className="flex items-baseline gap-2 px-1 mb-2">
+            <p className="text-[13px] font-semibold uppercase tracking-wide text-[#8e8e93]">Projets à venir</p>
+            <p className="text-[12px] text-[#c7c7cc] ml-auto">{projectTasks.length} tâche{projectTasks.length > 1 ? 's' : ''}</p>
+          </div>
+          <div className="space-y-1.5">
+            {projectTasks.map((task) => {
+              const dueDate = new Date(task.next_due_at!);
+              const dateLabel = dueDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-3 px-4 py-3 bg-white rounded-2xl"
+                  style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.07)' }}
+                >
+                  <MemberBadge task={task} allMembers={allMembers} currentUserId={profile?.id ?? ''} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-medium text-[#1c1c1e] truncate">{task.name}</p>
+                    {task.duration_estimate && (
+                      <p className="text-[12px] text-[#8e8e93] mt-0.5">
+                        ⏱ {DURATION_LABEL[task.duration_estimate] ?? task.duration_estimate}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-[#8e8e93] flex-shrink-0">{dateLabel}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

@@ -131,7 +131,10 @@ RÈGLES DE GÉNÉRATION DES TÂCHES (à appliquer dans le JSON final) :
 - Entre 10 et 18 tâches, adaptées à CE foyer spécifiquement
 - Chaque tâche doit avoir un nom UNIQUE — aucun doublon dans la liste
 - N'inclus PAS les tâches couvertes par l'aide extérieure (ex: si femme de ménage → pas de ménage)
-- Si enfants : inclus tâches enfants (bain du soir, devoirs, préparation école, activités)
+- Si enfants : inclus tâches enfants (préparation école, devoirs, activités, réappro couches/hygiène si < 3 ans)
+- ❌ EXCLURE absolument : bain du soir, douche, brossage dents, coucher des enfants, repas du matin — ce sont des rituels automatiques que personne n'oublie, ils génèrent du bruit sans valeur
+- ❌ EXCLURE : sortir les poubelles quotidiennement (inclure seulement si collecte hebdomadaire ou spécifique)
+- ✅ INCLURE les tâches qui demandent une planification ou qu'on oublie vraiment : courses, linge, cuisine du soir, ménage, admin, réappro stocks, maintenance
 - Si animal mentionné dans les équipements : inclus tâches animaux (nourriture, sortie, litière...)
 - Si jardin mentionné : inclus entretien extérieur
 - Si énergie=low : tâches vitales uniquement (cuisine simple, linge, enfants)

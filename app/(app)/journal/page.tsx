@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import BackButton from '@/components/BackButton';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
@@ -134,6 +135,41 @@ function TypingBubble() {
   );
 }
 
+/** Card projet avec lien cliquable vers /week */
+function ProjectCard({
+  project,
+  regularTasksCount,
+}: {
+  project: NonNullable<ParseResponse['project_created']>;
+  regularTasksCount: number;
+}) {
+  return (
+    <Link
+      href="/week"
+      className="block px-4 py-3"
+      style={regularTasksCount > 0 ? { borderTop: '0.5px solid #f2f2f7' } : {}}
+    >
+      <div className="flex items-center gap-3">
+        <span className="text-[22px]">📋</span>
+        <div className="flex-1">
+          <p className="text-[13px] font-semibold text-[#1c1c1e]">{project.name}</p>
+          <p className="text-[11px] text-[#8e8e93] mt-0.5">
+            {project.taskCount} tâche{project.taskCount > 1 ? 's' : ''} planifiée{project.taskCount > 1 ? 's' : ''} · échéance{' '}
+            {new Date(project.reference_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+        </div>
+        <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full flex-shrink-0"
+          style={{ background: '#EEF4FF', color: '#007aff' }}>
+          Planning
+          <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 function ResultCard({ data, currentUserName }: { data: ParseResponse; currentUserName?: string }) {
   const regularTasks = [
     ...(data.completions ?? []).map((c) => ({
@@ -179,20 +215,7 @@ function ResultCard({ data, currentUserName }: { data: ParseResponse; currentUse
 
         {/* Tâches de projet créées */}
         {project && (
-          <div
-            className="px-4 py-3 flex items-center gap-3"
-            style={regularTasks.length > 0 ? { borderTop: '0.5px solid #f2f2f7' } : {}}
-          >
-            <span className="text-[22px]">📋</span>
-            <div className="flex-1">
-              <p className="text-[13px] font-semibold text-[#1c1c1e]">{project.name}</p>
-              <p className="text-[11px] text-[#8e8e93] mt-0.5">
-                {project.taskCount} tâche{project.taskCount > 1 ? 's' : ''} planifiée{project.taskCount > 1 ? 's' : ''} · échéance {new Date(project.reference_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-              </p>
-            </div>
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-              style={{ background: '#EEF4FF', color: '#007aff' }}>Planning</span>
-          </div>
+          <ProjectCard project={project} regularTasksCount={regularTasks.length} />
         )}
 
         <div className="px-4 py-2" style={{ borderTop: '0.5px solid #f2f2f7' }}>
@@ -289,9 +312,9 @@ export default function JournalPage() {
   const [checkinAnswers, setCheckinAnswers] = useState<string[]>([]);
 
   const CHECKIN_QUESTIONS = [
-    'Comment s\'est passée ta journée ?',
-    'Et le foyer — les enfants, la maison ?',
-    'Qu\'est-ce que t\'as géré aujourd\'hui, même en petit ?',
+    'Comment ça va, vraiment ?',
+    'Et à la maison — les enfants, les courses, le dîner ?',
+    'Y\'a quelque chose qui t\'a pesé aujourd\'hui, ou qui t\'inquiète pour demain ?',
   ];
 
   // Historique journaux
@@ -617,7 +640,7 @@ export default function JournalPage() {
             style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full text-[32px]"
               style={{ background: 'rgba(255,255,255,0.2)' }}>🤖</div>
-            <h1 className="text-[22px] font-bold text-white mb-1">Yova — Journal IA</h1>
+            <h1 className="text-[22px] font-bold text-white mb-1">Parler à Yova</h1>
             <p className="text-[13px] text-white/80">Consentement requis avant utilisation</p>
           </div>
           <div className="bg-white px-6 py-6">
@@ -728,7 +751,13 @@ export default function JournalPage() {
               </>
             ) : (
               <YovaBubble
-                content="Qu'est-ce que t'as géré aujourd'hui que personne n'a vu ? Dis-moi tout — je classe et ça compte dans ton score."
+                content={
+                  currentHour >= 20 || currentHour < 4
+                    ? "Bonsoir. Comment s'est passée la journée ? Raconte-moi ce que t'as géré — je retiens tout pour alléger la suite."
+                    : currentHour < 12
+                    ? "Salut. T'as quelque chose à me raconter sur hier soir ou ce matin ? Je prends note."
+                    : "Raconte. Ce que t'as fait, ce qui t'a pesé, ce qui t'inquiète — je m'en souviens pour toi."
+                }
                 moodTone={null}
               />
             )}
@@ -782,7 +811,7 @@ export default function JournalPage() {
                     ? 'Ta réponse…'
                     : convHistory.length > 0
                     ? 'Ta réponse…'
-                    : 'J\'ai fait la vaisselle, préparé le dîner…'
+                    : 'Raconte ta journée à Yova…'
                 }
                 className="flex-1 text-[15px] rounded-2xl px-4 py-3 bg-white text-[#1c1c1e] outline-none placeholder:text-[#c7c7cc] resize-none disabled:opacity-50"
                 style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}

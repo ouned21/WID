@@ -129,6 +129,14 @@ type ParsedProject = {
   tasks: ProjectTask[];
 };
 
+type ParsedAssignment = {
+  // task_id si trouvé dans la liste existante, sinon null + task_name pour fuzzy match
+  task_id: string | null;
+  task_name: string;
+  // "user" = l'auteur du journal, "phantom:UUID" = un fantôme, "member:UUID" = autre membre réel
+  assignee: string;
+};
+
 type ParsedResult = {
   refused_scope?: boolean;       // true si sujet hors scope (santé, relationnel, juridique…)
   refused_reason?: string;       // catégorie de refus pour logs
@@ -136,6 +144,7 @@ type ParsedResult = {
   clarification_question?: string; // identique à ai_response quand needs_clarification
   completions: ParsedCompletion[];
   auto_create: AutoCreateItem[];
+  assignments: ParsedAssignment[]; // déclarations d'intention "c'est à moi / à Barbara de…"
   unmatched: string[];
   project?: ParsedProject | null;
   ai_response: string;
@@ -380,10 +389,15 @@ ${sanitizedText}
    - "on a fait X ensemble" → completed_by = UUID de ${userName} (une seule entrée)
    - "j'ai fait X" → completed_by = UUID de ${userName}
    - Toutes les completions et auto_create ont completed_by = UUID de ${userName} ou null (jamais l'UUID d'un autre membre).
-6. **Tâches futures → EXCLURE de auto_create** :
+6. **Tâches futures → EXCLURE de auto_create, MAIS détecter les assignations** :
    - auto_create = UNIQUEMENT des actions accomplies aujourd'hui ou hier.
-   - "on va faire X", "je vais faire X", "demain on range", "il faudra X", "c'est prévu" → NE PAS mettre dans auto_create. Yova les mentionne uniquement dans ai_response ("j'ai noté que demain c'est rangement").
+   - "on va faire X", "demain on range", "il faudra X", "c'est prévu" → NE PAS mettre dans auto_create. Yova les mentionne dans ai_response.
    - RÈGLE ABSOLUE : si le verbe est au futur ou à l'infinitif de projet → hors de auto_create.
+   - **EXCEPTION ASSIGNATION** : si ${userName} déclare QUI va faire une tâche (présente ou future), remplis le champ "assignments" :
+     - "c'est à moi de préparer le dîner", "je vais m'occuper du dîner", "je prends la lessive en charge", "c'est pour moi le rangement" → assignee: "user"
+     - "c'est à Barbara de faire les courses", "Barbara va s'en occuper", "c'est pour Barbara" → assignee: "member:UUID-de-Barbara" (utilise les UUIDs de la liste Membres)
+     - Formulations détectables : "c'est à [moi/prénom] de", "je/[prénom] vais m'en/s'en occuper", "je/[prénom] prends X en charge", "c'est moi/[prénom] qui [fait/fera]", "X c'est pour moi/[prénom]"
+     - Pour task_id : utilise l'UUID de la tâche si tu la retrouves dans la liste, sinon null + task_name lisible.
 7. **Noms de tâches** : verbe infinitif + objet, STRICTEMENT 3 mots maximum, AUCUN contexte.
    - ✅ "Ranger l'appartement" ✅ "Préparer le dîner" ✅ "Faire les courses" ✅ "Plier le linge"
    - ❌ "Préparer le rangement avant passage femme de ménage" → trop long
@@ -428,6 +442,13 @@ ${sanitizedText}
       "duration_minutes": 30,
       "note": null,
       "confidence": 0.9
+    }
+  ],
+  "assignments": [
+    {
+      "task_id": "UUID-tache-si-trouvee-ou-null",
+      "task_name": "Préparer le dîner",
+      "assignee": "user"
     }
   ],
   "auto_create": [
@@ -588,6 +609,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
 
     const completions = Array.isArray(parsed.completions) ? parsed.completions : [];
     const autoCreateItems = Array.isArray(parsed.auto_create) ? parsed.auto_create : [];
+    const assignmentItems = Array.isArray(parsed.assignments) ? parsed.assignments : [];
     const unmatched = Array.isArray(parsed.unmatched) ? parsed.unmatched : [];
     const project = parsed.project && typeof parsed.project === 'object' && parsed.project.reference_date
       ? parsed.project as ParsedProject
@@ -635,6 +657,51 @@ Réponds UNIQUEMENT avec ce JSON.`;
         completion_method: 'journal', source_text: text,
         confidence: comp.confidence, journal_id: journalRow?.id ?? null,
       });
+    }
+
+    // ─── Assignations déclaratives : "c'est à moi de faire X" ───────────
+    // Résout le task_id (fourni par Claude ou par fuzzy match), puis UPDATE assigned_to
+    const assignmentsApplied: { task_id: string; task_name: string; assignee_id: string | null }[] = [];
+
+    for (const asn of assignmentItems) {
+      // Résoudre l'assignee en UUID Supabase
+      let assigneeId: string | null = null;
+      if (asn.assignee === 'user') {
+        assigneeId = user.id;
+      } else if (typeof asn.assignee === 'string' && asn.assignee.startsWith('member:')) {
+        const memberId = asn.assignee.slice('member:'.length);
+        assigneeId = members.find((m) => m.id === memberId)?.id ?? null;
+      }
+      // Les fantômes ont assigned_to_phantom_id — gérer séparément si besoin (V2)
+
+      if (!assigneeId) continue;
+
+      // Trouver la tâche : d'abord par task_id fourni par Claude, sinon fuzzy match
+      let targetTaskId: string | null = null;
+      if (asn.task_id && validTaskIds.has(asn.task_id)) {
+        targetTaskId = asn.task_id;
+      } else if (asn.task_name) {
+        const fuzzy = tasks.find((t) => isSimilarTask(t.name, asn.task_name));
+        targetTaskId = fuzzy?.id ?? null;
+      }
+
+      if (!targetTaskId) {
+        console.warn('[parse-journal] assignment: tâche non trouvée pour', asn.task_name);
+        continue;
+      }
+
+      const { error: asnErr } = await admin
+        .from('household_tasks')
+        .update({ assigned_to: assigneeId })
+        .eq('id', targetTaskId)
+        .eq('household_id', householdId); // garde-fou RLS
+
+      if (asnErr) {
+        console.error('[parse-journal] assignment update error:', asnErr);
+      } else {
+        assignmentsApplied.push({ task_id: targetTaskId, task_name: asn.task_name, assignee_id: assigneeId });
+        console.log('[parse-journal] assignation appliquée:', asn.task_name, '→', assigneeId);
+      }
     }
 
     // ─── Auto-créer les nouvelles tâches + complétion immédiate ──────────
@@ -730,12 +797,37 @@ Réponds UNIQUEMENT avec ce JSON.`;
       const refMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(project.reference_date);
       if (refMatch) {
         const refDate = new Date(`${project.reference_date}T09:00:00`);
+        // Date plancher : demain à 9h — une tâche projet ne peut jamais être créée dans le passé
+        const tomorrow9h = new Date();
+        tomorrow9h.setDate(tomorrow9h.getDate() + 1);
+        tomorrow9h.setHours(9, 0, 0, 0);
+
+        // Trier les tâches par days_before décroissant (les plus urgentes en premier)
+        // Celles déjà passées seront redistribuées depuis demain, espacées de 2 jours
+        const sortedTasks = [...project.tasks].sort(
+          (a, b) => (b.days_before ?? 0) - (a.days_before ?? 0),
+        );
+
         // Limite de sécurité : 25 tâches max par projet
-        const projectTasks = project.tasks.slice(0, 25);
+        const projectTasks = sortedTasks.slice(0, 25);
+        let redistributeOffset = 0; // jours depuis demain pour les tâches déjà passées
+
         const projectRows = projectTasks.map((pt) => {
           const daysBefore = typeof pt.days_before === 'number' ? pt.days_before : 0;
           const taskDate = new Date(refDate);
           taskDate.setDate(taskDate.getDate() - daysBefore);
+
+          // Si la date calculée est dans le passé ou aujourd'hui → redistribution depuis demain
+          let finalDate: Date;
+          if (taskDate <= new Date()) {
+            finalDate = new Date(tomorrow9h);
+            finalDate.setDate(finalDate.getDate() + redistributeOffset);
+            redistributeOffset += 2; // espacer de 2 jours chaque tâche passée
+          } else {
+            finalDate = taskDate;
+            finalDate.setHours(9, 0, 0, 0);
+          }
+
           const scoreBreakdown = computeTaskScore({
             title: pt.name,
             category: (pt.category ?? 'misc') as import('@/utils/taskScoring').TaskCategory,
@@ -758,7 +850,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
             is_fixed_assignment: false,
             notifications_enabled: true,
             created_by: user.id,
-            next_due_at: taskDate.toISOString(),
+            next_due_at: finalDate.toISOString(),
           };
         });
         const { error: insertErr } = await admin.from('household_tasks').insert(projectRows);
@@ -788,6 +880,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
       metadata: {
         completions_count: completions.length,
         auto_created_count: autoCreated.length,
+        assignments_count: assignmentsApplied.length,
         unmatched_count: unmatched.length,
         project_created: projectCreated ? projectCreated.type : null,
         project_task_count: projectCreated?.taskCount ?? 0,
@@ -829,6 +922,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
       journalId: journalRow?.id,
       completions,
       auto_created: autoCreated,
+      assignments_applied: assignmentsApplied,
       unmatched,
       project_created: projectCreated,
       refused_scope: false,
