@@ -146,6 +146,7 @@ export default function OnboardingPage() {
   }[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [householdCreating, setHouseholdCreating] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   const [journalConsent, setJournalConsent] = useState(false);
   const [consentDetailsOpen, setConsentDetailsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -471,8 +472,8 @@ export default function OnboardingPage() {
   }, [householdId, userId, householdCreating, catalogTemplates, selectedTemplateIds, customTaskNames, family, fetchHousehold, fetchTasks, refreshProfile]);
 
   const handleFinish = useCallback(async () => {
-    // Persister le consentement IA journal si coché
-    // (si déjà consenti précédemment : no-op car ai_journal_consent_at existe)
+    if (finishing) return;
+    setFinishing(true);
     if (journalConsent && userId && !profile?.ai_journal_consent_at) {
       const supabase = createClient();
       await supabase
@@ -482,7 +483,7 @@ export default function OnboardingPage() {
       await refreshProfile();
     }
     router.push('/today');
-  }, [router, journalConsent, userId, profile?.ai_journal_consent_at, refreshProfile]);
+  }, [finishing, router, journalConsent, userId, profile?.ai_journal_consent_at, refreshProfile]);
 
   const deleteTask = useCallback(async (taskId: string) => {
     setGeneratedTasks((prev) => prev.filter((t) => t.id !== taskId));
@@ -931,14 +932,22 @@ export default function OnboardingPage() {
                 )}
                 <button
                   onClick={handleFinish}
-                  disabled={!hasConsent}
-                  className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white disabled:opacity-40"
+                  disabled={!hasConsent || finishing}
+                  className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white disabled:opacity-40 flex items-center justify-center gap-2"
                   style={{
                     background: 'linear-gradient(135deg, #007aff, #5856d6)',
-                    boxShadow: hasConsent ? '0 8px 24px rgba(0,122,255,0.3)' : 'none',
+                    boxShadow: hasConsent && !finishing ? '0 8px 24px rgba(0,122,255,0.3)' : 'none',
                   }}
                 >
-                  Commencer avec Yova →
+                  {finishing ? (
+                    <>
+                      <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3"/>
+                        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                      </svg>
+                      Lancement…
+                    </>
+                  ) : 'Commencer avec Yova →'}
                 </button>
               </>
             );

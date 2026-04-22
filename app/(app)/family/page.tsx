@@ -832,7 +832,15 @@ function MemberFormModal({ formData, setFormData, isEditing, saving, error, onSa
               className="flex-1 py-3.5 rounded-xl text-[17px] font-semibold text-white disabled:opacity-50"
               style={{ background: '#007aff' }}
             >
-              {saving ? 'Enregistrement…' : isEditing ? 'Enregistrer' : 'Ajouter'}
+              {saving ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3"/>
+                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                  </svg>
+                  Enregistrement…
+                </span>
+              ) : isEditing ? 'Enregistrer' : 'Ajouter'}
             </button>
             <button
               onClick={onClose}

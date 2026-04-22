@@ -810,10 +810,18 @@ export default function JournalPage() {
               <button
                 onClick={isEveningTime && checkinStep < 3 && !isDone ? sendCheckin : send}
                 disabled={sending || text.trim().length < 2}
-                className="flex-shrink-0 px-4 py-2.5 rounded-2xl text-[15px] font-semibold text-white disabled:opacity-40"
+                className="flex-shrink-0 px-4 py-2.5 rounded-2xl text-[15px] font-semibold text-white disabled:opacity-40 flex items-center gap-2"
                 style={{ background: 'linear-gradient(135deg, #007aff, #5856d6)', boxShadow: '0 2px 8px rgba(0,122,255,0.25)' }}
               >
-                {sending ? '…' : 'Envoyer'}
+                {sending ? (
+                  <>
+                    <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3"/>
+                      <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                    </svg>
+                    Yova réfléchit…
+                  </>
+                ) : 'Envoyer'}
               </button>
             </div>
           </div>

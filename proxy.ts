@@ -40,9 +40,11 @@ export async function proxy(request: NextRequest) {
   const isHouseholdPage = pathname.startsWith('/household');
   const isLandingPage = pathname === '/landing';
   const isLegalPage = pathname.startsWith('/legal/');
+  // /join est une page publique — accessible sans compte (Barbara reçoit un lien d'invitation)
+  const isJoinPage = pathname.startsWith('/join');
 
-  // Pas connecte : redirect vers /login (sauf si deja sur une page auth, landing, ou légale)
-  if (!user && !isAuthPage && !isLandingPage && !isLegalPage) {
+  // Pas connecte : redirect vers /login (sauf si deja sur une page auth, landing, légale, ou invitation)
+  if (!user && !isAuthPage && !isLandingPage && !isLegalPage && !isJoinPage) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
@@ -58,8 +60,8 @@ export async function proxy(request: NextRequest) {
 
     const hasHousehold = !!profile?.household_id;
 
-    // Connecte sans foyer : redirect vers /household
-    if (!hasHousehold && !isHouseholdPage && !isAuthPage) {
+    // Connecte sans foyer : redirect vers /household (sauf si sur /join — Barbara y accepte l'invite)
+    if (!hasHousehold && !isHouseholdPage && !isAuthPage && !isJoinPage) {
       const url = request.nextUrl.clone();
       url.pathname = '/household';
       return NextResponse.redirect(url);
