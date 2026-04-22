@@ -1,7 +1,7 @@
 # Yova V1 — Spec produit
 
 > **Doc de référence épinglé.** Toute feature V1 doit être traçable à cette spec.
-> Dernière mise à jour : 2026-04-22
+> Dernière mise à jour : 2026-04-22 (sprint corrections + nettoyage produit)
 
 ---
 
@@ -75,7 +75,7 @@ Le Score 4 axes et le Dashboard analytique **sortent de la nav principale**. Arc
 - ❌ Planning calendrier à grille (trop lourd cognitivement)
 
 **Accessible depuis Aujourd'hui** :
-- 📅 **"Cette semaine"** (`/week`) — vue légère 7 jours, groupée par jour, avec badges assignation foyer. Coordination entre adultes (Barbara voit ce qui lui est assigné cette semaine). Read-only, pas de drag & drop.
+- 📅 **"Cette semaine"** (`/week`) — vue légère avec toggle **7 jours / 30 jours roulants**, groupée par jour, avec badges assignation foyer. Coordination entre adultes. Read-only, pas de drag & drop. En vue 30 jours : seuls les jours avec des tâches sont affichés.
 
 ---
 
@@ -262,7 +262,10 @@ Remplace le formulaire multi-étapes + catalogue statique.
 ### On RETIRE de la nav (code archivé, pas supprimé)
 - Score 4 axes (plus visible par défaut)
 - Dashboard/Distribution
-- Planning calendrier semaine → remplacé par vue légère `/week` (liste 7 jours, pas de grille)
+- Planning calendrier semaine → remplacé par vue légère `/week` (liste 7j/30j roulants, pas de grille)
+- Section "Ce qu'Yova sait de toi" (formulaire manuel) → remplacé par mémoire narrative via conversations
+- Slider "Mon objectif" / "Niveau de charge souhaité" → score d'équité, hors ADN V1
+- Liste membres dans Profil → appartient uniquement à l'onglet Foyer
 
 ### On AJOUTE
 - Fiches membres enrichies (enfants âges/contraintes)
@@ -316,7 +319,8 @@ Remplace le formulaire multi-étapes + catalogue statique.
 
 ## 🚫 Ce qu'on ne fait PAS en V1
 
-- ❌ Score d'équité / dashboard analytique (plus dans l'ADN)
+- ❌ Score d'équité / dashboard analytique / slider objectif % tâches (plus dans l'ADN)
+- ❌ Préférences manuelles IA (tâches détestées/aimées, horaires, jours dispo) — Yova apprend par les conversations, pas par des formulaires
 - ❌ Notifications matinales proactives (V2)
 - ❌ Coach émotionnel poussé (risques éthiques, on reste sur soutien doux)
 - ❌ Assistant généraliste (voyages, finances, etc.)
