@@ -19,7 +19,7 @@ import { createClient } from '@/lib/supabase';
 // ── Types ──────────────────────────────────────────────────────────────────────
 type ApiMessage     = { role: 'user' | 'assistant'; content: string };
 type DisplayMessage = { role: 'yova' | 'user'; text: string };
-type Step           = 'loading' | 'chat' | 'generating' | 'done';
+type Step           = 'consent' | 'loading' | 'chat' | 'generating' | 'done';
 type EquipmentItem  = { id: string; name: string; icon: string; category: string; is_default: boolean };
 
 const EQUIP_CAT_LABELS: Record<string, string> = {
@@ -75,7 +75,7 @@ export default function OnboardingPage() {
   const { fetchTasks }    = useTaskStore();
   const { fetchHousehold } = useHouseholdStore();
 
-  const [step, setStep]           = useState<Step>('loading');
+  const [step, setStep]           = useState<Step>('consent');
   const [apiMessages, setApiMessages] = useState<ApiMessage[]>([]);
   const [display, setDisplay]     = useState<DisplayMessage[]>([]);
   const [chips, setChips]         = useState<string[]>([]);
@@ -92,9 +92,7 @@ export default function OnboardingPage() {
 
   const [donePayload, setDonePayload] = useState<DonePayload | null>(null);
   const [taskCount, setTaskCount]     = useState(0);
-  const [journalConsent, setJournalConsent] = useState(false);
-  const [consentOpen, setConsentOpen]       = useState(false);
-  const [finishing, setFinishing]           = useState(false);
+  const [finishing, setFinishing]     = useState(false);
 
   const chatRef  = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -199,13 +197,19 @@ export default function OnboardingPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Initial call — triggers Claude's opening message
+  // Si déjà consenti → passe directement au chat
   useEffect(() => {
+    if (profile?.ai_journal_consent_at) startConversation();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.ai_journal_consent_at]);
+
+  const startConversation = useCallback(() => {
+    setStep('loading');
     const init: ApiMessage[] = [{ role: 'user', content: 'Commence' }];
     setApiMessages(init);
     void callApi(init);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [callApi]);
 
   // ── Confirm equipment selection ────────────────────────────────────────────
   const confirmEquipment = useCallback(() => {
@@ -321,19 +325,88 @@ export default function OnboardingPage() {
     }
   };
 
-  // ── Finish ─────────────────────────────────────────────────────────────────
-  const handleFinish = async () => {
-    if (finishing) return;
-    setFinishing(true);
-    if (journalConsent && userId && !profile?.ai_journal_consent_at) {
+  // ── Accept consent → start conversation ───────────────────────────────────
+  const acceptConsent = async () => {
+    if (userId && !profile?.ai_journal_consent_at) {
       await createClient()
         .from('profiles')
         .update({ ai_journal_consent_at: new Date().toISOString() })
         .eq('id', userId);
       await refreshProfile();
     }
+    startConversation();
+  };
+
+  // ── Finish ─────────────────────────────────────────────────────────────────
+  const handleFinish = async () => {
+    if (finishing) return;
+    setFinishing(true);
     router.push('/today');
   };
+
+  // ── Consent screen ─────────────────────────────────────────────────────────
+  if (step === 'consent') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-6 py-10"
+        style={{ background: 'linear-gradient(135deg,#007aff 0%,#5856d6 100%)' }}>
+        <div className="w-full max-w-sm">
+          {/* Logo */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center mb-3">
+              <span className="text-white font-black text-[28px]">Y</span>
+            </div>
+            <h1 className="text-white font-black text-[26px]">Bienvenue sur Yova</h1>
+            <p className="text-white/70 text-[14px] mt-1 text-center">
+              Avant de commencer, une info rapide
+            </p>
+          </div>
+
+          {/* Card consentement */}
+          <div className="rounded-3xl bg-white p-6 space-y-4" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+            <div className="flex items-start gap-3">
+              <span className="text-[22px]">🤖</span>
+              <div>
+                <p className="font-bold text-[15px] text-[#1c1c1e]">Yova utilise l'IA Claude</p>
+                <p className="text-[13px] text-[#8e8e93] mt-0.5 leading-relaxed">
+                  Nos conversations passent par Claude (Anthropic, USA) pour personnaliser ton expérience.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-[22px]">📤</span>
+              <div>
+                <p className="font-bold text-[15px] text-[#1c1c1e]">Ce qui est envoyé</p>
+                <p className="text-[13px] text-[#8e8e93] mt-0.5 leading-relaxed">
+                  Tes réponses durant cette configuration (taille du foyer, enfants, équipements…). Pas de données sensibles.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-[22px]">🔒</span>
+              <div>
+                <p className="font-bold text-[15px] text-[#1c1c1e]">Tes droits</p>
+                <p className="text-[13px] text-[#8e8e93] mt-0.5 leading-relaxed">
+                  Suppression à tout moment via Profil → Mes données. Anthropic ne conserve pas tes données au-delà du traitement.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => void acceptConsent()}
+              className="w-full rounded-2xl py-4 text-[17px] font-bold text-white mt-2"
+              style={{ background: 'linear-gradient(135deg,#007aff,#5856d6)', boxShadow: '0 4px 16px rgba(0,122,255,0.4)' }}
+            >
+              J'accepte et je commence →
+            </button>
+            <p className="text-center text-[11px] text-[#8e8e93]">
+              En continuant, tu acceptes nos{' '}
+              <a href="/privacy" className="underline">conditions d'utilisation</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── Loading screen ─────────────────────────────────────────────────────────
   if (step === 'loading') {
@@ -380,8 +453,6 @@ export default function OnboardingPage() {
   }
 
   // ── Chat UI (chat + done) ──────────────────────────────────────────────────
-  const hasConsent = !!profile?.ai_journal_consent_at || journalConsent;
-
   return (
     <>
       {/* Bounce animation */}
@@ -483,61 +554,13 @@ export default function OnboardingPage() {
           {/* Done state */}
           {step === 'done' && (
             <div className="space-y-3">
-              {!profile?.ai_journal_consent_at && (
-                <div
-                  className="rounded-2xl overflow-hidden bg-white"
-                  style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
-                >
-                  <button
-                    onClick={() => setConsentOpen(v => !v)}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left"
-                  >
-                    <span className="text-[18px]">🔒</span>
-                    <div className="flex-1">
-                      <p className="text-[13px] font-bold text-[#1c1c1e]">Consentement IA</p>
-                      <p className="text-[11px] text-[#8e8e93]">
-                        Yova utilise Claude (Anthropic, US). {consentOpen ? 'Réduire.' : 'Détails ↓'}
-                      </p>
-                    </div>
-                  </button>
-                  {consentOpen && (
-                    <div
-                      className="px-4 pb-3 text-[11px] leading-relaxed"
-                      style={{ color: '#3a6fcc', background: '#f0f6ff' }}
-                    >
-                      📍 Envoyé : texte journal + liste tâches (sans noms réels)<br />
-                      🔒 Conservé : résultat uniquement, serveurs Supabase (UE)<br />
-                      🗑️ Suppression : avec votre compte (Profil → Mes données)
-                    </div>
-                  )}
-                  <label
-                    className="flex items-center gap-3 px-4 py-3 cursor-pointer"
-                    style={{ borderTop: '0.5px solid #f0f2f8' }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={journalConsent}
-                      onChange={e => setJournalConsent(e.target.checked)}
-                      style={{ width: 20, height: 20, accentColor: '#007aff' }}
-                    />
-                    <span className="text-[12px] text-[#1c1c1e]">
-                      J&apos;accepte le traitement par Yova via Claude.
-                    </span>
-                  </label>
-                </div>
-              )}
-              {!hasConsent && (
-                <p className="text-center text-[11px] text-[#8e8e93]">
-                  Acceptez le consentement ci-dessus pour continuer
-                </p>
-              )}
               <button
                 onClick={handleFinish}
-                disabled={!hasConsent || finishing}
+                disabled={finishing}
                 className="w-full rounded-2xl py-4 text-[17px] font-bold text-white disabled:opacity-40 flex items-center justify-center gap-2"
                 style={{
                   background: 'linear-gradient(135deg,#007aff,#5856d6)',
-                  boxShadow: hasConsent ? '0 8px 24px rgba(0,122,255,0.3)' : 'none',
+                  boxShadow: '0 8px 24px rgba(0,122,255,0.3)',
                 }}
               >
                 {finishing && (
