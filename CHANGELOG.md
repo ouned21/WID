@@ -29,6 +29,12 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 ### Pourquoi
 Sprint 15 a supprimé la séquence de 3 questions hardcodées ("formulaire, pas IA"). Restait à refonder le rituel du soir côté mémoire active — montrer que Yova connaît le foyer. L'opener tailored est le signal le plus lisible de la mémoire longue : une question qui tape juste = Pilier 1 (connaissance intime) rendu visible + Pilier 3 (proactivité douce) activé au bon moment, sans jamais se transformer en coach.
 
+### Fix post-démo (2026-04-24, même sprint)
+Tests device Jonathan : l'opener tombait systématiquement en `fallback` malgré 10 faits actifs + anniv Eva dans 20j. Deux gaps comblés :
+- **Fenêtre anniv étendue à 30j** (alignement brief : *"Eva a 5 ans dans 20 jours — tu veux qu'on commence à préparer ?"*). Nouveau bucket `upcoming_event_far` (8-30j) placé sous `recent_mention` et au-dessus de `narrative`. Les buckets urgent (<3j) et near (3-7j) restent prioritaires
+- **Nouveau bucket `facts` ≥ 3 faits actifs** : exploite `agent_memory_facts` quand aucun signal structuré ne sort. Sonnet reçoit la directive "pioche UN élément concret". Placé entre `narrative` et `fallback`. Évite le fallback générique ("C'était quoi, le moment le plus marquant...") quand Yova connaît manifestement le foyer
+- `isMemoryEmpty` recalibré : seuil passe de 1 à 3 faits (aligné sur le bucket `facts`). Un foyer avec 1-2 faits isolés reste en court-circuit statique
+
 ### Piliers spec
 - Pilier 1 — Connaissance intime du foyer (la question d'ouverture prouve que Yova retient les faits, anniversaires, derniers échanges, observations)
 - Pilier 3 — Proactivité douce (timing = fenêtre check-in, ton = confident, rotation = pas de harcèlement, lâcher-prise = pas de coach)

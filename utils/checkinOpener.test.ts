@@ -21,6 +21,12 @@ function iso(now: Date, offsetHours: number): string {
   return new Date(now.getTime() + offsetHours * 3_600_000).toISOString();
 }
 
+/** Retourne une date ISO YYYY-MM-DD décalée de `days` jours à partir de `now`. */
+function isoDateOffset(now: Date, days: number): string {
+  const d = new Date(now.getTime() + days * 86_400_000);
+  return d.toISOString().slice(0, 10);
+}
+
 describe('daysUntilNextBirthday', () => {
   it('compte les jours jusqu\'au prochain anniv (même année)', () => {
     const now = new Date(Date.UTC(2026, 4, 1)); // 1er mai 2026
@@ -102,6 +108,66 @@ describe('buildOpenerCandidates — priorité', () => {
     expect(candidates.every((c) => c.source !== 'recent_mention')).toBe(true);
   });
 
+  it('anniv 20j → bucket far (entre recent_mention et narrative)', () => {
+    const ctx: OpenerContext = {
+      ...emptyCtx,
+      members: [{ display_name: 'Eva', birth_date: isoDateOffset(now, 20) }],
+      narrative: 'Foyer de quatre avec trois enfants en bas âge.',
+    };
+    const candidates = buildOpenerCandidates(ctx, now);
+    const farIdx = candidates.findIndex((c) => c.source === 'upcoming_event_far');
+    const narrIdx = candidates.findIndex((c) => c.source === 'narrative');
+    expect(farIdx).toBeGreaterThanOrEqual(0);
+    expect(farIdx).toBeLessThan(narrIdx);
+    expect(candidates[farIdx].source_detail).toContain('Eva');
+    expect(candidates[farIdx].directive).toContain('20');
+  });
+
+  it('anniv > 30j → aucun candidat event', () => {
+    const ctx: OpenerContext = {
+      ...emptyCtx,
+      members: [{ display_name: 'Eva', birth_date: isoDateOffset(now, 45) }],
+    };
+    const candidates = buildOpenerCandidates(ctx, now);
+    expect(candidates.every((c) => !c.source.startsWith('upcoming_event'))).toBe(true);
+  });
+
+  it('facts-based candidat si ≥ 3 faits et pas d\'autre signal', () => {
+    const ctx: OpenerContext = {
+      ...emptyCtx,
+      facts: [
+        { content: 'Barbara travaille tard le jeudi' },
+        { content: 'Eva allergique aux arachides' },
+        { content: 'Week-end prévu chez les parents' },
+      ],
+    };
+    const candidates = buildOpenerCandidates(ctx, now);
+    expect(candidates[0].source).toBe('facts');
+  });
+
+  it('facts-based sous narrative quand les deux présents', () => {
+    const ctx: OpenerContext = {
+      ...emptyCtx,
+      narrative: 'Portrait du foyer suffisamment long et riche.',
+      facts: [
+        { content: 'fait 1' }, { content: 'fait 2' }, { content: 'fait 3' },
+      ],
+    };
+    const candidates = buildOpenerCandidates(ctx, now);
+    const narrIdx = candidates.findIndex((c) => c.source === 'narrative');
+    const factsIdx = candidates.findIndex((c) => c.source === 'facts');
+    expect(narrIdx).toBeLessThan(factsIdx);
+  });
+
+  it('< 3 faits → pas de candidat facts', () => {
+    const ctx: OpenerContext = {
+      ...emptyCtx,
+      facts: [{ content: 'fait 1' }, { content: 'fait 2' }],
+    };
+    const candidates = buildOpenerCandidates(ctx, now);
+    expect(candidates.every((c) => c.source !== 'facts')).toBe(true);
+  });
+
   it('narrative si rien d\'autre mais portrait existe', () => {
     const ctx: OpenerContext = {
       ...emptyCtx,
@@ -174,8 +240,19 @@ describe('isMemoryEmpty — court-circuit Sonnet', () => {
     expect(isMemoryEmpty(emptyCtx)).toBe(true);
   });
 
-  it('false dès qu\'un fait est présent', () => {
-    expect(isMemoryEmpty({ ...emptyCtx, facts: [{ content: 'Barbara travaille tard le jeudi' }] })).toBe(false);
+  it('true si 1-2 facts seulement (pas assez pour tailored)', () => {
+    expect(isMemoryEmpty({ ...emptyCtx, facts: [{ content: 'Barbara travaille tard le jeudi' }] })).toBe(true);
+  });
+
+  it('false dès que 3 faits sont présents', () => {
+    expect(isMemoryEmpty({
+      ...emptyCtx,
+      facts: [
+        { content: 'Barbara travaille tard le jeudi' },
+        { content: 'Eva allergique aux arachides' },
+        { content: 'Tina est en CE1' },
+      ],
+    })).toBe(false);
   });
 
   it('false si narrative long assez', () => {

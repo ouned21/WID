@@ -22,7 +22,9 @@ export type OpenerSource =
   | 'observation_alert'
   | 'upcoming_event_near'    // 3-7j
   | 'recent_mention'
+  | 'upcoming_event_far'     // 8-30j (ex: "Eva a 5 ans dans 20j — tu veux qu'on commence à préparer ?")
   | 'narrative'
+  | 'facts'                  // ≥ 3 faits actifs sans autre signal
   | 'fallback';
 
 export type OpenerCandidate = {
@@ -107,19 +109,17 @@ function hoursSince(iso: string, now: Date): number {
 export function buildOpenerCandidates(ctx: OpenerContext, now: Date): OpenerCandidate[] {
   const out: OpenerCandidate[] = [];
 
-  // 1. Événements imminents < 3j (anniv enfants/ados)
-  // 2. (observation_alert — traité ensuite)
-  // 3. Événements 3-7j
+  // Événements (anniversaires) dans les 30 prochains jours, classés en 3 buckets
   const birthdayCandidates: Array<{ name: string; days: number }> = [];
   for (const m of ctx.members) {
     if (!m.birth_date) continue;
     const d = daysUntilNextBirthday(m.birth_date, now);
     if (d === null) continue;
-    if (d >= 0 && d <= 7) birthdayCandidates.push({ name: m.display_name, days: d });
+    if (d >= 0 && d <= 30) birthdayCandidates.push({ name: m.display_name, days: d });
   }
   birthdayCandidates.sort((a, b) => a.days - b.days);
 
-  // Bucket 1 : < 3j
+  // Bucket 1 : anniv < 3j (urgent)
   for (const bc of birthdayCandidates.filter((c) => c.days < 3)) {
     out.push({
       source: 'upcoming_event_urgent',
@@ -143,7 +143,7 @@ export function buildOpenerCandidates(ctx: OpenerContext, now: Date): OpenerCand
     });
   }
 
-  // Bucket 3 : événements 3-7j
+  // Bucket 3 : anniv 3-7j (near)
   for (const bc of birthdayCandidates.filter((c) => c.days >= 3 && c.days <= 7)) {
     out.push({
       source: 'upcoming_event_near',
@@ -165,7 +165,16 @@ export function buildOpenerCandidates(ctx: OpenerContext, now: Date): OpenerCand
     });
   }
 
-  // Bucket 5 : narrative générale
+  // Bucket 5 : anniv 8-30j (far) — ex brief : "Eva a 5 ans dans 20 jours — tu veux qu'on commence à préparer ?"
+  for (const bc of birthdayCandidates.filter((c) => c.days >= 8 && c.days <= 30)) {
+    out.push({
+      source: 'upcoming_event_far',
+      source_detail: `birthday:${bc.name}:${bc.days}d`,
+      directive: `L'anniversaire de ${bc.name} est dans ${bc.days} jours. Ouvre en proposant simplement d'anticiper — ton léger, pas d'injonction, juste "tu veux qu'on commence à poser des choses ?".`,
+    });
+  }
+
+  // Bucket 6 : narrative générale
   if (ctx.narrative && ctx.narrative.trim().length > 20) {
     out.push({
       source: 'narrative',
@@ -174,7 +183,17 @@ export function buildOpenerCandidates(ctx: OpenerContext, now: Date): OpenerCand
     });
   }
 
-  // Bucket 6 : fallback
+  // Bucket 7 : facts-based — mémoire riche mais aucun signal structuré ci-dessus
+  // Évite le fallback générique quand Yova connaît clairement des choses du foyer
+  if (ctx.facts.length >= 3) {
+    out.push({
+      source: 'facts',
+      source_detail: 'facts',
+      directive: `Pas de signal urgent, mais Yova connaît plusieurs choses du foyer (listées ci-dessous). Pioche UN élément concret et récent qui mérite une question — projet évoqué, préférence, tension, événement prévu — et ouvre dessus. Pas une question générale.`,
+    });
+  }
+
+  // Bucket 8 : fallback
   out.push({
     source: 'fallback',
     source_detail: null,
@@ -242,9 +261,10 @@ export function isMemoryEmpty(ctx: OpenerContext): boolean {
   const hasMemberWithBirthday = ctx.members.some((m) => !!m.birth_date);
   const hasObs = ctx.observations.length > 0;
   const hasNarrative = !!ctx.narrative && ctx.narrative.trim().length > 20;
-  const hasFacts = ctx.facts.length > 0;
+  // 3+ facts = assez pour tailored (aligné sur le bucket 'facts' dans buildOpenerCandidates)
+  const hasRichFacts = ctx.facts.length >= 3;
   const hasTurns = ctx.recentTurns.length > 0;
-  return !hasMemberWithBirthday && !hasObs && !hasNarrative && !hasFacts && !hasTurns;
+  return !hasMemberWithBirthday && !hasObs && !hasNarrative && !hasRichFacts && !hasTurns;
 }
 
 // ── Construction du bloc contexte injecté dans le prompt Sonnet ──────────────
