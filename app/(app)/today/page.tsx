@@ -16,9 +16,10 @@ import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useFamilyStore } from '@/stores/familyStore';
+import { useHouseholdStore } from '@/stores/householdStore';
 import { createClient } from '@/lib/supabase';
 import { filterTasks, splitTasksIntoSections } from '@/utils/taskSelectors';
-import type { TaskListItem, AgentMemoryFact } from '@/types/database';
+import type { TaskListItem, HouseholdMember, AgentMemoryFact } from '@/types/database';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,152 @@ function tomorrowISO(): string {
   d.setDate(d.getDate() + 1);
   d.setHours(8, 0, 0, 0);
   return d.toISOString();
+}
+
+// ── Assignation ────────────────────────────────────────────────────────────
+
+function getInitials(name: string): string {
+  return name.split(' ').map((n) => n[0] ?? '').join('').slice(0, 2).toUpperCase();
+}
+
+/** Bulle d'initiales cliquable — affiche l'assigné ou l'icône foyer */
+function AssigneeBadge({
+  task,
+  allMembers,
+  currentUserId,
+  onClick,
+}: {
+  task: TaskListItem;
+  allMembers: HouseholdMember[];
+  currentUserId: string;
+  onClick: () => void;
+}) {
+  const member = task.assigned_to
+    ? allMembers.find((m) => !m.isPhantom && m.id === task.assigned_to) ?? null
+    : task.assigned_to_phantom_id
+    ? allMembers.find((m) => m.isPhantom && m.id === task.assigned_to_phantom_id) ?? null
+    : null;
+
+  const isMe = !!member && !member.isPhantom && member.id === currentUserId;
+  const color = !member ? '#e5e5ea' : isMe ? '#007aff' : member.isPhantom ? '#af52de' : '#34c759';
+  const label = !member ? '👥' : getInitials(member.display_name);
+  const title = !member ? 'Assigner' : member.display_name;
+
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="flex-shrink-0 w-[28px] h-[28px] rounded-full flex items-center justify-center text-[10px] font-bold active:scale-90 transition-transform"
+      style={{ background: color, color: member ? 'white' : '#8e8e93' }}
+      aria-label={`Assigner cette tâche (actuellement : ${title})`}
+    >
+      {label}
+    </button>
+  );
+}
+
+/** Bottom sheet pour choisir un assigné */
+function AssignSheet({
+  taskName,
+  allMembers,
+  currentUserId,
+  currentAssignedUserId,
+  currentAssignedPhantomId,
+  onAssign,
+  onClose,
+}: {
+  taskName: string;
+  allMembers: HouseholdMember[];
+  currentUserId: string;
+  currentAssignedUserId: string | null;
+  currentAssignedPhantomId: string | null;
+  onAssign: (userId: string | null, phantomId: string | null) => void;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      {/* Overlay */}
+      <div
+        className="fixed inset-0 z-40"
+        style={{ background: 'rgba(0,0,0,0.3)' }}
+        onClick={onClose}
+      />
+      {/* Sheet */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[20px] bg-white pb-safe"
+        style={{ boxShadow: '0 -4px 30px rgba(0,0,0,0.12)' }}
+      >
+        <div className="px-4 pt-4 pb-2">
+          <div className="w-10 h-1 rounded-full bg-[#e5e5ea] mx-auto mb-4" />
+          <p className="text-[13px] text-[#8e8e93] mb-0.5">Assigner</p>
+          <p className="text-[17px] font-semibold text-[#1c1c1e] truncate mb-4">{taskName}</p>
+
+          <div className="space-y-1 mb-4">
+            {/* Option : Foyer (personne) */}
+            <button
+              onClick={() => onAssign(null, null)}
+              className="w-full flex items-center gap-3 px-3 py-3 rounded-xl active:bg-[#f2f2f7] transition-colors"
+            >
+              <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center text-[16px]"
+                style={{ background: '#f2f2f7' }}>
+                👥
+              </div>
+              <div className="text-left">
+                <p className="text-[15px] font-medium text-[#1c1c1e]">Foyer</p>
+                <p className="text-[12px] text-[#8e8e93]">N&apos;importe qui peut le faire</p>
+              </div>
+              {!currentAssignedUserId && !currentAssignedPhantomId && (
+                <svg className="ml-auto" width="18" height="18" fill="none" stroke="#007aff" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </button>
+
+            {/* Membres */}
+            {allMembers.map((m) => {
+              const isMe = !m.isPhantom && m.id === currentUserId;
+              const isSelected = m.isPhantom
+                ? m.id === currentAssignedPhantomId
+                : m.id === currentAssignedUserId;
+              const color = isMe ? '#007aff' : m.isPhantom ? '#af52de' : '#34c759';
+
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => onAssign(m.isPhantom ? null : m.id, m.isPhantom ? m.id : null)}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl active:bg-[#f2f2f7] transition-colors"
+                >
+                  <div
+                    className="w-[36px] h-[36px] rounded-full flex items-center justify-center text-[13px] font-bold text-white flex-shrink-0"
+                    style={{ background: color }}
+                  >
+                    {getInitials(m.display_name)}
+                  </div>
+                  <p className="text-[15px] font-medium text-[#1c1c1e]">
+                    {isMe ? `Moi (${m.display_name})` : m.display_name}
+                  </p>
+                  {isSelected && (
+                    <svg className="ml-auto" width="18" height="18" fill="none" stroke="#007aff" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={onClose}
+            className="w-full py-3.5 rounded-xl text-[15px] font-semibold text-[#8e8e93]"
+            style={{ background: '#f2f2f7' }}
+          >
+            Annuler
+          </button>
+          <div className="h-2" />
+        </div>
+      </div>
+    </>
+  );
 }
 
 // ── Card "Maintenant" ──────────────────────────────────────────────────────
@@ -117,13 +264,16 @@ function CardMaintenant({
 // ── Card tâche ─────────────────────────────────────────────────────────────
 
 function TodayTaskCard({
-  task, onComplete, onPostpone, justCompleted, justPostponed,
+  task, onComplete, onPostpone, justCompleted, justPostponed, allMembers, currentUserId, onOpenAssign,
 }: {
   task: TaskListItem;
   onComplete: (id: string) => void;
   onPostpone: (id: string) => void;
   justCompleted: boolean;
   justPostponed: boolean;
+  allMembers: HouseholdMember[];
+  currentUserId: string;
+  onOpenAssign: (taskId: string) => void;
 }) {
   const isOverdue = !!task.next_due_at && new Date(task.next_due_at) < new Date(new Date().setHours(0, 0, 0, 0));
 
@@ -173,6 +323,16 @@ function TodayTaskCard({
           {justCompleted && <span className="text-[11px] font-semibold text-[#34c759]">✓ Fait !</span>}
         </div>
       </div>
+
+      {/* Badge assignation */}
+      {!justCompleted && (
+        <AssigneeBadge
+          task={task}
+          allMembers={allMembers}
+          currentUserId={currentUserId}
+          onClick={() => onOpenAssign(task.id)}
+        />
+      )}
 
       {/* Report demain */}
       {!justCompleted && (
@@ -265,10 +425,12 @@ export default function TodayPage() {
   const { profile } = useAuthStore();
   const { tasks, loading: tasksLoading, fetchTasks, completeTask, updateTask, filters } = useTaskStore();
   const { householdProfile, members: phantomMembers, loading: familyLoading, fetchFamily } = useFamilyStore();
+  const { allMembers, fetchHousehold } = useHouseholdStore();
 
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [postponedIds, setPostponedIds] = useState<Set<string>>(new Set());
   const [memoryFacts, setMemoryFacts] = useState<AgentMemoryFact[]>([]);
+  const [assigningTaskId, setAssigningTaskId] = useState<string | null>(null);
 
   const loadMemoryFacts = useCallback(async (householdId: string) => {
     const supabase = createClient();
@@ -287,12 +449,13 @@ export default function TodayPage() {
     const hid = profile.household_id;
     fetchTasks(hid);
     fetchFamily(hid);
+    fetchHousehold(hid);
     loadMemoryFacts(hid);
 
     const onVisible = () => { if (document.visibilityState === 'visible') { fetchTasks(hid); loadMemoryFacts(hid); } };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [profile?.household_id, fetchTasks, fetchFamily, loadMemoryFacts]);
+  }, [profile?.household_id, fetchTasks, fetchFamily, fetchHousehold, loadMemoryFacts]);
 
   // ── Actions ──
   const handleComplete = async (taskId: string) => {
@@ -304,6 +467,15 @@ export default function TodayPage() {
     setPostponedIds(prev => new Set(prev).add(taskId));
     await updateTask(taskId, { next_due_at: tomorrowISO() });
     if (profile?.household_id) fetchTasks(profile.household_id);
+  };
+
+  const handleAssign = async (userId: string | null, phantomId: string | null) => {
+    if (!assigningTaskId) return;
+    await updateTask(assigningTaskId, {
+      assigned_to: userId,
+      assigned_to_phantom_id: phantomId,
+    });
+    setAssigningTaskId(null);
   };
 
   // ── Données ──
@@ -396,6 +568,9 @@ export default function TodayPage() {
               onPostpone={handlePostpone}
               justCompleted={completedIds.has(task.id)}
               justPostponed={postponedIds.has(task.id)}
+              allMembers={allMembers}
+              currentUserId={profile?.id ?? ''}
+              onOpenAssign={setAssigningTaskId}
             />
           ))}
         </section>
@@ -404,8 +579,43 @@ export default function TodayPage() {
       {/* 4. Sur le radar */}
       <SurLeRadar tasks={radar} />
 
+      {/* Lien "Cette semaine" */}
+      <Link
+        href="/week"
+        className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-white active:bg-[#f2f2f7] transition-colors"
+        style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.06)' }}
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-[18px]">📅</span>
+          <div>
+            <p className="text-[15px] font-semibold text-[#1c1c1e]">Cette semaine</p>
+            <p className="text-[12px] text-[#8e8e93]">Vue de coordination du foyer</p>
+          </div>
+        </div>
+        <svg width="16" height="16" fill="none" stroke="#c7c7cc" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+          <path d="M9 18l6-6-6-6" />
+        </svg>
+      </Link>
+
       {/* 5. Check-in du soir (uniquement après 20h) */}
       {isEvening && <CheckInDuSoir />}
+
+      {/* Sheet assignation */}
+      {assigningTaskId && (() => {
+        const t = tasks.find((t) => t.id === assigningTaskId);
+        if (!t) return null;
+        return (
+          <AssignSheet
+            taskName={t.name}
+            allMembers={allMembers}
+            currentUserId={profile?.id ?? ''}
+            currentAssignedUserId={t.assigned_to ?? null}
+            currentAssignedPhantomId={t.assigned_to_phantom_id ?? null}
+            onAssign={handleAssign}
+            onClose={() => setAssigningTaskId(null)}
+          />
+        );
+      })()}
 
     </div>
   );

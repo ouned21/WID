@@ -1,7 +1,7 @@
 # Yova V1 — Spec produit
 
 > **Doc de référence épinglé.** Toute feature V1 doit être traçable à cette spec.
-> Dernière mise à jour : 2026-04-21
+> Dernière mise à jour : 2026-04-22
 
 ---
 
@@ -72,7 +72,10 @@ Le Score 4 axes et le Dashboard analytique **sortent de la nav principale**. Arc
 **Ce qui n'est PAS là** :
 - ❌ Liste exhaustive des tâches
 - ❌ Score ou métriques
-- ❌ Planning semaine (trop lourd cognitivement)
+- ❌ Planning calendrier à grille (trop lourd cognitivement)
+
+**Accessible depuis Aujourd'hui** :
+- 📅 **"Cette semaine"** (`/week`) — vue légère 7 jours, groupée par jour, avec badges assignation foyer. Coordination entre adultes (Barbara voit ce qui lui est assigné cette semaine). Read-only, pas de drag & drop.
 
 ---
 
@@ -244,6 +247,7 @@ Remplace le formulaire multi-étapes + catalogue statique.
 | Prénoms/âges enfants | `phantom_members` (nom, birth_date) | Active tâches enfants |
 | Classe scolaire | `phantom_members.school_class` | Tâches scolaires |
 | Allergies/contraintes | `phantom_members.specifics.allergies` | Informe cuisine/courses |
+| Prénoms adultes du foyer | `phantom_members` (type adult, nom) | Mémoire foyer complète |
 | Aide extérieure | `household_profile.external_help` | Désactive tâches couvertes |
 | Équipements (grille chips) | `household_profile` | Active/désactive blocs tâches |
 | Niveau d'énergie | `household_profile.energy_level` | low → mode vital |
@@ -258,7 +262,7 @@ Remplace le formulaire multi-étapes + catalogue statique.
 ### On RETIRE de la nav (code archivé, pas supprimé)
 - Score 4 axes (plus visible par défaut)
 - Dashboard/Distribution
-- Planning calendrier semaine (simplifié en « À faire aujourd'hui »)
+- Planning calendrier semaine → remplacé par vue légère `/week` (liste 7 jours, pas de grille)
 
 ### On AJOUTE
 - Fiches membres enrichies (enfants âges/contraintes)

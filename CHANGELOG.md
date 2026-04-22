@@ -6,6 +6,56 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-22] — Sprint 6 : Vue semaine + assignation des tâches
+
+### Ajouté
+- `app/(app)/week/page.tsx` — NEW : vue "Cette semaine" — 7 jours groupés par date, badges assignation colorés (bleu = moi, vert = autre adulte, violet = enfant/fantôme), légende membres, compteur total, état vide élégant ; accessible depuis Aujourd'hui
+- `app/(app)/today/page.tsx` — badge assignation cliquable sur chaque card de tâche (bulle d'initiales colorée, icône 👥 si non assignée)
+- `app/(app)/today/page.tsx` — `AssignSheet` bottom sheet : liste tous les membres du foyer (vrais + fantômes) + option "Foyer" (désassigner) ; coche sur l'assigné courant ; mise à jour DB immédiate via `updateTask`
+- `app/(app)/today/page.tsx` — lien "📅 Cette semaine →" entre Sur le radar et Check-in du soir
+- `docs/SPEC_V1_YOVA.md` — planning ❌ lourd remplacé par vue `/week` légère (liste 7 jours, read-only, pas de grille calendrier)
+
+### Décision produit
+- **Assignation optionnelle (Option A)** : chaque tâche a un assigné facultatif (vrai user ou membre fantôme) ; pas de score d'équité ; l'icône foyer 👥 signifie "n'importe qui peut le faire"
+- **Vue semaine maintenant, pas en V2** : Barbara a besoin de voir son planning pour se coordonner avec Jonathan — la confiance dans Yova nécessite une soupape de vérification
+
+### Pilier spec
+- Pilier 1 — Connaissance intime du foyer (Yova sait qui fait quoi)
+- Pilier 3 — Proactivité douce (Barbara voit sa semaine d'un coup d'œil)
+
+---
+
+## [2026-04-22] — Sprint 5 : Hotfixes live testing + Deepgram STT
+
+### Ajouté
+- `app/api/voice/transcribe/route.ts` — NEW : proxy Deepgram STT (nova-2, FR, smart_format, numerals=true) ; timeout 15s AbortController ; fallback gracieux si `DEEPGRAM_API_KEY` absente
+- `app/(app)/onboarding/page.tsx` — generating screen : logo Y pulsant + points orbitaux, messages cyclants, "ça prend du temps" après 20s ; `generateError` affiché avec bouton Réessayer
+- `app/(app)/onboarding/page.tsx` — collecte des adultes du foyer : Yova demande les prénoms des autres adultes → `phantom_members` de type `adult`
+- `app/api/onboarding/chat/route.ts` — chips allergies auto : si Claude pose une question sur les allergies, chips `[Aucune allergie 👍|On a des allergies]` injectés automatiquement
+
+### Modifié
+- `app/(app)/onboarding/page.tsx` — double message Yova corrigé : guard `step === 'consent'` empêche double appel `startConversation()`
+- `app/(app)/onboarding/page.tsx` — fin d'onboarding : navigation auto vers `/today` après 1,5 s (suppression bouton intermédiaire)
+- `app/(app)/onboarding/page.tsx` — micro : MediaRecorder → `/api/voice/transcribe` + fallback Web Speech API ; banner orange "🎤 Vérifie la transcription" après dictée
+- `app/api/onboarding/chat/route.ts` — fréquences alignées sur la contrainte DB CHECK : suppression `every_other_day` / `twice_weekly` / `bimonthly`, ajout `semiannual` / `once`
+- `app/api/onboarding/chat/route.ts` — timeout AbortController 30s sur l'appel Claude
+- `app/api/onboarding/create-tasks/route.ts` — validation strict + déduplication par nom : fréquence/durée/effort hors contrainte remplacés par défaut, doublons ignorés
+- `app/(auth)/household/page.tsx` — bouton "Créer le foyer" désactivé tant que `isInitialized === false` (fix race condition authStore)
+- `app/(auth)/register/page.tsx` — champ "Confirmer le mot de passe" : label et placeholder visibles
+- `app/(app)/family/page.tsx` — titre `"Notre famille"` → `"Notre foyer"` ; suppression code mort ; modal de confirmation avant suppression d'un fait mémoire
+- `app/(app)/today/page.tsx` — `fetchTasks` appelé après "Reporter demain" (liste rafraîchie immédiatement)
+- `app/(app)/journal/page.tsx` — brouillon sauvegardé dans `localStorage` (survit aux navigations)
+- `app/api/ai/parse-journal/route.ts` — filtre strict : seuls les messages `role: user/assistant` avec `content: string` envoyés à Claude
+
+### Fix critique
+- **Contrainte DB `frequency`** : Claude générait `every_other_day` / `twice_weekly` → erreur 500. Fix : prompt + validation côté serveur.
+- **Spin infini** : erreurs de `persistTasks` silencieuses → `generateError` state visible sur l'écran de génération.
+
+### Requis (action Jonathan)
+- Ajouter `DEEPGRAM_API_KEY` dans les variables d'environnement Vercel pour activer la transcription Deepgram
+
+---
+
 ## [2026-04-22] — Sprint 4 : Onboarding agent Claude (conversation libre)
 
 ### Modifié
