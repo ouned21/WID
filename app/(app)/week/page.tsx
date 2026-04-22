@@ -11,6 +11,7 @@ import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { TaskActionsSheet } from '@/components/TaskActionsSheet';
 import { UndoToast } from '@/components/UndoToast';
+import { createClient } from '@/lib/supabase';
 import type { TaskListItem, HouseholdMember } from '@/types/database';
 
 type ViewMode = 'week' | 'month';
@@ -38,6 +39,22 @@ function getMemberColor(member: HouseholdMember, isMe: boolean): string {
   if (isMe) return '#007aff';
   if (member.isPhantom) return '#af52de';
   return '#34c759';
+}
+
+// Sprint 13 — palette stable pour les chips de projet (hash → 6 couleurs iOS-like)
+const PROJECT_CHIP_PALETTE = [
+  { bg: '#F3EDFF', fg: '#7c3aed' }, // violet
+  { bg: '#E5F0FF', fg: '#007aff' }, // bleu
+  { bg: '#FFE8EE', fg: '#ff2d55' }, // rose
+  { bg: '#FFEFD9', fg: '#d97706' }, // orange
+  { bg: '#DEF6E2', fg: '#15803d' }, // vert
+  { bg: '#DCF1FB', fg: '#0891b2' }, // teal
+];
+
+function projectChipColor(parentId: string): { bg: string; fg: string } {
+  let hash = 0;
+  for (let i = 0; i < parentId.length; i++) hash = (hash + parentId.charCodeAt(i)) | 0;
+  return PROJECT_CHIP_PALETTE[Math.abs(hash) % PROJECT_CHIP_PALETTE.length];
 }
 
 /** Retourne les 7 prochains jours (aujourd'hui inclus), minuit local */
@@ -139,16 +156,44 @@ function MemberBadge({
   );
 }
 
+function ProjectChip({
+  parentId,
+  title,
+  onClick,
+}: {
+  parentId: string;
+  title: string;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  const c = projectChipColor(parentId);
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0 active:opacity-70"
+      style={{ background: c.bg, color: c.fg, maxWidth: '140px' }}
+      title={`Projet : ${title}`}
+      aria-label={`Filtrer par projet ${title}`}
+    >
+      <span>✨</span>
+      <span className="truncate">{title}</span>
+    </button>
+  );
+}
+
 function WeekTaskRow({
   task,
   allMembers,
   currentUserId,
+  projectInfo,
   onOpenActions,
+  onFilterProject,
 }: {
   task: TaskListItem;
   allMembers: HouseholdMember[];
   currentUserId: string;
+  projectInfo: { parentId: string; title: string } | null;
   onOpenActions: (taskId: string) => void;
+  onFilterProject: (parentId: string) => void;
 }) {
   return (
     <button
@@ -159,7 +204,16 @@ function WeekTaskRow({
     >
       <MemberBadge task={task} allMembers={allMembers} currentUserId={currentUserId} />
       <div className="flex-1 min-w-0">
-        <p className="text-[15px] font-medium text-[#1c1c1e] truncate">{task.name}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-[15px] font-medium text-[#1c1c1e] truncate">{task.name}</p>
+          {projectInfo && (
+            <ProjectChip
+              parentId={projectInfo.parentId}
+              title={projectInfo.title}
+              onClick={(e) => { e.stopPropagation(); onFilterProject(projectInfo.parentId); }}
+            />
+          )}
+        </div>
         {task.duration_estimate && (
           <p className="text-[12px] text-[#8e8e93] mt-0.5">
             ⏱ {DURATION_LABEL[task.duration_estimate] ?? task.duration_estimate}
@@ -208,6 +262,8 @@ export default function WeekPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [actionsTaskId, setActionsTaskId] = useState<string | null>(null);
   const [archivedToast, setArchivedToast] = useState<{ taskId: string; taskName: string } | null>(null);
+  // Sprint 13 — filtre par projet (tap sur chip) ; null = tout afficher.
+  const [filteredProjectId, setFilteredProjectId] = useState<string | null>(null);
 
   const handleSheetComplete = async () => {
     if (!actionsTaskId) return;
@@ -255,19 +311,70 @@ export default function WeekPage() {
   const monthDays = useMemo(() => getNextThirtyDays(), []);
   const days = viewMode === 'week' ? weekDays : monthDays;
 
+  // Sprint 13 — lookup des parents (pour chip "Projet : X")
+  // Une tâche est un parent si son id apparaît comme parent_project_id d'une autre.
+  // Certains parents peuvent être archivés (is_active=false) et donc absents du
+  // store — on fetch leur nom séparément pour ne pas perdre le chip sur leurs enfants.
+  const [archivedParentTitles, setArchivedParentTitles] = useState<Map<string, string>>(new Map());
+  const parentIdToTitle = useMemo(() => {
+    const parentIds = new Set<string>();
+    for (const t of tasks) if (t.parent_project_id) parentIds.add(t.parent_project_id);
+    const map = new Map<string, string>();
+    for (const t of tasks) if (parentIds.has(t.id)) map.set(t.id, t.name);
+    for (const [id, title] of archivedParentTitles) {
+      if (!map.has(id)) map.set(id, title);
+    }
+    return map;
+  }, [tasks, archivedParentTitles]);
+
+  useEffect(() => {
+    const referenced = new Set<string>();
+    for (const t of tasks) if (t.parent_project_id) referenced.add(t.parent_project_id);
+    const activeParents = new Set(tasks.filter((t) => referenced.has(t.id)).map((t) => t.id));
+    const missing = [...referenced].filter((id) => !activeParents.has(id) && !archivedParentTitles.has(id));
+    if (missing.length === 0) return;
+    const supabase = createClient();
+    supabase.from('household_tasks').select('id, name').in('id', missing).then(({ data }) => {
+      if (!data || data.length === 0) return;
+      setArchivedParentTitles((prev) => {
+        const next = new Map(prev);
+        for (const row of data) next.set(row.id as string, row.name as string);
+        return next;
+      });
+    });
+  }, [tasks, archivedParentTitles]);
+
+  const projectInfoFor = (task: TaskListItem): { parentId: string; title: string } | null => {
+    // Enfant → chip label = nom du parent.
+    if (task.parent_project_id && parentIdToTitle.has(task.parent_project_id)) {
+      return { parentId: task.parent_project_id, title: parentIdToTitle.get(task.parent_project_id)! };
+    }
+    // Parent lui-même → chip pointe vers lui, même couleur que ses enfants.
+    if (parentIdToTitle.has(task.id)) {
+      return { parentId: task.id, title: task.name };
+    }
+    return null;
+  };
+
+  // Tasks filtrées par projet si un filtre est actif.
+  const filteredTasks = useMemo(() => {
+    if (!filteredProjectId) return tasks;
+    return tasks.filter((t) => t.parent_project_id === filteredProjectId || t.id === filteredProjectId);
+  }, [tasks, filteredProjectId]);
+
   /** Tasks groupées par jour */
   const grouped = useMemo(() => {
     const map = new Map<string, TaskListItem[]>();
     for (const day of days) {
       map.set(localDateKey(day), []);
     }
-    for (const task of tasks) {
+    for (const task of filteredTasks) {
       if (!task.next_due_at) continue;
       const key = localDateKey(new Date(task.next_due_at));
       if (map.has(key)) map.get(key)!.push(task);
     }
     return map;
-  }, [tasks, days]);
+  }, [filteredTasks, days]);
 
   const totalCount = useMemo(
     () => [...grouped.values()].reduce((acc, t) => acc + t.length, 0),
@@ -278,10 +385,12 @@ export default function WeekPage() {
   const projectTasks = useMemo(() => {
     const sevenDaysFromNow = getSevenDaysFromNow();
     if (viewMode === 'month') return [];
-    return tasks
+    return filteredTasks
       .filter((t) => t.frequency === 'once' && t.next_due_at && new Date(t.next_due_at) >= sevenDaysFromNow)
       .sort((a, b) => new Date(a.next_due_at!).getTime() - new Date(b.next_due_at!).getTime());
-  }, [tasks, viewMode]);
+  }, [filteredTasks, viewMode]);
+
+  const filteredProjectTitle = filteredProjectId ? parentIdToTitle.get(filteredProjectId) ?? null : null;
 
   const isLoading = (tasksLoading || householdLoading) && tasks.length === 0;
 
@@ -341,6 +450,29 @@ export default function WeekPage() {
         </div>
       </div>
 
+      {/* ── Filtre projet actif (Sprint 13) ── */}
+      {filteredProjectId && (() => {
+        const c = projectChipColor(filteredProjectId);
+        return (
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-xl"
+            style={{ background: c.bg }}
+          >
+            <span className="text-[13px]">✨</span>
+            <span className="text-[13px] font-semibold flex-1 truncate" style={{ color: c.fg }}>
+              Projet : {filteredProjectTitle ?? 'inconnu'}
+            </span>
+            <button
+              onClick={() => setFilteredProjectId(null)}
+              className="text-[12px] font-semibold px-2 py-1 rounded-lg active:opacity-60"
+              style={{ background: 'white', color: c.fg }}
+            >
+              Tout voir ✕
+            </button>
+          </div>
+        );
+      })()}
+
       {/* ── Légende membres ── */}
       {allMembers.length > 0 && (
         <MemberLegend allMembers={allMembers} currentUserId={profile?.id ?? ''} />
@@ -392,6 +524,7 @@ export default function WeekPage() {
           <div className="space-y-1.5">
             {projectTasks.map((task) => {
               const dateLabel = new Date(task.next_due_at!).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+              const pInfo = projectInfoFor(task);
               return (
                 <button
                   key={task.id}
@@ -402,7 +535,16 @@ export default function WeekPage() {
                 >
                   <MemberBadge task={task} allMembers={allMembers} currentUserId={profile?.id ?? ''} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[15px] font-medium text-[#1c1c1e] truncate">{task.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[15px] font-medium text-[#1c1c1e] truncate">{task.name}</p>
+                      {pInfo && (
+                        <ProjectChip
+                          parentId={pInfo.parentId}
+                          title={pInfo.title}
+                          onClick={(e) => { e.stopPropagation(); setFilteredProjectId(pInfo.parentId); }}
+                        />
+                      )}
+                    </div>
                     {task.duration_estimate && (
                       <p className="text-[12px] text-[#8e8e93] mt-0.5">⏱ {DURATION_LABEL[task.duration_estimate] ?? task.duration_estimate}</p>
                     )}
@@ -449,7 +591,9 @@ export default function WeekPage() {
                     task={task}
                     allMembers={allMembers}
                     currentUserId={profile?.id ?? ''}
+                    projectInfo={projectInfoFor(task)}
                     onOpenActions={setActionsTaskId}
+                    onFilterProject={setFilteredProjectId}
                   />
                 ))}
               </div>

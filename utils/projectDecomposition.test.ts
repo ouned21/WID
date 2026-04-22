@@ -37,6 +37,7 @@ describe('validateDecomposition', () => {
     duration_estimate: 'medium',
     next_due_at: '2026-04-26T10:00:00.000Z',
     assigned_to: null,
+    assigned_phantom_id: null,
     notes: null,
   };
   const validProject = {
@@ -138,5 +139,39 @@ describe('validateDecomposition', () => {
       ...validProject,
       project: { ...validProject.project, target_date: '27 avril 2026' },
     })).toThrow(/target_date/);
+  });
+
+  // Sprint 13 — assignation phantom
+  it('accepte un assigned_phantom_id UUID valide (phantom Barbara, enfant...)', () => {
+    const r = validateDecomposition({
+      ...validProject,
+      subtasks: [
+        validSub,
+        { ...validSub, assigned_phantom_id: '550e8400-e29b-41d4-a716-446655440001' },
+      ],
+    });
+    expect(r.subtasks[1].assigned_phantom_id).toBe('550e8400-e29b-41d4-a716-446655440001');
+    expect(r.subtasks[1].assigned_to).toBeNull();
+  });
+
+  it('rejette un assigned_phantom_id qui n\'est pas un UUID', () => {
+    expect(() => validateDecomposition({
+      ...validProject,
+      subtasks: [validSub, { ...validSub, assigned_phantom_id: 'Barbara' }],
+    })).toThrow(/assigned_phantom_id/);
+  });
+
+  it('rejette un conflit assigned_to + assigned_phantom_id sur la même sous-tâche', () => {
+    expect(() => validateDecomposition({
+      ...validProject,
+      subtasks: [
+        validSub,
+        {
+          ...validSub,
+          assigned_to: '550e8400-e29b-41d4-a716-446655440000',
+          assigned_phantom_id: '550e8400-e29b-41d4-a716-446655440001',
+        },
+      ],
+    })).toThrow(/both/);
   });
 });
