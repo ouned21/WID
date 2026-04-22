@@ -562,19 +562,30 @@ export default function TodayPage() {
   const sections = splitTasksIntoSections(filtered);
   const urgentAll: TaskListItem[] = [...sections.overdue, ...sections.today].filter(t => !postponedIds.has(t.id));
 
-  // Sprint 12 — regrouper les tâches de projet (parent + enfants liés via parent_project_id)
-  const { projects: urgentProjects, orphans: urgentOrphans } = groupTasksByProject(urgentAll);
+  // Sprint 12 — regrouper les tâches de projet sur TOUTES les tâches filtrées
+  // (pas seulement urgentes), sinon un projet dont les sous-tâches sont dans le
+  // futur n'apparaît nulle part en tant que groupe.
+  const allGrouped = groupTasksByProject(filtered);
+  const projectParentIds = new Set(allGrouped.projects.map(g => g.parent.id));
+  const projectChildIds = new Set(
+    allGrouped.projects.flatMap(g => g.subtasks.map(s => s.id))
+  );
 
-  // Card "Maintenant" = tâche orpheline la plus urgente non complétée (on ne met pas
-  // un projet entier dans "Maintenant" — trop de choix cognitif d'un coup)
+  // Filtre : retirer parents + enfants de projet des listes plates (maintenant, aTFaire, radar).
+  // Ils sont rendus uniquement via ProjectGroupCard pour éviter les doublons.
+  const hideProjectTasks = (t: TaskListItem) =>
+    !projectParentIds.has(t.id) && !projectChildIds.has(t.id);
+  const urgentOrphans = urgentAll.filter(hideProjectTasks);
+
+  // Card "Maintenant" = tâche orpheline la plus urgente non complétée (jamais un projet)
   const maintenant = urgentOrphans.find(t => !completedIds.has(t.id)) ?? null;
   // À faire aujourd'hui = les 5 orphelines suivantes (hors maintenant)
   const aTFaire = urgentOrphans.filter(t => t.id !== maintenant?.id).slice(0, 5);
-  // Projets urgents : tous les groupes avec au moins 1 enfant non fait
-  const projectsToShow = urgentProjects.filter(g => g.subtasks.some(c => !completedIds.has(c.id)));
-  // Sur le radar = demain + semaine (orphelines uniquement, capped 5)
+  // Projets à afficher : tous ceux qui ont au moins 1 sous-tâche non faite
+  const projectsToShow = allGrouped.projects.filter(g => g.subtasks.some(c => !completedIds.has(c.id)));
+  // Sur le radar = demain + semaine (tâches orphelines uniquement, capped 5)
   const radar: TaskListItem[] = [...sections.tomorrow, ...sections.week]
-    .filter(t => !t.parent_project_id) // pas d'enfant de projet dans le radar — ils apparaissent dans le groupe
+    .filter(hideProjectTasks)
     .slice(0, 5);
 
   const isCrisis = householdProfile?.crisis_mode_active ?? false;
