@@ -89,7 +89,7 @@ function AssigneeBadge({
 
   return (
     <button
-      onClick={onClick}
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
       title={title}
       className="flex-shrink-0 w-[28px] h-[28px] rounded-full flex items-center justify-center text-[10px] font-bold active:scale-90 transition-transform"
       style={{ background: color, color: member ? 'white' : '#8e8e93' }}
@@ -391,7 +391,7 @@ function TodayTaskCard({
             task={task}
             allMembers={allMembers}
             currentUserId={currentUserId}
-            onClick={(e) => { e.stopPropagation(); onOpenAssign(task.id); }}
+            onClick={() => onOpenAssign(task.id)}
           />
         )}
 
