@@ -18,8 +18,22 @@ function getInitials(name: string): string {
   return name.split(' ').map((n) => n[0] ?? '').join('').slice(0, 2).toUpperCase();
 }
 
-function addDaysISO(days: number): string {
+/** "Demain" : toujours today + 1 (absolu). */
+function tomorrowISO(): string {
   const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(8, 0, 0, 0);
+  return d.toISOString();
+}
+
+/** "+N jours" : délai relatif par rapport à la date actuelle de la tâche.
+ *  Si la tâche est en retard (passée) ou sans date, on part d'aujourd'hui pour
+ *  ne pas replanifier dans le passé. */
+function delayFromTaskISO(task: TaskListItem, days: number): string {
+  const now = new Date();
+  const taskDue = task.next_due_at ? new Date(task.next_due_at) : null;
+  const base = taskDue && taskDue.getTime() > now.getTime() ? taskDue : now;
+  const d = new Date(base);
   d.setDate(d.getDate() + days);
   d.setHours(8, 0, 0, 0);
   return d.toISOString();
@@ -149,7 +163,7 @@ export function TaskActionsSheet({
           <ActionRow
             icon="⏭"
             label="Reporter"
-            hint="Demain, dans 3 jours, dans 7 jours"
+            hint="Demain, +3 jours, +7 jours"
             onClick={() => setView('postpone')}
           />
           <ActionRow
@@ -172,9 +186,9 @@ export function TaskActionsSheet({
         <>
           <BackHeader title="Retour" onBack={() => setView('main')} />
           <div className="space-y-1 mb-3">
-            <ActionRow icon="→" label="Demain" onClick={() => onPostpone(addDaysISO(1))} />
-            <ActionRow icon="⇥" label="Dans 3 jours" onClick={() => onPostpone(addDaysISO(3))} />
-            <ActionRow icon="⟫" label="Dans 7 jours" onClick={() => onPostpone(addDaysISO(7))} />
+            <ActionRow icon="→" label="Demain" onClick={() => onPostpone(tomorrowISO())} />
+            <ActionRow icon="⇥" label="+3 jours" hint="à partir de la date actuelle" onClick={() => onPostpone(delayFromTaskISO(task, 3))} />
+            <ActionRow icon="⟫" label="+7 jours" hint="à partir de la date actuelle" onClick={() => onPostpone(delayFromTaskISO(task, 7))} />
           </div>
         </>
       )}
