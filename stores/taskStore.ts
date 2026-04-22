@@ -53,6 +53,7 @@ type UpdateTaskPayload = {
   assigned_to_phantom_id?: string | null;
   category_id?: string;
   next_due_at?: string | null;
+  is_active?: boolean;
 };
 
 // -----------------------------------------------------------------------------
@@ -76,6 +77,7 @@ type TaskState = {
   completeTask: (taskId: string, payload?: CompleteTaskPayload) => Promise<{ ok: boolean; error?: string }>;
   updateTask: (taskId: string, payload: UpdateTaskPayload) => Promise<{ ok: boolean; error?: string }>;
   archiveTask: (taskId: string) => Promise<{ ok: boolean; error?: string }>;
+  unarchiveTask: (taskId: string, householdId: string) => Promise<{ ok: boolean; error?: string }>;
   deleteTask: (taskId: string) => Promise<{ ok: boolean; error?: string }>;
   setFilters: (filters: Partial<TaskFilters>) => void;
   setSelectedTask: (task: TaskListItem | null) => void;
@@ -337,6 +339,21 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     }
 
     await get().fetchTasks(task.household_id);
+    return { ok: true };
+  },
+
+  /**
+   * Restaure une tâche archivée (is_active = true). Utilisé par l'undo toast.
+   * N'utilise pas le store (la tâche n'y est plus après archive) — requiert householdId.
+   */
+  unarchiveTask: async (taskId, householdId) => {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('household_tasks')
+      .update({ is_active: true })
+      .eq('id', taskId);
+    if (error) return { ok: false, error: error.message };
+    await get().fetchTasks(householdId);
     return { ok: true };
   },
 

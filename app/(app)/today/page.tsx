@@ -20,6 +20,8 @@ import { useFamilyStore } from '@/stores/familyStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { createClient } from '@/lib/supabase';
 import { filterTasks, splitTasksIntoSections } from '@/utils/taskSelectors';
+import { TaskActionsSheet } from '@/components/TaskActionsSheet';
+import { UndoToast } from '@/components/UndoToast';
 import type { TaskListItem, HouseholdMember, AgentMemoryFact } from '@/types/database';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -266,7 +268,7 @@ function CardMaintenant({
 
 function TodayTaskCard({
   task, onComplete, onPostpone, justCompleted, justPostponed,
-  allMembers, currentUserId, onOpenAssign, onArchive, onDelete,
+  allMembers, currentUserId, onOpenAssign, onOpenActions,
 }: {
   task: TaskListItem;
   onComplete: (id: string) => void;
@@ -276,137 +278,101 @@ function TodayTaskCard({
   allMembers: HouseholdMember[];
   currentUserId: string;
   onOpenAssign: (taskId: string) => void;
-  onArchive: (taskId: string) => void;
-  onDelete: (taskId: string) => void;
+  onOpenActions: (taskId: string) => void;
 }) {
   const isOverdue = !!task.next_due_at && new Date(task.next_due_at) < new Date(new Date().setHours(0, 0, 0, 0));
 
-  // ── Swipe left ──
-  const REVEAL = 136; // px des boutons d'action révélés
-  const [offset, setOffset] = useState(0);
-  const touch = useRef({ startX: 0, startY: 0, tracking: false });
+  // ── Long-press (500ms) pour ouvrir la sheet d'actions ──
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    touch.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, tracking: false };
+  const startLongPress = () => {
+    longPressFired.current = false;
+    longPressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      if (navigator.vibrate) navigator.vibrate(10);
+      onOpenActions(task.id);
+    }, 500);
   };
-  const onTouchMove = (e: React.TouchEvent) => {
-    const dx = touch.current.startX - e.touches[0].clientX;
-    const dy = Math.abs(touch.current.startY - e.touches[0].clientY);
-    if (!touch.current.tracking && Math.abs(dx) < 5) return;
-    if (dy > Math.abs(dx) * 1.5) return; // scroll vertical → ignorer
-    touch.current.tracking = true;
-    if (dx > 0) setOffset(Math.min(dx, REVEAL));
-    else setOffset(Math.max(0, offset + dx));
+  const cancelLongPress = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    longPressTimer.current = null;
   };
-  const onTouchEnd = () => {
-    setOffset(offset > REVEAL * 0.4 ? REVEAL : 0);
-  };
-  const closeSwipe = () => setOffset(0);
 
   if (justPostponed) return null;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.08)' }}>
-
-      {/* ── Boutons d'action (derrière la card) ── */}
-      <div className="absolute right-0 top-0 bottom-0 flex" style={{ width: REVEAL }}>
-        <button
-          onClick={() => { closeSwipe(); onArchive(task.id); }}
-          className="flex-1 flex flex-col items-center justify-center gap-1 active:brightness-90"
-          style={{ background: '#ff9500' }}
-          aria-label="Archiver la tâche"
-        >
-          <svg width="20" height="20" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-            <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5" rx="1"/>
-            <line x1="10" y1="12" x2="14" y2="12"/>
-          </svg>
-          <span className="text-white text-[10px] font-semibold">Archiver</span>
-        </button>
-        <button
-          onClick={() => { closeSwipe(); onDelete(task.id); }}
-          className="flex-1 flex flex-col items-center justify-center gap-1 active:brightness-90"
-          style={{ background: '#ff3b30' }}
-          aria-label="Supprimer la tâche"
-        >
-          <svg width="20" height="20" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-            <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-          </svg>
-          <span className="text-white text-[10px] font-semibold">Supprimer</span>
-        </button>
-      </div>
-
-      {/* ── Card (glisse à gauche) ── */}
-      <div
-        className="flex items-center gap-3 px-4 py-3.5 bg-white transition-all duration-300"
+    <div
+      className="flex items-center gap-3 px-4 py-3.5 bg-white rounded-2xl transition-all duration-300"
+      style={{
+        boxShadow: '0 0.5px 3px rgba(0,0,0,0.08)',
+        opacity: justCompleted ? 0.45 : 1,
+        scale: justCompleted ? '0.98' : '1',
+      }}
+      onTouchStart={startLongPress}
+      onTouchEnd={cancelLongPress}
+      onTouchMove={cancelLongPress}
+      onTouchCancel={cancelLongPress}
+      onContextMenu={(e) => { e.preventDefault(); onOpenActions(task.id); }}
+    >
+      {/* Bouton compléter */}
+      <button
+        onClick={(e) => { e.stopPropagation(); if (!justCompleted) onComplete(task.id); }}
+        className="flex-shrink-0 w-[26px] h-[26px] rounded-full border-2 flex items-center justify-center transition-all duration-200 active:scale-90"
         style={{
-          transform: `translateX(-${offset}px)`,
-          transition: offset === 0 || offset === REVEAL ? 'transform 0.22s ease' : 'none',
-          opacity: justCompleted ? 0.45 : 1,
-          scale: justCompleted ? '0.98' : '1',
+          borderColor: justCompleted ? '#34c759' : isOverdue ? '#ff3b30' : '#007aff',
+          background: justCompleted ? '#34c759' : 'transparent',
         }}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onClick={offset > 0 ? closeSwipe : undefined}
+        aria-label={`Marquer "${task.name}" comme fait`}
       >
-        {/* Bouton compléter */}
-        <button
-          onClick={(e) => { e.stopPropagation(); if (!justCompleted) onComplete(task.id); }}
-          className="flex-shrink-0 w-[26px] h-[26px] rounded-full border-2 flex items-center justify-center transition-all duration-200 active:scale-90"
-          style={{
-            borderColor: justCompleted ? '#34c759' : isOverdue ? '#ff3b30' : '#007aff',
-            background: justCompleted ? '#34c759' : 'transparent',
-          }}
-          aria-label={`Marquer "${task.name}" comme fait`}
+        {justCompleted && (
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        )}
+      </button>
+
+      {/* Contenu */}
+      <div className="flex-1 min-w-0">
+        <p
+          className="text-[15px] font-medium truncate"
+          style={{ textDecoration: justCompleted ? 'line-through' : 'none', color: justCompleted ? '#8e8e93' : '#1c1c1e' }}
         >
-          {justCompleted && (
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
+          {task.name}
+        </p>
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          {isOverdue && !justCompleted && (
+            <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: '#fff2f2', color: '#ff3b30' }}>En retard</span>
           )}
-        </button>
-
-        {/* Contenu */}
-        <div className="flex-1 min-w-0">
-          <p
-            className="text-[15px] font-medium truncate"
-            style={{ textDecoration: justCompleted ? 'line-through' : 'none', color: justCompleted ? '#8e8e93' : '#1c1c1e' }}
-          >
-            {task.name}
-          </p>
-          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            {isOverdue && !justCompleted && (
-              <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: '#fff2f2', color: '#ff3b30' }}>En retard</span>
-            )}
-            {task.duration_estimate && !justCompleted && (
-              <span className="text-[12px] text-[#8e8e93]">⏱ {DURATION_LABEL[task.duration_estimate]}</span>
-            )}
-            {justCompleted && <span className="text-[11px] font-semibold text-[#34c759]">✓ Fait !</span>}
-          </div>
+          {task.duration_estimate && !justCompleted && (
+            <span className="text-[12px] text-[#8e8e93]">⏱ {DURATION_LABEL[task.duration_estimate]}</span>
+          )}
+          {justCompleted && <span className="text-[11px] font-semibold text-[#34c759]">✓ Fait !</span>}
         </div>
-
-        {/* Badge assignation */}
-        {!justCompleted && (
-          <AssigneeBadge
-            task={task}
-            allMembers={allMembers}
-            currentUserId={currentUserId}
-            onClick={() => onOpenAssign(task.id)}
-          />
-        )}
-
-        {/* Report demain */}
-        {!justCompleted && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onPostpone(task.id); }}
-            className="flex-shrink-0 text-[12px] text-[#c7c7cc] font-medium px-2 py-1 rounded-lg active:bg-[#f2f2f7] transition-colors"
-            aria-label="Reporter à demain"
-          >
-            Demain
-          </button>
-        )}
       </div>
+
+      {/* Badge assignation */}
+      {!justCompleted && (
+        <AssigneeBadge
+          task={task}
+          allMembers={allMembers}
+          currentUserId={currentUserId}
+          onClick={() => onOpenAssign(task.id)}
+        />
+      )}
+
+      {/* Bouton ⋯ actions */}
+      {!justCompleted && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onOpenActions(task.id); }}
+          className="flex-shrink-0 w-[28px] h-[28px] rounded-full flex items-center justify-center text-[#8e8e93] active:bg-[#f2f2f7] transition-colors"
+          aria-label="Plus d'actions"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
@@ -486,7 +452,7 @@ function CheckInDuSoir() {
 
 export default function TodayPage() {
   const { profile } = useAuthStore();
-  const { tasks, loading: tasksLoading, fetchTasks, completeTask, updateTask, archiveTask, deleteTask, filters } = useTaskStore();
+  const { tasks, loading: tasksLoading, fetchTasks, completeTask, updateTask, archiveTask, unarchiveTask, filters } = useTaskStore();
   const { householdProfile, members: phantomMembers, loading: familyLoading, fetchFamily } = useFamilyStore();
   const { allMembers, fetchHousehold } = useHouseholdStore();
   const pathname = usePathname();
@@ -495,7 +461,8 @@ export default function TodayPage() {
   const [postponedIds, setPostponedIds] = useState<Set<string>>(new Set());
   const [memoryFacts, setMemoryFacts] = useState<AgentMemoryFact[]>([]);
   const [assigningTaskId, setAssigningTaskId] = useState<string | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [actionsTaskId, setActionsTaskId] = useState<string | null>(null);
+  const [archivedToast, setArchivedToast] = useState<{ taskId: string; taskName: string } | null>(null);
 
   const loadMemoryFacts = useCallback(async (householdId: string) => {
     const supabase = createClient();
@@ -552,15 +519,41 @@ export default function TodayPage() {
     if (profile?.household_id) fetchTasks(profile.household_id);
   };
 
-  const handleDeleteRequest = (taskId: string) => {
-    setDeleteConfirmId(taskId);
+  // ── Sheet d'actions (⋯ ou long-press) ──
+  const handleSheetComplete = async () => {
+    if (!actionsTaskId) return;
+    const id = actionsTaskId;
+    setActionsTaskId(null);
+    await handleComplete(id);
+  };
+  const handleSheetPostpone = async (nextDueIso: string) => {
+    if (!actionsTaskId) return;
+    const id = actionsTaskId;
+    setActionsTaskId(null);
+    setPostponedIds((prev) => new Set(prev).add(id));
+    await updateTask(id, { next_due_at: nextDueIso });
+    if (profile?.household_id) fetchTasks(profile.household_id);
+  };
+  const handleSheetReassign = async (userId: string | null, phantomId: string | null) => {
+    if (!actionsTaskId) return;
+    const id = actionsTaskId;
+    setActionsTaskId(null);
+    await updateTask(id, { assigned_to: userId, assigned_to_phantom_id: phantomId });
+  };
+  const handleSheetArchive = async () => {
+    if (!actionsTaskId) return;
+    const id = actionsTaskId;
+    const task = tasks.find((t) => t.id === id);
+    setActionsTaskId(null);
+    await archiveTask(id);
+    if (task) setArchivedToast({ taskId: id, taskName: task.name });
   };
 
-  const handleDeleteConfirm = async () => {
-    if (!deleteConfirmId) return;
-    await deleteTask(deleteConfirmId);
-    setDeleteConfirmId(null);
-    if (profile?.household_id) fetchTasks(profile.household_id);
+  const handleUndoArchive = async () => {
+    if (!archivedToast || !profile?.household_id) return;
+    const id = archivedToast.taskId;
+    setArchivedToast(null);
+    await unarchiveTask(id, profile.household_id);
   };
 
   // ── Données ──
@@ -656,8 +649,7 @@ export default function TodayPage() {
               allMembers={allMembers}
               currentUserId={profile?.id ?? ''}
               onOpenAssign={setAssigningTaskId}
-              onArchive={handleArchive}
-              onDelete={handleDeleteRequest}
+              onOpenActions={setActionsTaskId}
             />
           ))}
         </section>
@@ -687,39 +679,32 @@ export default function TodayPage() {
       {/* 5. Check-in du soir (uniquement après 20h) */}
       {isEvening && <CheckInDuSoir />}
 
-      {/* Modal confirmation suppression */}
-      {deleteConfirmId && (() => {
-        const t = tasks.find((t) => t.id === deleteConfirmId);
+      {/* Sheet d'actions (⋯ ou long-press) */}
+      {actionsTaskId && (() => {
+        const t = tasks.find((t) => t.id === actionsTaskId);
+        if (!t) return null;
         return (
-          <>
-            <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setDeleteConfirmId(null)} />
-            <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[20px] bg-white pb-safe" style={{ boxShadow: '0 -4px 30px rgba(0,0,0,0.15)' }}>
-              <div className="px-4 pt-5 pb-4">
-                <div className="w-10 h-1 rounded-full bg-[#e5e5ea] mx-auto mb-4" />
-                <p className="text-[17px] font-bold text-[#1c1c1e] text-center mb-1">Supprimer la tâche ?</p>
-                <p className="text-[14px] text-[#8e8e93] text-center mb-5 truncate px-4">
-                  &quot;{t?.name ?? 'Cette tâche'}&quot; sera définitivement supprimée.
-                </p>
-                <button
-                  onClick={handleDeleteConfirm}
-                  className="w-full py-3.5 rounded-xl text-[16px] font-semibold text-white mb-2 active:brightness-90"
-                  style={{ background: '#ff3b30' }}
-                >
-                  Supprimer
-                </button>
-                <button
-                  onClick={() => setDeleteConfirmId(null)}
-                  className="w-full py-3.5 rounded-xl text-[16px] font-semibold text-[#1c1c1e]"
-                  style={{ background: '#f2f2f7' }}
-                >
-                  Annuler
-                </button>
-                <div className="h-2" />
-              </div>
-            </div>
-          </>
+          <TaskActionsSheet
+            task={t}
+            allMembers={allMembers}
+            currentUserId={profile?.id ?? ''}
+            onComplete={handleSheetComplete}
+            onPostpone={handleSheetPostpone}
+            onReassign={handleSheetReassign}
+            onArchive={handleSheetArchive}
+            onClose={() => setActionsTaskId(null)}
+          />
         );
       })()}
+
+      {/* Undo toast (archive) */}
+      {archivedToast && (
+        <UndoToast
+          message={`"${archivedToast.taskName}" retirée — Yova ne la proposera plus`}
+          onUndo={handleUndoArchive}
+          onDismiss={() => setArchivedToast(null)}
+        />
+      )}
 
       {/* Sheet assignation */}
       {assigningTaskId && (() => {

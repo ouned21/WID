@@ -6,6 +6,40 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-22d] — Sprint micro-actions tâches (+ undo toast)
+
+### Ajouté (en plus de 22c)
+- `components/UndoToast.tsx` — toast bas d'écran avec bouton **Annuler** (auto-dismiss 4s), pattern Gmail/iOS
+- `stores/taskStore.ts` — méthode `unarchiveTask(taskId, householdId)` (restaure `is_active=true`, bypass du lookup store)
+- `/today` + `/week` — toast d'annulation après "Pas pertinent" (remplace l'idée initiale de modale de confirmation — moins de friction, même filet de sécurité)
+
+### Corrigé
+- Bug unarchive : `updateTask({is_active:true})` échouait car la tâche était déjà retirée du store après archive → séparation claire entre `updateTask` (modif champs) et `unarchiveTask` (restauration)
+- Race condition intermittente sur l'undo : `handleSheetArchive` appelait un `fetchTasks` redondant en plus de celui déjà fait par `archiveTask`. Si ce refetch non-awaited résolvait après `unarchiveTask`, il écrasait l'état restauré avec l'état archivé. Suppression du refetch redondant dans `/today` et `/week`.
+
+### Pourquoi toast vs modale
+Modale de confirmation envisagée, rejetée. L'archive est réversible en DB (pas de hard delete), friction à chaque action contre l'ADN "zéro charge mentale". Le toast offre un filet de sécurité réel (4s pour annuler) sans friction.
+
+---
+
+## [2026-04-22c] — Sprint micro-actions tâches
+
+### Ajouté
+- `components/TaskActionsSheet.tsx` — bottom sheet unifiée avec 4 actions sur une tâche : **Fait** / **Reporter** (demain, +3j, +7j) / **Réassigner** (liste membres) / **Pas pertinent** (archive, réversible en DB). Sous-vues intégrées, une seule entrée visuelle.
+- `app/(app)/today/page.tsx` — bouton `⋯` sur chaque tâche + long-press (500 ms, vibration tactile si dispo) + clic droit desktop → ouvre la sheet d'actions.
+- `app/(app)/week/page.tsx` — tap sur une ligne de tâche (y compris "Projets à venir") ouvre la même sheet. La vue reste read-only en apparence, mais chaque tâche est maintenant actionnable.
+
+### Modifié
+- `app/(app)/today/page.tsx` — `TodayTaskCard` simplifiée : suppression du swipe-left (archive/supprimer redondants avec la sheet), suppression du label "Demain" (remplacé par `⋯`), suppression du modal de confirmation de suppression (plus de hard delete dans l'UI — seulement archive).
+
+### Supprimé
+- `app/(app)/today/page.tsx` — modal "Supprimer la tâche ?" et `handleDeleteRequest/handleDeleteConfirm`. Respecte l'ADN V1 : l'user ajuste, il ne gère pas une todo-list. Les tâches archivées restent en DB, pas perdues.
+
+### Pourquoi
+Question produit ouverte en début de session : l'user doit-il pouvoir agir sur ses tâches s'il le décide ? Oui — mais en **micro-actions**, pas en mode gestion. Vision respectée : Yova porte la charge, l'user corrige (reporter, réassigner, « pas pertinent »). Pas de CRUD classique, pas de création manuelle (ça passe par *Parler à Yova*).
+
+---
+
 ## [2026-04-22b] — Corrections onboarding + profil + vue semaine
 
 ### Ajouté

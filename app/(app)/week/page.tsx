@@ -9,6 +9,8 @@ import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
+import { TaskActionsSheet } from '@/components/TaskActionsSheet';
+import { UndoToast } from '@/components/UndoToast';
 import type { TaskListItem, HouseholdMember } from '@/types/database';
 
 type ViewMode = 'week' | 'month';
@@ -141,15 +143,19 @@ function WeekTaskRow({
   task,
   allMembers,
   currentUserId,
+  onOpenActions,
 }: {
   task: TaskListItem;
   allMembers: HouseholdMember[];
   currentUserId: string;
+  onOpenActions: (taskId: string) => void;
 }) {
   return (
-    <div
-      className="flex items-center gap-3 px-4 py-3 bg-white rounded-2xl"
+    <button
+      onClick={() => onOpenActions(task.id)}
+      className="w-full flex items-center gap-3 px-4 py-3 bg-white rounded-2xl active:bg-[#f8f8fa] transition-colors text-left"
       style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.07)' }}
+      aria-label={`Actions sur ${task.name}`}
     >
       <MemberBadge task={task} allMembers={allMembers} currentUserId={currentUserId} />
       <div className="flex-1 min-w-0">
@@ -160,7 +166,10 @@ function WeekTaskRow({
           </p>
         )}
       </div>
-    </div>
+      <svg className="flex-shrink-0" width="18" height="18" viewBox="0 0 24 24" fill="#c7c7cc">
+        <circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" />
+      </svg>
+    </button>
   );
 }
 
@@ -194,9 +203,46 @@ function MemberLegend({ allMembers, currentUserId }: { allMembers: HouseholdMemb
 
 export default function WeekPage() {
   const { profile } = useAuthStore();
-  const { tasks, loading: tasksLoading, fetchTasks } = useTaskStore();
+  const { tasks, loading: tasksLoading, fetchTasks, completeTask, updateTask, archiveTask, unarchiveTask } = useTaskStore();
   const { allMembers, fetchHousehold, loading: householdLoading } = useHouseholdStore();
   const [viewMode, setViewMode] = useState<ViewMode>('week');
+  const [actionsTaskId, setActionsTaskId] = useState<string | null>(null);
+  const [archivedToast, setArchivedToast] = useState<{ taskId: string; taskName: string } | null>(null);
+
+  const handleSheetComplete = async () => {
+    if (!actionsTaskId) return;
+    const id = actionsTaskId;
+    setActionsTaskId(null);
+    await completeTask(id);
+  };
+  const handleSheetPostpone = async (nextDueIso: string) => {
+    if (!actionsTaskId) return;
+    const id = actionsTaskId;
+    setActionsTaskId(null);
+    await updateTask(id, { next_due_at: nextDueIso });
+    if (profile?.household_id) fetchTasks(profile.household_id);
+  };
+  const handleSheetReassign = async (userId: string | null, phantomId: string | null) => {
+    if (!actionsTaskId) return;
+    const id = actionsTaskId;
+    setActionsTaskId(null);
+    await updateTask(id, { assigned_to: userId, assigned_to_phantom_id: phantomId });
+  };
+  const handleSheetArchive = async () => {
+    if (!actionsTaskId) return;
+    const id = actionsTaskId;
+    const task = tasks.find((t) => t.id === id);
+    setActionsTaskId(null);
+    await archiveTask(id);
+    if (task) setArchivedToast({ taskId: id, taskName: task.name });
+  };
+
+  const handleUndoArchive = async () => {
+    if (!archivedToast || !profile?.household_id) return;
+    const id = archivedToast.taskId;
+    setArchivedToast(null);
+    await unarchiveTask(id, profile.household_id);
+  };
 
   useEffect(() => {
     if (!profile?.household_id) return;
@@ -322,7 +368,13 @@ export default function WeekPage() {
             {projectTasks.map((task) => {
               const dateLabel = new Date(task.next_due_at!).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
               return (
-                <div key={task.id} className="flex items-center gap-3 px-4 py-3 bg-white rounded-2xl" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.07)' }}>
+                <button
+                  key={task.id}
+                  onClick={() => setActionsTaskId(task.id)}
+                  className="w-full flex items-center gap-3 px-4 py-3 bg-white rounded-2xl active:bg-[#f8f8fa] transition-colors text-left"
+                  style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.07)' }}
+                  aria-label={`Actions sur ${task.name}`}
+                >
                   <MemberBadge task={task} allMembers={allMembers} currentUserId={profile?.id ?? ''} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[15px] font-medium text-[#1c1c1e] truncate">{task.name}</p>
@@ -331,7 +383,7 @@ export default function WeekPage() {
                     )}
                   </div>
                   <span className="text-[11px] text-[#8e8e93] flex-shrink-0">{dateLabel}</span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -367,13 +419,46 @@ export default function WeekPage() {
             ) : (
               <div className="space-y-1.5">
                 {dayTasks.map((task) => (
-                  <WeekTaskRow key={task.id} task={task} allMembers={allMembers} currentUserId={profile?.id ?? ''} />
+                  <WeekTaskRow
+                    key={task.id}
+                    task={task}
+                    allMembers={allMembers}
+                    currentUserId={profile?.id ?? ''}
+                    onOpenActions={setActionsTaskId}
+                  />
                 ))}
               </div>
             )}
           </div>
         );
       })}
+
+      {/* Undo toast (archive) */}
+      {archivedToast && (
+        <UndoToast
+          message={`"${archivedToast.taskName}" retirée — Yova ne la proposera plus`}
+          onUndo={handleUndoArchive}
+          onDismiss={() => setArchivedToast(null)}
+        />
+      )}
+
+      {/* Sheet d'actions */}
+      {actionsTaskId && (() => {
+        const t = tasks.find((t) => t.id === actionsTaskId);
+        if (!t) return null;
+        return (
+          <TaskActionsSheet
+            task={t}
+            allMembers={allMembers}
+            currentUserId={profile?.id ?? ''}
+            onComplete={handleSheetComplete}
+            onPostpone={handleSheetPostpone}
+            onReassign={handleSheetReassign}
+            onArchive={handleSheetArchive}
+            onClose={() => setActionsTaskId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

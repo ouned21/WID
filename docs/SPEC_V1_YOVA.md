@@ -315,6 +315,13 @@ Remplace le formulaire multi-étapes + catalogue statique.
 **Cette semaine (`/week`)**
 - Vue 7 jours groupée par jour, badges assignation colorés
 - Toggle **7 jours / 30 jours roulants** (vue mois = jours avec tâches uniquement)
+- Tap sur une ligne (jour ou "Projets à venir") ouvre la sheet d'actions
+
+**Micro-actions tâches (transverse `/today` + `/week`)**
+- Composant partagé `components/TaskActionsSheet.tsx` : bottom sheet unifiée avec 4 actions — **Fait** / **Reporter** (demain / +3j / +7j) / **Réassigner** (liste membres) / **Pas pertinent** (archive, pas delete)
+- Ouverture sur `/today` : bouton `⋯` sur chaque carte + long-press 500 ms (vibration) + clic droit desktop
+- Ouverture sur `/week` : tap sur la ligne entière
+- **Philosophie** : l'user ajuste, il ne gère pas une todo-list. Pas de création manuelle (ça passe par *Parler à Yova*), pas de hard delete dans l'UI (seulement archive réversible en DB)
 
 **Profil (`/profile`)**
 - Informations compte (nom, avatar), foyer (nom, code invitation), mode vacances, notifications, déconnexion, légal
