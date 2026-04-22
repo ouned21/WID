@@ -259,7 +259,9 @@ export async function POST(req: NextRequest) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
+      // Haiku : 3-5s au lieu de 20-30s avec Sonnet → évite le timeout Vercel
+      // Qualité suffisante pour l'onboarding (collecte de données + génération de tâches)
+      model: 'claude-haiku-4-5',
       max_tokens: 4096,
       stream: true,
       system: buildSystemPrompt(),
