@@ -1,86 +1,59 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import DeleteButton from '@/components/DeleteButton';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useHouseholdStore } from '@/stores/householdStore';
 import { createClient } from '@/lib/supabase';
 
-// =============================================================================
-// TYPES
-// =============================================================================
-
-type Equipment = {
-  id: string;
-  name: string;
-  icon: string;
-  category: string;
-  is_default: boolean;
-};
-
-type FamilyMember = {
-  id: string;
-  type: 'adult' | 'teen' | 'child' | 'baby' | 'pet';
-  emoji: string;
-  name: string;
-  birthdate?: string;   // YYYY-MM-DD
-  school_class?: string;
-  allergies?: string;   // virgule-séparé
-  activities?: string;  // virgule-séparé
-  notes?: string;
-  expanded?: boolean;   // UI : détails dépliés
-};
-
-type TaskTemplate = {
-  id: string;
-  name: string;
-  scoring_category: string;
-  default_frequency: string;
-  default_duration?: string;
-  default_physical?: string;
-  default_mental_load_score?: number;
-  sort_order?: number;
-  equipment_tags?: string[];
-};
-
+// ── Types ──────────────────────────────────────────────────────────────────────
 type Step =
-  | 'equipment'  // Écran 1 : Sélection équipements
-  | 'family'     // Écran 2 : Composition familiale
-  | 'thinking'   // Écran 3 : Yova crée les tâches en silence
-  | 'results';   // Écran 4 : Résultats
+  | 'household_size' | 'children' | 'children_detail' | 'constraints'
+  | 'external_help' | 'equipment' | 'energy' | 'groceries' | 'laundry'
+  | 'dinner' | 'generating' | 'done';
 
-// =============================================================================
-// CONSTANTS
-// =============================================================================
+type Message = { role: 'yova' | 'user'; text: string };
 
-const EQUIPMENT_CATEGORY_LABELS: Record<string, string> = {
-  cuisine: '🍳 Cuisine',
-  salle_de_bain: '🚿 Salle de bain',
-  linge: '👕 Linge',
-  sols: '🧹 Sols & Ménage',
-  exterieur: '🌿 Extérieur',
-  vehicule: '🚗 Véhicule',
-  animaux: '🐾 Animaux',
+type Ctx = {
+  householdSize: number;
+  hasChildren: boolean;
+  childrenRaw: string;
+  constraints: string;
+  hasExternalHelp: boolean;
+  externalHelpRaw: string;
+  equipment: string[];
+  energyLevel: 'low' | 'medium' | 'high';
+  groceriesDone: 'done' | 'todo' | 'delivery';
+  laundryDone: 'done' | 'todo';
+  dinnerPlanned: 'yes' | 'no';
 };
 
-const SCORING_CAT_DISPLAY: Record<string, { label: string; emoji: string }> = {
-  meals:                { label: 'Cuisine',       emoji: '🍳' },
-  cleaning:             { label: 'Ménage',         emoji: '🧹' },
-  tidying:              { label: 'Rangement',      emoji: '🗂' },
-  shopping:             { label: 'Courses',        emoji: '🛒' },
-  laundry:              { label: 'Linge',          emoji: '👕' },
-  children:             { label: 'Enfants',        emoji: '🧒' },
-  admin:                { label: 'Admin',          emoji: '📋' },
-  outdoor:              { label: 'Extérieur',      emoji: '🌿' },
-  hygiene:              { label: 'Hygiène',        emoji: '🚿' },
-  pets:                 { label: 'Animaux',        emoji: '🐾' },
-  vehicle:              { label: 'Voiture',        emoji: '🚗' },
-  household_management: { label: 'Gestion foyer',  emoji: '🏠' },
+type EquipmentItem = {
+  id: string; name: string; icon: string;
+  category: string; is_default: boolean;
 };
 
-const SCORING_TO_CAT_ID: Record<string, string> = {
+// ── Constants ──────────────────────────────────────────────────────────────────
+const HELP_OPTIONS = [
+  { id: 'cleaning',     label: '🧹 Femme de ménage' },
+  { id: 'babysitter',   label: '👶 Baby-sitter / Nounou' },
+  { id: 'family',       label: '👨‍👩‍👧 Famille proche' },
+  { id: 'meal_delivery',label: '📦 Livraison de repas' },
+  { id: 'none',         label: 'Aucune aide' },
+];
+
+const EQUIP_CAT_LABELS: Record<string, string> = {
+  cuisine:      '🍳 Cuisine',
+  salle_de_bain:'🚿 Salle de bain',
+  linge:        '👕 Linge',
+  sols:         '🧹 Sols & Ménage',
+  exterieur:    '🌿 Extérieur',
+  vehicule:     '🚗 Véhicule',
+  animaux:      '🐾 Animaux',
+};
+
+const CATEGORY_IDS: Record<string, string> = {
   cleaning:             '11111111-1111-1111-1111-111111111111',
   tidying:              '22222222-2222-2222-2222-222222222222',
   shopping:             '33333333-3333-3333-3333-333333333333',
@@ -93,448 +66,455 @@ const SCORING_TO_CAT_ID: Record<string, string> = {
   pets:                 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   vehicle:              'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
   household_management: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
-  transport:            'dddddddd-dddd-dddd-dddd-dddddddddddd',
 };
 
-const FAMILY_TYPES = [
-  { type: 'adult' as const, emoji: '👤', label: 'Adulte' },
-  { type: 'teen' as const, emoji: '🧑', label: 'Ado (13-17)' },
-  { type: 'child' as const, emoji: '🧒', label: 'Enfant (3-12)' },
-  { type: 'baby' as const, emoji: '👶', label: 'Bébé (0-2)' },
-  { type: 'pet' as const, emoji: '🐶', label: 'Animal' },
-];
+// ── Chip button component ──────────────────────────────────────────────────────
+function Chip({
+  label, active, onClick,
+}: { label: string; active?: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-2xl px-4 py-3 text-[14px] font-semibold transition-all active:scale-[0.95]"
+      style={{
+        background: active
+          ? 'linear-gradient(135deg,#007aff,#5856d6)'
+          : 'white',
+        color: active ? 'white' : '#1c1c1e',
+        boxShadow: active
+          ? '0 4px 12px rgba(0,122,255,0.3)'
+          : '0 1px 4px rgba(0,0,0,0.08)',
+      }}
+    >
+      {label}
+    </button>
+  );
+}
 
-const FREQ_WINDOW: Record<string, number> = {
-  daily: 1, weekly: 7, biweekly: 14, monthly: 30,
-  quarterly: 90, semiannual: 180, yearly: 365,
-};
+// ── CTA button ─────────────────────────────────────────────────────────────────
+function CTA({
+  label, onClick, disabled, loading,
+}: { label: string; onClick: () => void; disabled?: boolean; loading?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled || loading}
+      className="w-full rounded-2xl py-4 text-[17px] font-bold text-white disabled:opacity-40 flex items-center justify-center gap-2"
+      style={{
+        background: 'linear-gradient(135deg,#007aff,#5856d6)',
+        boxShadow: !disabled ? '0 8px 24px rgba(0,122,255,0.3)' : 'none',
+      }}
+    >
+      {loading && (
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+      )}
+      {label}
+    </button>
+  );
+}
 
-// =============================================================================
-// PAGE
-// =============================================================================
-
+// ── Main page ──────────────────────────────────────────────────────────────────
 export default function OnboardingPage() {
   const router = useRouter();
-  const { profile, refreshProfile, isPremium } = useAuthStore();
+  const { profile, refreshProfile } = useAuthStore();
   const { fetchTasks } = useTaskStore();
-  const { fetchHousehold, allMembers } = useHouseholdStore();
+  const { fetchHousehold } = useHouseholdStore();
 
-  const [step, setStep] = useState<Step>('equipment');
+  const [step, setStep]       = useState<Step>('household_size');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [textInput, setTextInput] = useState('');
+  const [constraintMode, setConstraintMode] = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const [finishing, setFinishing] = useState(false);
+  const [taskCount, setTaskCount] = useState(0);
+  const [journalConsent, setJournalConsent] = useState(false);
+  const [consentOpen, setConsentOpen] = useState(false);
 
-  // ── Équipements ──
-  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  // Equipment
+  const [equipmentList, setEquipmentList] = useState<EquipmentItem[]>([]);
   const [selectedEquipment, setSelectedEquipment] = useState<Set<string>>(new Set());
 
-  // ── Famille ──
-  const [family, setFamily] = useState<FamilyMember[]>([]);
+  // External help (multi-select)
+  const [selectedHelp, setSelectedHelp] = useState<Set<string>>(new Set());
 
-  // ── Catalogue ──
-  const [catalogTemplates, setCatalogTemplates] = useState<TaskTemplate[]>([]);
-  const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(new Set());
-  // Templates "vus" = pré-sélectionnés au départ. Ils restent visibles même si décochés.
-  const [shownTemplateIds, setShownTemplateIds] = useState<Set<string>>(new Set());
-  const [customTaskInput, setCustomTaskInput] = useState('');
-  const [customTaskNames, setCustomTaskNames] = useState<string[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(false);
-  const [showAllTemplates, setShowAllTemplates] = useState(false);
-
-  // ── Résultats ──
-  const [generatedTasks, setGeneratedTasks] = useState<{
-    id: string; name: string; category_id: string;
-    category_name?: string; category_icon?: string; category_color?: string;
-    next_due_at?: string | null; frequency?: string;
-  }[]>([]);
-  const [isCreating, setIsCreating] = useState(false);
-  const [householdCreating, setHouseholdCreating] = useState(false);
-  const [finishing, setFinishing] = useState(false);
-  const [journalConsent, setJournalConsent] = useState(false);
-  const [consentDetailsOpen, setConsentDetailsOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // ── Assignments inline (écran résultats) ──
-  // { taskId → { userId } | { phantomId } | null }
-  type Assignment = { userId: string; phantomId?: never } | { phantomId: string; userId?: never } | null;
-  const [assignments, setAssignments] = useState<Record<string, Assignment>>({});
-
-  const assignTask = useCallback(async (taskId: string, assign: Assignment) => {
-    // Mise à jour optimiste immédiate
-    setAssignments((prev) => ({ ...prev, [taskId]: assign }));
-    const supabase = createClient();
-    await supabase.from('household_tasks').update({
-      assigned_to: assign && 'userId' in assign ? assign.userId : null,
-      assigned_to_phantom_id: assign && 'phantomId' in assign ? assign.phantomId : null,
-    }).eq('id', taskId);
-  }, []);
-
+  // Context ref — always up to date without triggering re-renders
+  const ctxRef = useRef<Partial<Ctx>>({});
+  const chatRef = useRef<HTMLDivElement>(null);
+  const userId      = profile?.id;
   const householdId = profile?.household_id;
-  const userId = profile?.id;
 
-  // ── Créer le foyer via API route (service role, bypass RLS) ──
-  // Lancé dès que le profil est chargé et que household_id est absent.
+  // ── Init ───────────────────────────────────────────────────────────────────
+  // Auto-create household if missing
   useEffect(() => {
-    if (!userId || householdId) return; // déjà un foyer, ou pas encore authentifié
-    setHouseholdCreating(true);
+    if (!userId || householdId) return;
     fetch('/api/onboarding/create-household', { method: 'POST' })
-      .then((r) => r.json())
-      .then(async (data) => {
-        if (data.ok) {
-          await refreshProfile();
-        } else {
-          console.error('[onboarding] create-household failed:', data.error);
-          setError(data.error ?? 'Impossible de créer le foyer. Recharge la page.');
-        }
-      })
-      .catch((e) => {
-        console.error('[onboarding] create-household error:', e);
-        setError('Erreur réseau. Vérifie ta connexion et recharge la page.');
-      })
-      .finally(() => setHouseholdCreating(false));
+      .then(r => r.json())
+      .then(async (d) => { if (d.ok) await refreshProfile(); })
+      .catch(console.error);
   }, [userId, householdId, refreshProfile]);
 
-  // ── Charger les équipements ──
+  // Load equipment from DB
   useEffect(() => {
-    async function load() {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('onboarding_equipment')
-        .select('*')
-        .order('sort_order');
-      if (data) {
-        setEquipment(data as Equipment[]);
-        const defaults = new Set<string>();
-        for (const eq of data as Equipment[]) {
-          if (eq.is_default) defaults.add(eq.id);
-        }
-        setSelectedEquipment(defaults);
-      }
-    }
-    load();
+    createClient()
+      .from('onboarding_equipment')
+      .select('*')
+      .order('sort_order')
+      .then(({ data }) => {
+        if (!data) return;
+        setEquipmentList(data as EquipmentItem[]);
+        setSelectedEquipment(new Set(
+          (data as EquipmentItem[]).filter(e => e.is_default).map(e => e.id)
+        ));
+      });
   }, []);
 
-  // ── Charger le catalogue ──
-  const loadCatalogTemplates = useCallback(async () => {
-    setCatalogLoading(true);
-    try {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('task_templates')
-        .select('id, name, scoring_category, default_frequency, default_duration, default_physical, default_mental_load_score, sort_order, equipment_tags')
-        .eq('is_system', true)
-        .order('sort_order');
-
-      if (!data) return;
-      setCatalogTemplates(data as TaskTemplate[]);
-
-      // Catégories à exclure selon la composition familiale
-      const hasKids = family.some((m) => m.type === 'child' || m.type === 'baby' || m.type === 'teen');
-      const hasPets = family.some((m) => m.type === 'pet');
-      const excludedCategories = new Set<string>();
-      if (!hasKids) excludedCategories.add('children');
-      if (!hasPets) excludedCategories.add('pets');
-
-      // Pré-sélection : 1 tâche macro par catégorie parmi celles qui matchent
-      // → démarre avec ~10-12 tâches essentielles. L'utilisateur affinera
-      // au fil de l'usage via /tasks/catalog (pas d'écran d'arbitrage ici).
-      const equipIds = [...selectedEquipment];
-      const MAX_PER_CATEGORY = 1;
-      const countByCategory: Record<string, number> = {};
-      const preSelected = new Set<string>();
-      // Les templates sont déjà triés par sort_order → on prend les premiers par catégorie
-      for (const t of data as TaskTemplate[]) {
-        const cat = t.scoring_category ?? 'other';
-        // Exclure les catégories non pertinentes pour cette famille
-        if (excludedCategories.has(cat)) continue;
-        const tags = t.equipment_tags ?? [];
-        const isUniversal = tags.length === 0;
-        const matchesEquipment = tags.some((tag) => equipIds.includes(tag));
-        if (!isUniversal && !matchesEquipment) continue;
-        if ((countByCategory[cat] ?? 0) >= MAX_PER_CATEGORY) continue;
-        countByCategory[cat] = (countByCategory[cat] ?? 0) + 1;
-        preSelected.add(t.id);
-      }
-      setSelectedTemplateIds(preSelected);
-      // Mémoriser les templates pré-sélectionnés — ils restent visibles même si décochés
-      setShownTemplateIds(new Set(preSelected));
-    } finally {
-      setCatalogLoading(false);
-    }
-  }, [selectedEquipment, family]);
-
-  // Auto-déclenche la création une fois les templates chargés en thinking
-  const autoCreateTriggered = useRef(false);
+  // First Yova message
   useEffect(() => {
-    if (step !== 'thinking') {
-      autoCreateTriggered.current = false;
-      return;
-    }
-    if (catalogLoading || isCreating || householdCreating) return;
-    if (catalogTemplates.length === 0) return;
-    if (autoCreateTriggered.current) return;
-    autoCreateTriggered.current = true;
-    void createFromCatalog();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, catalogLoading, catalogTemplates.length, isCreating, householdCreating]);
+    setMessages([{
+      role: 'yova',
+      text: 'Bonjour ! Je suis Yova 👋\nJe vais préparer votre foyer en quelques questions.\n\nCombien de personnes vivent chez vous ?',
+    }]);
+  }, []);
 
-  // ── Grouper le catalogue par catégorie ──
-  const catalogGroups = useMemo(() => {
-    const groups: Record<string, TaskTemplate[]> = {};
-    for (const t of catalogTemplates) {
-      const cat = t.scoring_category ?? 'other';
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(t);
+  // Scroll chat to bottom on new messages
+  useEffect(() => {
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
-    return groups;
-  }, [catalogTemplates]);
+  }, [messages]);
 
-  // ── Grouper les équipements ──
-  const groupedEquipment = useMemo(() => {
-    const groups: Record<string, Equipment[]> = {};
-    for (const eq of equipment) {
-      if (!groups[eq.category]) groups[eq.category] = [];
-      groups[eq.category].push(eq);
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const addYova = (text: string) =>
+    setMessages(m => [...m, { role: 'yova', text }]);
+
+  const addUser = (text: string) =>
+    setMessages(m => [...m, { role: 'user', text }]);
+
+  /** User responds → wait 400ms → Yova replies → change step */
+  const next = (userText: string, nextStep: Step, yovaText: string) => {
+    addUser(userText);
+    setTimeout(() => { addYova(yovaText); setStep(nextStep); }, 400);
+  };
+
+  const updateCtx = (patch: Partial<Ctx>) => {
+    ctxRef.current = { ...ctxRef.current, ...patch };
+  };
+
+  // ── Step handlers ──────────────────────────────────────────────────────────
+
+  const handleSize = (size: number) => {
+    updateCtx({ householdSize: size });
+    next(
+      size >= 5 ? '5 personnes ou plus' : `${size} personne${size > 1 ? 's' : ''}`,
+      'children',
+      'Y a-t-il des enfants dans le foyer ?',
+    );
+  };
+
+  const handleChildren = (has: boolean) => {
+    updateCtx({ hasChildren: has, childrenRaw: has ? undefined : '' });
+    if (has) {
+      next('Oui', 'children_detail',
+        'Leurs prénoms et âges ? (ex : Léa 7 ans, Tom 4 ans)');
+    } else {
+      next('Non', 'constraints',
+        'Des allergies ou contraintes alimentaires dans votre foyer ?');
     }
-    return groups;
-  }, [equipment]);
+  };
 
-  // ── Toggles ──
-  const toggleEquipment = useCallback((id: string) => {
-    setSelectedEquipment((prev) => {
+  const handleChildrenDetail = () => {
+    const val = textInput.trim() || 'Non précisé';
+    updateCtx({ childrenRaw: val });
+    setTextInput('');
+    next(val, 'constraints',
+      'Des allergies ou contraintes alimentaires dans votre foyer ?');
+  };
+
+  const handleConstraints = (has: boolean) => {
+    if (has) {
+      setConstraintMode(true);
+    } else {
+      updateCtx({ constraints: '' });
+      next('Aucune', 'external_help',
+        'Avez-vous de l\'aide extérieure dans le foyer ?');
+    }
+  };
+
+  const handleConstraintText = () => {
+    const val = textInput.trim();
+    if (!val) return;
+    updateCtx({ constraints: val });
+    setTextInput('');
+    setConstraintMode(false);
+    next(val, 'external_help',
+      'Avez-vous de l\'aide extérieure dans le foyer ?');
+  };
+
+  const toggleHelp = (id: string) => {
+    setSelectedHelp(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (id === 'none') return new Set(['none']);
+      next.delete('none');
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  }, []);
+  };
 
-  const toggleTemplate = useCallback((id: string) => {
-    setSelectedTemplateIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }, []);
+  const handleExternalHelp = () => {
+    if (selectedHelp.size === 0) return;
+    const isNone = selectedHelp.has('none');
+    const labels = [...selectedHelp]
+      .filter(id => id !== 'none')
+      .map(id => HELP_OPTIONS.find(o => o.id === id)?.label.replace(/^\S+\s/, '') ?? id)
+      .join(', ');
+    updateCtx({ hasExternalHelp: !isNone, externalHelpRaw: isNone ? '' : labels });
+    addUser(isNone ? 'Aucune aide' : labels);
+    setTimeout(() => {
+      addYova('Quels équipements avez-vous dans votre foyer ?');
+      setStep('equipment');
+    }, 400);
+  };
 
-  const addCustomTask = useCallback(() => {
-    const name = customTaskInput.trim();
-    if (!name) return;
-    setCustomTaskNames((prev) => [...prev, name]);
-    setCustomTaskInput('');
-  }, [customTaskInput]);
+  const handleEquipment = () => {
+    const names = equipmentList
+      .filter(e => selectedEquipment.has(e.id))
+      .map(e => e.name);
+    updateCtx({ equipment: names });
+    addUser(`${names.length} équipement${names.length > 1 ? 's' : ''} sélectionné${names.length > 1 ? 's' : ''}`);
+    setTimeout(() => {
+      addYova('Comment vous sentez-vous en ce moment ?');
+      setStep('energy');
+    }, 400);
+  };
 
-  // ── Gestion famille ──
-  const addFamilyMember = useCallback((type: FamilyMember['type'], emoji: string) => {
-    setFamily((prev) => [...prev, { id: `f-${Date.now()}-${Math.random()}`, type, emoji, name: '' }]);
-  }, []);
+  const handleEnergy = (level: 'low' | 'medium' | 'high') => {
+    const labels = { low: '😴 Épuisé(e)', medium: '😊 Ça va', high: '💪 En forme' };
+    updateCtx({ energyLevel: level });
+    next(labels[level], 'groceries',
+      'Les courses — faites récemment, à faire, ou par livraison habituelle ?');
+  };
 
-  const updateFamilyMember = useCallback((id: string, field: keyof FamilyMember, value: string) => {
-    setFamily((prev) => prev.map((m) => (m.id === id ? { ...m, [field]: value } : m)));
-  }, []);
+  const handleGroceries = (val: 'done' | 'todo' | 'delivery') => {
+    const labels = { done: 'Faites ✓', todo: 'À faire', delivery: 'En livraison' };
+    updateCtx({ groceriesDone: val });
+    next(labels[val], 'laundry', 'La lessive — faite ou à lancer ?');
+  };
 
-  const toggleFamilyMemberExpanded = useCallback((id: string) => {
-    setFamily((prev) => prev.map((m) => (m.id === id ? { ...m, expanded: !m.expanded } : m)));
-  }, []);
+  const handleLaundry = (val: 'done' | 'todo') => {
+    updateCtx({ laundryDone: val });
+    next(
+      val === 'done' ? 'Faite ✓' : 'À lancer',
+      'dinner',
+      'Le dîner ce soir — déjà prévu ou pas encore ?',
+    );
+  };
 
-  const removeFamilyMember = useCallback((id: string) => {
-    setFamily((prev) => prev.filter((m) => m.id !== id));
-  }, []);
+  const handleDinner = (val: 'yes' | 'no') => {
+    const finalCtx: Ctx = {
+      householdSize:   ctxRef.current.householdSize   ?? 2,
+      hasChildren:     ctxRef.current.hasChildren     ?? false,
+      childrenRaw:     ctxRef.current.childrenRaw     ?? '',
+      constraints:     ctxRef.current.constraints     ?? '',
+      hasExternalHelp: ctxRef.current.hasExternalHelp ?? false,
+      externalHelpRaw: ctxRef.current.externalHelpRaw ?? '',
+      equipment:       ctxRef.current.equipment       ?? [],
+      energyLevel:     ctxRef.current.energyLevel     ?? 'medium',
+      groceriesDone:   ctxRef.current.groceriesDone   ?? 'todo',
+      laundryDone:     ctxRef.current.laundryDone     ?? 'todo',
+      dinnerPlanned:   val,
+    };
+    addUser(val === 'yes' ? 'Prévu ✓' : 'Pas encore');
+    setTimeout(() => {
+      addYova('Je prépare votre liste personnalisée... ✨');
+      setStep('generating');
+      void runGeneration(finalCtx);
+    }, 400);
+  };
 
-  // ── Créer les tâches depuis le catalogue via API route (service role, bypass RLS) ──
-  const createFromCatalog = useCallback(async () => {
-    // Attendre que le foyer soit prêt si la création est en cours
-    if (householdCreating) return;
+  // ── Generation ─────────────────────────────────────────────────────────────
+  const loadFallbackTasks = async (fctx: Ctx) => {
+    const { data } = await createClient()
+      .from('task_templates')
+      .select('name,scoring_category,default_frequency,default_duration,default_physical,default_mental_load_score,equipment_tags')
+      .eq('is_system', true)
+      .order('sort_order')
+      .limit(15);
+    if (!data) return [];
 
-    // Si householdId est encore absent malgré la fin du useEffect, tenter un dernier refresh
-    let resolvedHouseholdId = householdId;
-    if (!resolvedHouseholdId && userId) {
-      await refreshProfile();
-      resolvedHouseholdId = useAuthStore.getState().profile?.household_id ?? null;
-    }
-    if (!resolvedHouseholdId || !userId) {
-      setError('Foyer introuvable. Recharge la page.');
-      return;
-    }
-    setIsCreating(true);
-    setError(null);
+    const now = new Date();
+    now.setHours(9, 0, 0, 0);
 
+    return data
+      .filter(t => {
+        if (!fctx.hasChildren && t.scoring_category === 'children') return false;
+        const hasPetEquip = fctx.equipment.some(e =>
+          e.toLowerCase().includes('animal') || e.toLowerCase().includes('chat') || e.toLowerCase().includes('chien')
+        );
+        if (!hasPetEquip && t.scoring_category === 'pets') return false;
+        return true;
+      })
+      .map(t => ({
+        name: t.name,
+        category_id: CATEGORY_IDS[t.scoring_category] ?? CATEGORY_IDS.cleaning,
+        frequency: t.default_frequency ?? 'weekly',
+        duration_estimate: t.default_duration ?? 'short',
+        physical_effort: t.default_physical ?? 'medium',
+        mental_load_score: t.default_mental_load_score ?? 3,
+        scoring_category: t.scoring_category ?? 'cleaning',
+        is_active: true,
+        is_fixed_assignment: false,
+        notifications_enabled: true,
+        assigned_to: null,
+        next_due_at: now.toISOString(),
+      }));
+  };
+
+  const runGeneration = async (fctx: Ctx) => {
     try {
-      const supabase = createClient();
-
-      // Lire les catégories (lecture publique, pas de RLS)
-      const { data: categories } = await supabase.from('task_categories').select('*').order('sort_order');
-      const catMap = new Map<string, { id: string; name: string; icon: string; color_hex: string }>();
-      for (const cat of (categories ?? [])) catMap.set(cat.id, cat);
-      const defaultCatId = categories?.[0]?.id ?? '11111111-1111-1111-1111-111111111111';
-
-      // Éviter les doublons avec les tâches existantes
-      const { data: existingTasks } = await supabase
-        .from('household_tasks').select('name').eq('household_id', resolvedHouseholdId).eq('is_active', true);
-      const seen = new Set<string>((existingTasks ?? []).map((t: { name: string }) => t.name.toLowerCase()));
-
-      type TaskRow = {
-        name: string; category_id: string; frequency: string; mental_load_score: number;
-        scoring_category: string; duration_estimate: string; physical_effort: string;
-        is_active: boolean; is_fixed_assignment: boolean; notifications_enabled: boolean;
-        assigned_to: null; next_due_at: string;
-      };
-      type CreatedMeta = { catId: string; cat: { id: string; name: string; icon: string; color_hex: string } | undefined; nextDueIso: string; frequency: string };
-
-      const rowsToInsert: TaskRow[] = [];
-      const metaByName: Record<string, CreatedMeta> = {};
-
-      for (const t of catalogTemplates.filter((t) => selectedTemplateIds.has(t.id))) {
-        const key = t.name.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const catId = SCORING_TO_CAT_ID[t.scoring_category ?? ''] || defaultCatId;
-        const freq = t.default_frequency || 'weekly';
-        const dayOffset = freq === 'daily' ? 0 : Math.floor(Math.random() * (FREQ_WINDOW[freq] ?? 30));
-        const nextDue = new Date(Date.now() + dayOffset * 86400000);
-        nextDue.setHours(9, 0, 0, 0);
-        const nextDueIso = nextDue.toISOString();
-        rowsToInsert.push({
-          name: t.name, category_id: catId, frequency: freq,
-          mental_load_score: t.default_mental_load_score ?? 3,
-          scoring_category: t.scoring_category ?? 'cleaning',
-          duration_estimate: t.default_duration ?? 'short',
-          physical_effort: t.default_physical ?? 'medium',
-          is_active: true, is_fixed_assignment: false, notifications_enabled: true,
-          assigned_to: null, next_due_at: nextDueIso,
-        });
-        metaByName[t.name] = { catId, cat: catMap.get(catId), nextDueIso, frequency: freq };
+      // Ensure household is ready
+      let hid = useAuthStore.getState().profile?.household_id;
+      if (!hid) {
+        await refreshProfile();
+        hid = useAuthStore.getState().profile?.household_id;
       }
+      if (!hid) throw new Error('Foyer introuvable — rechargez la page.');
 
-      for (const name of customTaskNames) {
-        const key = name.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const nextDue = new Date(Date.now() + 7 * 86400000);
-        nextDue.setHours(9, 0, 0, 0);
-        const nextDueIso = nextDue.toISOString();
-        rowsToInsert.push({
-          name, category_id: defaultCatId, frequency: 'weekly', mental_load_score: 3,
-          scoring_category: 'cleaning', duration_estimate: 'short', physical_effort: 'medium',
-          is_active: true, is_fixed_assignment: false, notifications_enabled: true,
-          assigned_to: null, next_due_at: nextDueIso,
-        });
-        metaByName[name] = { catId: defaultCatId, cat: catMap.get(defaultCatId), nextDueIso, frequency: 'weekly' };
-      }
-
-      // Appel API route (service role, contourne RLS)
-      const phantomMembers = family
-        .filter((m) => m.type !== 'pet' && m.name.trim())
-        .map((m) => ({
-          display_name: m.name.trim(),
-          member_type: m.type === 'baby' || m.type === 'teen' ? 'child' : m.type,
-          birth_date: m.birthdate ?? null,
-          school_class: m.school_class?.trim() || null,
-          specifics: {
-            allergies: m.allergies ? m.allergies.split(',').map((s) => s.trim()).filter(Boolean) : [],
-            activities: m.activities ? m.activities.split(',').map((s) => ({ name: s.trim() })).filter((a) => a.name) : [],
-            notes: m.notes?.trim() || undefined,
-          },
-        }));
-
-      const res = await fetch('/api/onboarding/create-tasks', {
+      // 1. Claude generates calibrated tasks
+      const genRes = await fetch('/api/onboarding/generate-tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskRows: rowsToInsert, phantomMembers, customSuggestions: customTaskNames }),
+        body: JSON.stringify(fctx),
       });
+      const genData = await genRes.json() as {
+        taskRows?: Record<string, unknown>[];
+        children?: { name: string; age: number; school_class: string | null }[];
+        householdMeta?: { energy_level: string; has_external_help: boolean; external_help_description: string | null };
+        fallback?: boolean;
+        error?: string;
+      };
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? `Erreur ${res.status}`);
+      let taskRows   = genData.taskRows   ?? [];
+      let children   = genData.children   ?? [];
+      let householdMeta = genData.householdMeta;
+      const isFallback = genData.fallback || !genRes.ok || taskRows.length === 0;
+
+      if (isFallback) {
+        console.warn('[onboarding] Claude fallback — using catalog');
+        taskRows = await loadFallbackTasks(fctx);
+        children = [];
+        householdMeta = {
+          energy_level: fctx.energyLevel,
+          has_external_help: fctx.hasExternalHelp,
+          external_help_description: fctx.externalHelpRaw || null,
+        };
       }
 
-      const { tasks: insertedTasks } = await res.json() as { tasks: { id: string; name: string }[] };
+      // 2. Persist tasks + members + household profile
+      const phantomMembers = children.map(c => ({
+        display_name:  c.name,
+        member_type:   'child',
+        birth_date:    null,
+        school_class:  c.school_class ?? null,
+        specifics:     {},
+      }));
 
-      const created = (insertedTasks ?? []).map((t) => {
-        const meta = metaByName[t.name];
-        return {
-          id: t.id, name: t.name,
-          category_id: meta?.catId ?? defaultCatId,
-          category_name: meta?.cat?.name,
-          category_icon: meta?.cat?.icon,
-          category_color: meta?.cat?.color_hex,
-          next_due_at: meta?.nextDueIso,
-          frequency: meta?.frequency ?? 'weekly',
-        };
+      const createRes = await fetch('/api/onboarding/create-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taskRows,
+          phantomMembers,
+          householdMeta,
+          customSuggestions: [],
+        }),
       });
+      const createData = await createRes.json() as { tasks?: { id: string }[]; error?: string };
+      if (!createRes.ok) throw new Error(createData.error ?? `Erreur ${createRes.status}`);
 
-      setGeneratedTasks(created);
-      await fetchHousehold(resolvedHouseholdId);
-      await fetchTasks(resolvedHouseholdId);
-      setStep('results');
+      const count = createData.tasks?.length ?? taskRows.length;
+
+      // Reload stores
+      await fetchHousehold(hid);
+      await fetchTasks(hid);
+
+      setTaskCount(count);
+      addYova(
+        `✨ C'est prêt !\n` +
+        `J'ai organisé ${count} tâche${count > 1 ? 's' : ''} pour votre foyer.\n` +
+        `Je m'adapterai au fil du temps.`
+      );
+      setStep('done');
     } catch (err) {
-      console.error('[onboarding] Erreur:', err);
-      setError(err instanceof Error ? err.message : 'Une erreur est survenue. Réessaie.');
-    } finally {
-      setIsCreating(false);
+      console.error('[onboarding] runGeneration error:', err);
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue. Rechargez la page.');
     }
-  }, [householdId, userId, householdCreating, catalogTemplates, selectedTemplateIds, customTaskNames, family, fetchHousehold, fetchTasks, refreshProfile]);
+  };
 
-  const handleFinish = useCallback(async () => {
+  const handleFinish = async () => {
     if (finishing) return;
     setFinishing(true);
     if (journalConsent && userId && !profile?.ai_journal_consent_at) {
-      const supabase = createClient();
-      await supabase
+      await createClient()
         .from('profiles')
         .update({ ai_journal_consent_at: new Date().toISOString() })
         .eq('id', userId);
       await refreshProfile();
     }
     router.push('/today');
-  }, [finishing, router, journalConsent, userId, profile?.ai_journal_consent_at, refreshProfile]);
+  };
 
-  const deleteTask = useCallback(async (taskId: string) => {
-    setGeneratedTasks((prev) => prev.filter((t) => t.id !== taskId));
-    const supabase = createClient();
-    const { error } = await supabase.from('household_tasks').delete().eq('id', taskId);
-    if (error) {
-      console.error('[onboarding] deleteTask failed:', error.message);
-      // Restaurer la tâche en cas d'erreur (recharger depuis le store serait idéal, ici on log)
-    }
-  }, []);
-
-  // =============================================================================
-  // RENDER
-  // =============================================================================
-
-  // ─── Écran 1 : Équipements ───
+  // ── Equipment screen (special full-page picker) ────────────────────────────
   if (step === 'equipment') {
+    const grouped: Record<string, EquipmentItem[]> = {};
+    for (const e of equipmentList) {
+      if (!grouped[e.category]) grouped[e.category] = [];
+      grouped[e.category].push(e);
+    }
     return (
       <div className="pt-4 pb-28">
-        <div className="px-4 mb-6">
-          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 1 / 3</p>
-          <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
-            Qu&apos;as-tu dans<br />ton foyer ?
-          </h2>
-          <p className="text-[14px] text-[#8e8e93] mt-2">
-            Tape sur tout ce que tu possèdes.
+        {/* Yova bubble at top */}
+        <div className="px-4 mb-5">
+          <div className="flex items-start gap-2">
+            <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-white text-[12px] font-black"
+              style={{ background: 'linear-gradient(135deg,#007aff,#5856d6)' }}>
+              Y
+            </div>
+            <div className="rounded-2xl rounded-tl-sm px-4 py-3 max-w-[85%]"
+              style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p className="text-[15px] text-[#1c1c1e] leading-relaxed">
+                Quels équipements avez-vous dans votre foyer ?
+              </p>
+            </div>
+          </div>
+          <p className="text-[12px] text-[#8e8e93] mt-2 ml-9">
+            Tapez sur tout ce que vous avez.
           </p>
         </div>
 
-        {Object.entries(groupedEquipment).map(([category, items]) => (
-          <div key={category} className="mb-5">
-            <p className="text-[13px] font-bold text-[#1c1c1e] mb-2 px-5">
-              {EQUIPMENT_CATEGORY_LABELS[category] ?? category}
+        {Object.entries(grouped).map(([cat, items]) => (
+          <div key={cat} className="mb-5">
+            <p className="text-[12px] font-bold text-[#8e8e93] uppercase tracking-wide mb-2 px-5">
+              {EQUIP_CAT_LABELS[cat] ?? cat}
             </p>
             <div className="flex flex-wrap gap-2 px-4">
-              {items.map((eq) => {
-                const selected = selectedEquipment.has(eq.id);
+              {items.map(eq => {
+                const sel = selectedEquipment.has(eq.id);
                 return (
                   <button
                     key={eq.id}
-                    onClick={() => toggleEquipment(eq.id)}
-                    className="flex items-center gap-2 rounded-2xl px-4 py-3 text-[14px] font-semibold transition-all active:scale-[0.95]"
+                    onClick={() => setSelectedEquipment(prev => {
+                      const n = new Set(prev);
+                      sel ? n.delete(eq.id) : n.add(eq.id);
+                      return n;
+                    })}
+                    className="flex items-center gap-2 rounded-2xl px-3 py-2 text-[13px] font-semibold transition-all active:scale-[0.95]"
                     style={{
-                      background: selected ? 'linear-gradient(135deg, #007aff, #5856d6)' : 'white',
-                      color: selected ? 'white' : '#1c1c1e',
-                      boxShadow: selected
-                        ? '0 4px 16px rgba(0,122,255,0.3)'
-                        : '0 1px 4px rgba(0,0,0,0.06)',
+                      background: sel ? 'linear-gradient(135deg,#007aff,#5856d6)' : 'white',
+                      color: sel ? 'white' : '#1c1c1e',
+                      boxShadow: sel ? '0 4px 16px rgba(0,122,255,0.3)' : '0 1px 4px rgba(0,0,0,0.06)',
                     }}
                   >
-                    <span className="text-[22px]">{eq.icon}</span>
+                    <span className="text-[18px]">{eq.icon}</span>
                     <span>{eq.name}</span>
                   </button>
                 );
@@ -543,419 +523,353 @@ export default function OnboardingPage() {
           </div>
         ))}
 
-        <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3"
-          style={{ background: 'linear-gradient(transparent, #f6f8ff 30%)' }}>
-          <button
-            onClick={() => setStep('family')}
-            disabled={selectedEquipment.size === 0}
-            className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white disabled:opacity-40"
-            style={{
-              background: 'linear-gradient(135deg, #007aff, #5856d6)',
-              boxShadow: '0 8px 24px rgba(0,122,255,0.3)',
-            }}
-          >
-            Continuer ({selectedEquipment.size}) →
-          </button>
+        <div
+          className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3"
+          style={{ background: 'linear-gradient(transparent, #f6f8ff 30%)' }}
+        >
+          <CTA
+            label={`Continuer (${selectedEquipment.size}) →`}
+            onClick={handleEquipment}
+          />
         </div>
       </div>
     );
   }
 
-  // ─── Écran 2 : Famille ───
-  if (step === 'family') {
-    const needsBirthdate = (type: FamilyMember['type']) => type !== 'pet';
-    // Membres humains (pas animaux) — ceux qui deviennent des fantômes
-    const humanMembers = family.filter((m) => m.type !== 'pet');
-    const petMembers = family.filter((m) => m.type === 'pet');
-
-    // Validation : tous les membres humains ont un prénom
-    const hasUnnamedHuman = humanMembers.some((m) => !m.name.trim());
-
-    // TODO: réactiver la limite freemium (1 membre) au lancement commercial
-    const atFreeLimit = false;
-
-    // Compte les membres valides pour le bouton
-    const validHumans = humanMembers.filter((m) => m.name.trim()).length;
-    const canContinue = !hasUnnamedHuman; // peut continuer avec 0 membres aussi (foyer solo)
-
+  // ── Generating screen ──────────────────────────────────────────────────────
+  if (step === 'generating') {
     return (
-      <div className="pt-4 pb-28">
-        <div className="px-4 mb-6">
-          <button
-            onClick={() => setStep('equipment')}
-            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[14px] font-semibold mb-4 active:opacity-70"
-            style={{ background: 'rgba(0,122,255,0.10)', color: '#007aff' }}>
-            <svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M7 1L1 7L7 13" stroke="#007aff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            Retour
-          </button>
-          <p className="text-[12px] text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">Étape 2 / 3</p>
-          <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
-            Qui vit<br />avec toi ?
-          </h2>
-          <p className="text-[14px] text-[#8e8e93] mt-2">
-            Tape pour ajouter chaque membre.
-          </p>
+      <div
+        className="min-h-screen flex flex-col items-center justify-center px-6"
+        style={{ background: 'linear-gradient(180deg,#0a1628 0%,#1a2f52 100%)' }}
+      >
+        <div
+          className="h-16 w-16 rounded-full flex items-center justify-center mb-6"
+          style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
+        >
+          <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-white/20 border-t-white" />
         </div>
-
-        {/* Chips type de membre */}
-        <div className="mx-4 mb-4">
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {FAMILY_TYPES.map((ft) => {
-              const isPet = ft.type === 'pet';
-              // Bloquer l'ajout d'humains si limite free atteinte
-              const blocked = !isPet && atFreeLimit;
-              return (
-                <button
-                  key={ft.type}
-                  onClick={() => !blocked && addFamilyMember(ft.type, ft.emoji)}
-                  className="flex-shrink-0 flex flex-col items-center gap-1 rounded-2xl px-4 py-3 bg-white relative"
-                  style={{
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                    opacity: blocked ? 0.45 : 1,
-                  }}
-                >
-                  <span className="text-[32px]">{ft.emoji}</span>
-                  <span className="text-[11px] font-semibold text-[#1c1c1e]">{ft.label}</span>
-                  {blocked && (
-                    <span className="absolute -top-1 -right-1 text-[10px] bg-[#ff9500] text-white rounded-full w-4 h-4 flex items-center justify-center font-bold">🔒</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Message upsell si limite free atteinte */}
-          {atFreeLimit && (
-            <div className="mt-2 rounded-xl px-3 py-2.5 flex items-center gap-2"
-              style={{ background: '#fff8e6', border: '1px solid #ffcc00' }}>
-              <span className="text-[16px]">🔒</span>
-              <div>
-                <p className="text-[12px] font-bold" style={{ color: '#b8860b' }}>
-                  Plan Free — 1 membre maximum
-                </p>
-                <p className="text-[11px]" style={{ color: '#b8860b' }}>
-                  Passe au plan Foyer pour ajouter enfants et autres adultes.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Liste des membres */}
-        {family.length > 0 && (
-          <div className="mx-4 space-y-2">
-            {family.map((m) => {
-              const isPet = m.type === 'pet';
-              const isEmpty = !m.name.trim();
-              const isExpanded = m.expanded ?? false;
-              return (
-                <div key={m.id} className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                  {/* Ligne principale */}
-                  <div className="px-4 py-3 flex items-center gap-3">
-                    <span className="text-[28px]">{m.emoji}</span>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={m.name}
-                          onChange={(e) => updateFamilyMember(m.id, 'name', e.target.value)}
-                          placeholder={isPet ? 'Nom (optionnel)' : 'Prénom *'}
-                          className="flex-1 text-[15px] font-semibold text-[#1c1c1e] bg-transparent outline-none"
-                        />
-                        {!isPet && isEmpty && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
-                            style={{ background: '#fff2f2', color: '#ff3b30' }}>requis</span>
-                        )}
-                      </div>
-                      {needsBirthdate(m.type) && (
-                        <input
-                          type="date"
-                          value={m.birthdate ?? ''}
-                          onChange={(e) => updateFamilyMember(m.id, 'birthdate', e.target.value)}
-                          className="text-[12px] text-[#8e8e93] bg-transparent outline-none"
-                        />
-                      )}
-                      {isPet && (
-                        <p className="text-[10px]" style={{ color: '#8e8e93' }}>
-                          🐾 Utilisé pour les tâches animaux — pas un compte membre
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => removeFamilyMember(m.id)}
-                      className="text-[13px] text-[#ff3b30] font-medium flex-shrink-0"
-                    >
-                      Retirer
-                    </button>
-                  </div>
-
-                  {/* Toggle détails — sous la ligne principale */}
-                  {!isPet && (
-                    <button
-                      onClick={() => toggleFamilyMemberExpanded(m.id)}
-                      className="w-full text-center text-[12px] font-semibold py-1.5 border-t border-[#f0f2f8] transition-colors"
-                      style={{ color: isExpanded ? '#007aff' : '#8e8e93' }}
-                    >
-                      {isExpanded ? '▲ Moins de détails' : '▼ Ajouter des détails pour Yova'}
-                    </button>
-                  )}
-
-                  {/* Détails optionnels (collapsible) */}
-                  {!isPet && isExpanded && (
-                    <div className="border-t border-[#f0f2f8] px-4 py-3 space-y-3">
-                      {(m.type === 'child' || m.type === 'teen') && (
-                        <div>
-                          <label className="text-[11px] text-[#8e8e93] font-semibold uppercase tracking-wide block mb-1">🏫 Classe</label>
-                          <input
-                            type="text"
-                            value={m.school_class ?? ''}
-                            onChange={(e) => updateFamilyMember(m.id, 'school_class', e.target.value)}
-                            placeholder="Ex : CP, CE2, 6ème, Terminale…"
-                            className="w-full text-[14px] text-[#1c1c1e] bg-[#f9f9f9] rounded-lg px-3 py-2 outline-none placeholder:text-[#c7c7cc]"
-                          />
-                        </div>
-                      )}
-                      <div>
-                        <label className="text-[11px] text-[#8e8e93] font-semibold uppercase tracking-wide block mb-1">⚠️ Allergies</label>
-                        <input
-                          type="text"
-                          value={m.allergies ?? ''}
-                          onChange={(e) => updateFamilyMember(m.id, 'allergies', e.target.value)}
-                          placeholder="Ex : arachides, gluten (virgule-séparées)"
-                          className="w-full text-[14px] text-[#1c1c1e] bg-[#f9f9f9] rounded-lg px-3 py-2 outline-none placeholder:text-[#c7c7cc]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] text-[#8e8e93] font-semibold uppercase tracking-wide block mb-1">🎯 Activités</label>
-                        <input
-                          type="text"
-                          value={m.activities ?? ''}
-                          onChange={(e) => updateFamilyMember(m.id, 'activities', e.target.value)}
-                          placeholder="Ex : danse le mercredi, foot le samedi"
-                          className="w-full text-[14px] text-[#1c1c1e] bg-[#f9f9f9] rounded-lg px-3 py-2 outline-none placeholder:text-[#c7c7cc]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] text-[#8e8e93] font-semibold uppercase tracking-wide block mb-1">💬 Note libre</label>
-                        <textarea
-                          value={m.notes ?? ''}
-                          onChange={(e) => updateFamilyMember(m.id, 'notes', e.target.value)}
-                          rows={2}
-                          placeholder="Tout ce qui peut être utile pour Yova…"
-                          className="w-full text-[14px] text-[#1c1c1e] bg-[#f9f9f9] rounded-lg px-3 py-2 outline-none resize-none placeholder:text-[#c7c7cc]"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+        <h2 className="text-[24px] font-black text-white text-center leading-tight mb-2">
+          Yova prépare votre foyer…
+        </h2>
+        <p className="text-[14px] text-center max-w-[280px] leading-relaxed"
+          style={{ color: 'rgba(255,255,255,0.6)' }}>
+          Analyse de vos réponses et calibrage des tâches
+        </p>
+        {error && (
+          <p className="mt-6 text-[13px] text-red-400 text-center max-w-[280px]">{error}</p>
         )}
-
-        {/* Note si aucun membre ajouté */}
-        {family.length === 0 && (
-          <div className="mx-4 rounded-xl px-4 py-3 text-center"
-            style={{ background: '#f8f8ff', border: '1px dashed #e0e0f0' }}>
-            <p className="text-[13px]" style={{ color: '#8e8e93' }}>
-              Tu vis seul·e ? Continue sans ajouter de membre.
-            </p>
-          </div>
-        )}
-
-        <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3"
-          style={{ background: 'linear-gradient(transparent, #f6f8ff 30%)' }}>
-          {hasUnnamedHuman && (
-            <p className="text-center text-[12px] font-semibold mb-2" style={{ color: '#ff3b30' }}>
-              Renseigne le prénom de chaque membre avant de continuer
-            </p>
-          )}
-          <button
-            onClick={() => {
-              setStep('thinking');
-              loadCatalogTemplates();
-            }}
-            disabled={hasUnnamedHuman}
-            className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white disabled:opacity-40"
-            style={{
-              background: 'linear-gradient(135deg, #007aff, #5856d6)',
-              boxShadow: '0 8px 24px rgba(0,122,255,0.3)',
-            }}
-          >
-            {validHumans > 0
-              ? `Continuer (${validHumans} membre${validHumans > 1 ? 's' : ''}) →`
-              : 'Continuer en solo →'}
-          </button>
-        </div>
       </div>
     );
   }
 
-  // ─── Écran 3 : Thinking (création silencieuse) ───
-  // Pas d'arbitrage par l'utilisateur : Yova crée ~12 tâches macro depuis les
-  // équipements et la famille. L'utilisateur affinera plus tard dans /tasks/catalog.
-  if (step === 'thinking') {
-    return (
-      <div className="min-h-screen flex flex-col" style={{
-        background: 'linear-gradient(180deg, #0a1628 0%, #1a2f52 100%)',
-      }}>
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-          <div className="h-16 w-16 rounded-full flex items-center justify-center mb-6"
-            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
-            <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-white/20 border-t-white" />
-          </div>
-          <h2 className="text-[24px] font-black text-white text-center leading-tight mb-3">
-            Yova organise ton foyer…
-          </h2>
-          <p className="text-[14px] text-center max-w-[280px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            {catalogLoading
-              ? 'Analyse de ton foyer…'
-              : isCreating
-              ? 'Création de tes tâches…'
-              : householdCreating
-              ? 'Préparation du foyer…'
-              : 'Presque prêt.'}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Écran 5 : Résultats ───
-  if (step === 'results') {
-    const FREQ_LABEL: Record<string, string> = {
-      daily:       'Chaque jour',
-      weekly:      'Chaque semaine',
-      biweekly:    'Toutes les 2 sem.',
-      monthly:     'Chaque mois',
-      quarterly:   'Tous les 3 mois',
-      semiannual:  'Tous les 6 mois',
-      yearly:      'Chaque année',
-    };
-    const sortedTasks = [...generatedTasks].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
-
-    return (
-      <div className="pt-4 pb-32">
-        <div className="px-4 mb-6 text-center">
-          <div className="text-[52px] mb-3">✨</div>
-          <h2 className="text-[26px] font-black text-[#1c1c1e] leading-tight">
-            C&apos;est prêt.
-          </h2>
-          <p className="text-[14px] text-[#8e8e93] mt-2 max-w-[300px] mx-auto leading-relaxed">
-            Yova connaît <strong className="text-[#1c1c1e]">{generatedTasks.length} rythme{generatedTasks.length !== 1 ? 's' : ''}</strong> de ton foyer.
-            Elle s&apos;adaptera à mesure qu&apos;elle te connaîtra mieux.
-          </p>
-        </div>
-
-        <div className="px-4">
-          <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            {sortedTasks.map((t, i) => (
-              <div
-                key={t.id}
-                className="px-4 py-3 flex items-center gap-3"
-                style={i < sortedTasks.length - 1 ? { borderBottom: '0.5px solid #f0f2f8' } : {}}
-              >
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: t.category_color ?? '#8e8e93' }} />
-                <p className="flex-1 text-[14px] font-medium text-[#1c1c1e] truncate">{t.name}</p>
-                <p className="text-[11px] text-[#c7c7cc] flex-shrink-0">
-                  {FREQ_LABEL[t.frequency ?? 'weekly'] ?? 'Régulier'}
-                </p>
-              </div>
+  // ── Chat UI (all other steps + done) ──────────────────────────────────────
+  const renderInput = () => {
+    switch (step) {
+      case 'household_size':
+        return (
+          <div className="flex gap-2">
+            {[1, 2, 3, 4, 5].map(n => (
+              <button key={n}
+                onClick={() => handleSize(n)}
+                className="flex-1 rounded-2xl py-4 text-[18px] font-bold"
+                style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', color: '#1c1c1e' }}>
+                {n === 5 ? '5+' : n}
+              </button>
             ))}
           </div>
+        );
 
-          {generatedTasks.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-[15px] text-[#8e8e93]">Aucune tâche créée.</p>
-            </div>
-          )}
-        </div>
-
-        {/* Carte consent IA journal — affichée seulement si pas déjà consenti */}
-        {!profile?.ai_journal_consent_at && (
-          <div className="mx-4 mt-5 rounded-2xl overflow-hidden" style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            <button
-              onClick={() => setConsentDetailsOpen((v) => !v)}
-              className="w-full flex items-start gap-3 px-4 py-4 text-left"
-              aria-expanded={consentDetailsOpen}>
-              <span className="text-[20px] leading-none mt-0.5">🔒</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-bold text-[#1c1c1e]">Un dernier point avant de lancer</p>
-                <p className="text-[12px] text-[#8e8e93] mt-0.5 leading-relaxed">
-                  Yova utilise l&apos;IA <strong>Claude (Anthropic, US)</strong> pour comprendre ton journal.
-                  {consentDetailsOpen ? ' Masquer les détails.' : ' Voir les détails.'}
-                </p>
-              </div>
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                className="flex-shrink-0 mt-1"
-                style={{ transform: consentDetailsOpen ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s' }}>
-                <path d="M4 2l4 4-4 4" />
-              </svg>
+      case 'children':
+        return (
+          <div className="flex gap-3">
+            <CTA label="Oui" onClick={() => handleChildren(true)} />
+            <button onClick={() => handleChildren(false)}
+              className="flex-1 rounded-2xl py-4 text-[17px] font-bold"
+              style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', color: '#1c1c1e' }}>
+              Non
             </button>
-            {consentDetailsOpen && (
-              <div className="px-4 pb-3 -mt-1">
-                <div className="rounded-xl p-3 text-[11px] leading-relaxed"
-                  style={{ background: '#f0f6ff', color: '#3a6fcc' }}>
-                  📍 <strong>Envoyé :</strong> ton texte libre + la liste de tes tâches (sans noms réels)<br />
-                  🔒 <strong>Conservé :</strong> résultat uniquement, serveurs Supabase (UE)<br />
-                  🗑️ <strong>Suppression :</strong> avec ton compte, depuis Profil → Mes données<br />
-                  <span className="opacity-75 mt-1 inline-block">RGPD Art. 7 — révocable à tout moment depuis ton profil.</span>
-                </div>
+          </div>
+        );
+
+      case 'children_detail':
+        return (
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={textInput}
+              onChange={e => setTextInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleChildrenDetail()}
+              placeholder="Léa 7 ans, Tom 4 ans…"
+              autoFocus
+              className="flex-1 rounded-2xl px-4 py-3 text-[15px] outline-none"
+              style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
+            />
+            <button onClick={handleChildrenDetail}
+              className="rounded-2xl px-5 text-white text-[20px] font-bold"
+              style={{ background: 'linear-gradient(135deg,#007aff,#5856d6)' }}>
+              →
+            </button>
+          </div>
+        );
+
+      case 'constraints':
+        if (constraintMode) {
+          return (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={textInput}
+                onChange={e => setTextInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleConstraintText()}
+                placeholder="Ex : gluten, arachides, végétarien…"
+                autoFocus
+                className="flex-1 rounded-2xl px-4 py-3 text-[15px] outline-none"
+                style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
+              />
+              <button onClick={handleConstraintText}
+                className="rounded-2xl px-5 text-white text-[20px] font-bold"
+                style={{ background: 'linear-gradient(135deg,#007aff,#5856d6)' }}>
+                →
+              </button>
+            </div>
+          );
+        }
+        return (
+          <div className="flex gap-3">
+            <button onClick={() => handleConstraints(false)}
+              className="flex-1 rounded-2xl py-4 text-[16px] font-bold"
+              style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', color: '#1c1c1e' }}>
+              Aucune
+            </button>
+            <CTA label="Oui, ajouter" onClick={() => handleConstraints(true)} />
+          </div>
+        );
+
+      case 'external_help':
+        return (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {HELP_OPTIONS.map(o => (
+                <Chip
+                  key={o.id}
+                  label={o.label}
+                  active={selectedHelp.has(o.id)}
+                  onClick={() => toggleHelp(o.id)}
+                />
+              ))}
+            </div>
+            <CTA
+              label="Confirmer →"
+              onClick={handleExternalHelp}
+              disabled={selectedHelp.size === 0}
+            />
+          </div>
+        );
+
+      case 'energy':
+        return (
+          <div className="flex flex-col gap-2">
+            {([
+              { val: 'low',    label: '😴 Épuisé(e) — mode survie' },
+              { val: 'medium', label: '😊 Ça va — rythme normal' },
+              { val: 'high',   label: '💪 En forme — on gère !' },
+            ] as { val: 'low' | 'medium' | 'high'; label: string }[]).map(o => (
+              <button key={o.val} onClick={() => handleEnergy(o.val)}
+                className="rounded-2xl py-3 text-[15px] font-bold"
+                style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', color: '#1c1c1e' }}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+        );
+
+      case 'groceries':
+        return (
+          <div className="flex flex-col gap-2">
+            {([
+              { val: 'done',     label: '✓ Faites récemment' },
+              { val: 'todo',     label: '→ À faire bientôt' },
+              { val: 'delivery', label: '📦 Livraison habituellement' },
+            ] as { val: 'done' | 'todo' | 'delivery'; label: string }[]).map(o => (
+              <button key={o.val} onClick={() => handleGroceries(o.val)}
+                className="rounded-2xl py-3 text-[15px] font-bold"
+                style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', color: '#1c1c1e' }}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+        );
+
+      case 'laundry':
+        return (
+          <div className="flex gap-3">
+            <button onClick={() => handleLaundry('done')}
+              className="flex-1 rounded-2xl py-4 text-[16px] font-bold"
+              style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', color: '#1c1c1e' }}>
+              ✓ Faite
+            </button>
+            <CTA label="À lancer" onClick={() => handleLaundry('todo')} />
+          </div>
+        );
+
+      case 'dinner':
+        return (
+          <div className="flex gap-3">
+            <button onClick={() => handleDinner('yes')}
+              className="flex-1 rounded-2xl py-4 text-[16px] font-bold"
+              style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', color: '#1c1c1e' }}>
+              ✓ Prévu
+            </button>
+            <CTA label="Pas encore" onClick={() => handleDinner('no')} />
+          </div>
+        );
+
+      case 'done': {
+        const hasConsent = !!profile?.ai_journal_consent_at || journalConsent;
+        return (
+          <div className="space-y-3">
+            {!profile?.ai_journal_consent_at && (
+              <div className="rounded-2xl overflow-hidden bg-white"
+                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                <button
+                  onClick={() => setConsentOpen(v => !v)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                >
+                  <span className="text-[18px]">🔒</span>
+                  <div className="flex-1">
+                    <p className="text-[13px] font-bold text-[#1c1c1e]">Consentement IA</p>
+                    <p className="text-[11px] text-[#8e8e93]">
+                      Yova utilise Claude (Anthropic, US). {consentOpen ? 'Réduire.' : 'Détails ↓'}
+                    </p>
+                  </div>
+                </button>
+                {consentOpen && (
+                  <div className="px-4 pb-3 text-[11px] leading-relaxed"
+                    style={{ color: '#3a6fcc', background: '#f0f6ff' }}>
+                    📍 Envoyé : texte journal + liste tâches (sans noms réels)<br />
+                    🔒 Conservé : résultat uniquement, serveurs Supabase (UE)<br />
+                    🗑️ Suppression : avec votre compte (Profil → Mes données)
+                  </div>
+                )}
+                <label className="flex items-center gap-3 px-4 py-3 cursor-pointer"
+                  style={{ borderTop: '0.5px solid #f0f2f8' }}>
+                  <input
+                    type="checkbox"
+                    checked={journalConsent}
+                    onChange={e => setJournalConsent(e.target.checked)}
+                    style={{ width: 20, height: 20, accentColor: '#007aff' }}
+                  />
+                  <span className="text-[12px] text-[#1c1c1e]">
+                    J&apos;accepte le traitement par Yova via Claude.
+                  </span>
+                </label>
               </div>
             )}
-            <label className="flex items-center gap-3 px-4 py-3 cursor-pointer" style={{ borderTop: '0.5px solid var(--ios-separator)' }}>
-              <input
-                type="checkbox"
-                checked={journalConsent}
-                onChange={(e) => setJournalConsent(e.target.checked)}
-                className="flex-shrink-0"
-                style={{ width: 20, height: 20, accentColor: '#007aff' }}
+            {!hasConsent && (
+              <p className="text-center text-[11px] text-[#8e8e93]">
+                Acceptez le traitement IA ci-dessus pour continuer
+              </p>
+            )}
+            <CTA
+              label={finishing ? 'Lancement…' : 'Commencer avec Yova →'}
+              onClick={handleFinish}
+              disabled={!hasConsent}
+              loading={finishing}
+            />
+          </div>
+        );
+      }
+
+      default:
+        return null;
+    }
+  };
+
+  // Step count for progress indicator (excluding generating/done)
+  const STEPS_ORDER: Step[] = [
+    'household_size','children','children_detail','constraints',
+    'external_help','equipment','energy','groceries','laundry','dinner',
+  ];
+  const currentIdx = STEPS_ORDER.indexOf(step);
+  const totalSteps = STEPS_ORDER.length;
+
+  return (
+    <div className="flex flex-col h-screen" style={{ background: '#f6f8ff' }}>
+      {/* Header */}
+      <div
+        className="px-4 py-3 flex items-center gap-3 flex-shrink-0"
+        style={{ background: 'linear-gradient(135deg,#007aff,#5856d6)' }}
+      >
+        <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+          <span className="text-white font-black text-[17px]">Y</span>
+        </div>
+        <div className="flex-1">
+          <p className="text-white font-black text-[17px] leading-none">Yova</p>
+          <p className="text-white/70 text-[11px] mt-0.5">Configuration du foyer</p>
+        </div>
+        {/* Progress dots */}
+        {currentIdx >= 0 && (
+          <div className="flex gap-1">
+            {STEPS_ORDER.map((_, i) => (
+              <div
+                key={i}
+                className="w-1.5 h-1.5 rounded-full"
+                style={{
+                  background: i < currentIdx
+                    ? 'rgba(255,255,255,0.9)'
+                    : i === currentIdx
+                    ? 'white'
+                    : 'rgba(255,255,255,0.3)',
+                }}
               />
-              <span className="text-[13px] text-[#1c1c1e] leading-snug">
-                J&apos;accepte que mes messages journal soient traités par Yova via Claude.
-              </span>
-            </label>
+            ))}
           </div>
         )}
-
-        <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3"
-          style={{ background: 'linear-gradient(transparent, #f6f8ff 30%)' }}>
-          {(() => {
-            // Consent obligatoire pour débloquer le CTA, sauf si déjà consenti précédemment
-            const hasConsent = !!profile?.ai_journal_consent_at || journalConsent;
-            return (
-              <>
-                {!hasConsent && (
-                  <p className="text-center text-[11px] text-[#8e8e93] mb-2">
-                    Accepte le traitement IA ci-dessus pour continuer
-                  </p>
-                )}
-                <button
-                  onClick={handleFinish}
-                  disabled={!hasConsent || finishing}
-                  className="w-full rounded-2xl py-[16px] text-[17px] font-bold text-white disabled:opacity-40 flex items-center justify-center gap-2"
-                  style={{
-                    background: 'linear-gradient(135deg, #007aff, #5856d6)',
-                    boxShadow: hasConsent && !finishing ? '0 8px 24px rgba(0,122,255,0.3)' : 'none',
-                  }}
-                >
-                  {finishing ? (
-                    <>
-                      <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3"/>
-                        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
-                      </svg>
-                      Lancement…
-                    </>
-                  ) : 'Commencer avec Yova →'}
-                </button>
-              </>
-            );
-          })()}
-        </div>
       </div>
-    );
-  }
 
-  return null;
+      {/* Chat messages */}
+      <div ref={chatRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-2">
+        {messages.map((msg, i) => (
+          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'items-start gap-2'}`}>
+            {msg.role === 'yova' && (
+              <div
+                className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-white text-[12px] font-black mt-0.5"
+                style={{ background: 'linear-gradient(135deg,#007aff,#5856d6)' }}
+              >
+                Y
+              </div>
+            )}
+            <div
+              className={`rounded-2xl px-4 py-3 max-w-[82%] ${msg.role === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
+              style={{
+                background: msg.role === 'user'
+                  ? 'linear-gradient(135deg,#007aff,#5856d6)'
+                  : 'white',
+                color: msg.role === 'user' ? 'white' : '#1c1c1e',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+              }}
+            >
+              <p className="text-[15px] leading-relaxed whitespace-pre-line">{msg.text}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Input area */}
+      <div
+        className="flex-shrink-0 px-4 pb-8 pt-3"
+        style={{ background: 'linear-gradient(transparent, #f6f8ff 25%, #f6f8ff)' }}
+      >
+        {error ? (
+          <div className="rounded-2xl px-4 py-3 text-[13px] text-center"
+            style={{ background: '#fff0f0', border: '1px solid #ffcccc', color: '#cc0000' }}>
+            {error}
+          </div>
+        ) : (
+          renderInput()
+        )}
+      </div>
+    </div>
+  );
 }

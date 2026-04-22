@@ -6,6 +6,31 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-22] — Sprint 3 : Onboarding conversationnel Yova
+
+### Ajouté
+- `app/(app)/onboarding/page.tsx` — rewrite complet : onboarding conversationnel chat-style (11 questions, chips + texte libre), remplace le formulaire multi-étapes + catalogue statique
+- `app/api/onboarding/generate-tasks/route.ts` — Claude Haiku génère 12-18 tâches calibrées (énergie, état courses/lessive/dîner, équipements, enfants, aides extérieures)
+- Calibration J0 : courses faites→+5j, lessive faite→+4j, dîner prévu→demain pour repas
+- Fallback catalogue statique si Claude timeout ou erreur
+
+### Modifié
+- `app/api/onboarding/create-tasks/route.ts` — accepte `householdMeta` et upsert dans `household_profile` (energy_level, external_help)
+
+### Pilier spec
+- Pilier 1 — Connaissance intime du foyer (calibrage J0 précis)
+- Pilier 4 — Mode crise (energy=low → périmètre réduit aux tâches vitales)
+- Spec : `docs/SPEC_V1_YOVA.md` §Onboarding
+
+### Renommé
+- Onglet "Famille" → **"Foyer"** dans la nav bar (`app/(app)/layout.tsx`) — plus inclusif (solo, couple, coloc)
+- `docs/SPEC_V1_YOVA.md` mis à jour en conséquence (toutes occurrences)
+
+### À valider
+- Test sur device réel (Jonathan) avant merge → main
+
+---
+
 ## [2026-04-22] — Sprint 2 : Page Aujourd'hui inbox spec V1
 
 ### Ajouté
