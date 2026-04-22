@@ -355,6 +355,16 @@ Suppression de toute la dette V0 incompatible avec la spec :
 - Détection de dérives : 4 patterns (`cooking_drift`, `balance_drift`, `journal_silence`, `task_overdue_cluster`)
 
 ### Prochains sprints (à prioriser avec Jonathan)
+- **Sprint 14 — Auto-sync faits structurés dans fiches membres** ⭐ (issu démo sprint 13) : aujourd'hui quand l'user dit *« l'anniversaire d'Eva c'est le 13 mai »* dans un journal, Yova extrait un fait narratif dans `agent_memory_facts` mais **n'écrit pas** dans `phantom_members.birth_date` (champ structuré). L'user doit resaisir manuellement dans `/family`. Casse l'ADN "zéro charge mentale".
+  - **Scope** : étendre `/api/ai/extract-memory` (Haiku) pour détecter 3 faits structurés — `birth_date`, `school_class`, `specifics.allergies` — et écrire directement dans `phantom_members` si le prénom matche un membre existant (exact OU fuzzy via Levenshtein ≤ 2).
+  - **Modèle** : Haiku (déjà en place, zéro coût additionnel).
+  - **Format output** : ajout d'un bloc `structured_updates: [{member_name, field, value, confidence}]` au JSON Haiku. Si `confidence < 0.8`, on ignore (évite les faux matches).
+  - **Règle silencieuse** (choix produit Jonathan sprint 13) : pas de confirmation user dans le chat — Yova applique, l'user corrige dans `/family` si besoin. Log dans `agent_memory_facts` même si écrit en structuré (trace audit).
+  - **Ambiguïté prénom** : si 2 membres portent le même prénom (ex: 2 Eva), skip — `agent_memory_facts` narratif only.
+  - **Ajout parallèle** : backfill migration ou bouton admin pour lier les tâches orphelines (parent_project_id = null alors que leur nom évoque un projet) aux bons projets — identifié sprint 13 sur data legacy pré-sprint-12.
+  - **Tests** : Haiku prompts "l'anniv d'Eva c'est le 13 mai" / "Tina rentre en CE1 en septembre" / "Eva est allergique aux arachides" → champs mis à jour en DB.
+  - **Critère succès** : 3 tests device (birth_date / school_class / allergies) où la fiche membre reflète le fait < 5 s après envoi du journal, sans naviguer sur `/family`.
+  - **Durée estimée** : 2-3 jours.
 - **TTS Yova** : Yova répond à voix haute (ElevenLabs ou Web Speech TTS) — Mois 3 roadmap
 - **Consolidation de tâches chevauchantes** ⭐ (issu retours sprint 12) : Yova détecte quand une sous-tâche de projet ("Faire les courses pour le déjeuner") recoupe une tâche récurrente existante ("Faire les courses" mercredi) et propose proactivement : *« Tu as déjà les courses mer. 29, je groupe avec le déjeuner dimanche pour que tu y ailles qu'une fois ? »*. Pilier 3 "Proactivité douce" pur. Dépend de : mémoire longue (sprint 6 ✅) + logique de similarité sémantique sur les noms de tâches. Mois 3-4 roadmap.
 - **CTA check-in ne doit pas réapparaître après complétion** (bug UX pré-existant) : la CTA "Check-in du soir" sur /today reste visible même après avoir complété les 3 questions. Vérifier `last_journal_at` ou `last_checkin_at` avant de l'afficher. Petit ticket (<1 jour).
