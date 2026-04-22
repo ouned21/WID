@@ -11,7 +11,7 @@
  * 5. Check-in du soir — CTA Parler à Yova (visible après 20h uniquement)
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useTaskStore } from '@/stores/taskStore';
