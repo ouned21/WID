@@ -77,7 +77,7 @@ Pour les questions ouvertes (taille du foyer, prénoms enfants, contraintes...),
 QUAND TU AS TOUTES LES INFORMATIONS :
 1. Écris une phrase de conclusion chaleureuse (1-2 phrases, ex: "Parfait, j'ai tout ce qu'il me faut !")
 2. Puis exactement sur une nouvelle ligne : YOVA_DONE
-3. Puis immédiatement le JSON (rien d'autre après) :
+3. Puis immédiatement le JSON brut (PAS de ```json, PAS de balises, juste le JSON directement) :
 
 {
   "context": {
@@ -195,7 +195,13 @@ export async function POST(req: NextRequest) {
 
     if (doneIdx !== -1) {
       const replyText = rawText.slice(0, doneIdx).trim();
-      const jsonStr   = rawText.slice(doneIdx + doneMarker.length).trim();
+      // Strip markdown code fences that Claude sometimes adds (```json ... ```)
+      const jsonStr = rawText
+        .slice(doneIdx + doneMarker.length)
+        .trim()
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```\s*$/, '')
+        .trim();
 
       try {
         const parsed = JSON.parse(jsonStr) as {
