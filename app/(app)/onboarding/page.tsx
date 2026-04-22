@@ -324,46 +324,89 @@ export default function OnboardingPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callApi]);
 
-  // ── Voice input ────────────────────────────────────────────────────────────
+  // ── Voice input (Deepgram STT avec fallback Web Speech API) ───────────────
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef   = useRef<Blob[]>([]);
+
   const startRecording = useCallback(async () => {
     if (isRecording || isThinking) return;
-    const SpeechRecognition =
-      (window as unknown as { SpeechRecognition?: typeof window.SpeechRecognition; webkitSpeechRecognition?: typeof window.SpeechRecognition })
-        .SpeechRecognition ??
-      (window as unknown as { webkitSpeechRecognition?: typeof window.SpeechRecognition })
-        .webkitSpeechRecognition;
-    if (!SpeechRecognition) return; // navigateur non supporté
 
+    let stream: MediaStream;
     try {
-      // Fix PC : demander la permission micro explicitement d'abord
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
       return; // permission refusée
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'fr-FR';
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    setIsRecording(true);
+    audioChunksRef.current = [];
 
-    recognition.onstart  = () => setIsRecording(true);
-    recognition.onend    = () => setIsRecording(false);
-    recognition.onerror  = () => setIsRecording(false);
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+    const recorder = new MediaRecorder(stream, { mimeType });
+    mediaRecorderRef.current = recorder;
 
-    recognition.onresult = (e: SpeechRecognitionEvent) => {
-      const transcript = e.results[0]?.[0]?.transcript ?? '';
-      if (transcript.trim()) {
-        // Met dans le textarea pour que l'utilisateur puisse vérifier avant d'envoyer
-        setTextInput(transcript.trim());
-        setFromVoice(true);
-        setTimeout(() => inputRef.current?.focus(), 50);
-      }
-      setIsRecording(false);
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) audioChunksRef.current.push(e.data);
     };
 
-    recognition.start();
+    recorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      setIsRecording(false);
+
+      const blob = new Blob(audioChunksRef.current, { type: mimeType });
+      if (blob.size < 1000) return; // trop court — ignorer
+
+      try {
+        const res = await fetch('/api/voice/transcribe', {
+          method: 'POST',
+          headers: { 'Content-Type': mimeType },
+          body: blob,
+        });
+        const data = await res.json() as { transcript?: string; fallback?: boolean; error?: string };
+
+        if (data.fallback) {
+          // Deepgram indisponible → fallback Web Speech API
+          useFallbackSpeech();
+          return;
+        }
+
+        const transcript = data.transcript?.trim() ?? '';
+        if (transcript) {
+          setTextInput(transcript);
+          setFromVoice(true);
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }
+      } catch {
+        useFallbackSpeech();
+      }
+    };
+
+    recorder.start();
+    // Stop auto après 30s max
+    setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 30_000);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRecording, isThinking]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+  }, []);
+
+  // Fallback : Web Speech API si Deepgram indisponible
+  const useFallbackSpeech = useCallback(() => {
+    const SR = (window as unknown as { SpeechRecognition?: typeof window.SpeechRecognition; webkitSpeechRecognition?: typeof window.SpeechRecognition })
+      .SpeechRecognition ?? (window as unknown as { webkitSpeechRecognition?: typeof window.SpeechRecognition }).webkitSpeechRecognition;
+    if (!SR) return;
+    const r = new SR();
+    r.lang = 'fr-FR'; r.continuous = false; r.interimResults = false;
+    r.onresult = (e: SpeechRecognitionEvent) => {
+      const t = e.results[0]?.[0]?.transcript?.trim() ?? '';
+      if (t) { setTextInput(t); setFromVoice(true); setTimeout(() => inputRef.current?.focus(), 50); }
+    };
+    r.start();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Send message ───────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (text: string) => {
@@ -764,8 +807,8 @@ export default function OnboardingPage() {
                 />
                 {/* Bouton micro */}
                 <button
-                  onClick={() => void startRecording()}
-                  disabled={isThinking || !!textInput.trim()}
+                  onClick={() => isRecording ? stopRecording() : void startRecording()}
+                  disabled={isThinking || (!isRecording && !!textInput.trim())}
                   className="rounded-2xl flex items-center justify-center flex-shrink-0 transition-all active:scale-90 disabled:opacity-30"
                   style={{
                     width: 48, height: 48,

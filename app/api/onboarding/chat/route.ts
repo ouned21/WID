@@ -68,6 +68,7 @@ SUGGESTIONS RAPIDES — RÈGLE ABSOLUE :
 Pour CHAQUE question listée ci-dessous, ton message DOIT se terminer par exactement ces chips (rien après, pas de ponctuation) :
 - Question taille foyer → [1|2|3|4|5|6+]
 - Question enfants      → [Oui|Non]
+- Question allergies/contraintes alimentaires → [Aucune allergie 👍|On a des allergies]
 - Question aide ext.    → [Oui, on a de l'aide|Non, on gère seuls]
 - Question énergie      → [Épuisé 😴|Ça va 😊|En forme 💪]
 - Question courses      → [Faites ✓|À faire|Livraison 📦]
@@ -75,7 +76,8 @@ Pour CHAQUE question listée ci-dessous, ton message DOIT se terminer par exacte
 - Question dîner        → [Prévu ✓|Pas encore]
 
 IMPORTANT : les chips doivent être le TOUT DERNIER élément du message, collées à la fin, sans phrase après.
-Pour les questions ouvertes (prénoms enfants, contraintes, aide extérieure détail...), pas de chips.
+Pour les questions ouvertes (prénoms enfants, aide extérieure détail...), pas de chips.
+Si le chip "Aucune allergie 👍" est choisi, traite constraints comme "".
 
 QUAND TU AS TOUTES LES INFORMATIONS :
 1. Écris une phrase de conclusion chaleureuse (1-2 phrases, ex: "Parfait, j'ai tout ce qu'il me faut !")
@@ -280,8 +282,10 @@ export async function POST(req: NextRequest) {
       const r = reply.toLowerCase();
       if (/\bcombien\b.*\bmaison\b|\bmaison\b.*\bcombien\b|\bpersonnes?\b.*\bfoyer\b|\bfoyer\b.*\bcombien\b|\bvous êtes combien\b/.test(r))
         chips = ['1', '2', '3', '4', '5', '6+'];
-      else if (/\benfants?\b/.test(r) && /\?/.test(r))
+      else if (/\benfants?\b/.test(r) && /\?/.test(r) && !/pr[eé]nom|[âa]ge|classe|d[eé]tail/.test(r))
         chips = ['Oui', 'Non'];
+      else if (/\ballergi[e]?\b|\bcontrainte[s]?\b.*\balimentaire[s]?\b|\balimentaire[s]?\b.*\bcontrainte[s]?\b/.test(r) && /\?/.test(r))
+        chips = ['Aucune allergie 👍', 'On a des allergies'];
       else if (/\baide ext[eé]rieure\b|\baide (à la maison|domestique)\b/.test(r) && /\?/.test(r) && !/quel type|précis|fr[eé]quence|combien de fois/.test(r))
         chips = ['Oui, on a de l\'aide', 'Non, on gère seuls'];
       else if (/\b[eé]nergie\b|\b[eé]puis[eé]\b|\fen forme\b|\bfatigue\b|\bniveau\b.*\b[eé]nergie\b/.test(r))
