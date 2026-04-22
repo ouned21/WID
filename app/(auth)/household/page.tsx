@@ -73,9 +73,9 @@ export default function HouseholdPage() {
                 placeholder="Notre foyer" autoFocus />
             </div>
           </div>
-          <button type="submit" disabled={loading}
+          <button type="submit" disabled={loading || !isInitialized}
             className="w-full rounded-xl py-[14px] text-[17px] font-semibold text-white disabled:opacity-50" style={{ background: '#007aff' }}>
-            {loading ? 'Création...' : 'Créer le foyer'}
+            {loading ? 'Création...' : !isInitialized ? 'Chargement...' : 'Créer le foyer'}
           </button>
           <button type="button" onClick={() => { setMode('choose'); clearError(); }}
             className="w-full mt-3 text-[15px] font-medium" style={{ color: '#007aff' }}>
