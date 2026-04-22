@@ -221,8 +221,7 @@ export default function OnboardingPage() {
       : 'Pas d\'équipements particuliers';
     setShowEquipment(false);
     void sendMessage(msg);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [equipmentList, selectedEquipment]);
+  }, [equipmentList, selectedEquipment, sendMessage]);
 
   // ── Voice input ────────────────────────────────────────────────────────────
   const startRecording = useCallback(async () => {
