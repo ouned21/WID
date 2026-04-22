@@ -296,11 +296,14 @@ Remplace le formulaire multi-étapes + catalogue statique.
 - Assignation inline via bottom sheet (badge membre cliquable)
 
 **Journal / Parler à Yova (`/journal`)**
-- Saisie texte + dictée vocale (Web Speech API)
+- Saisie texte + dictée vocale (Web Speech API + Deepgram STT)
 - Fix hydration iOS PWA : `isSpeechSupported` initialisé côté client uniquement
 - Gestion erreur `service-not-allowed` (PWA iOS sans permission micro)
 - Détection assignation : "je vais faire X" = toujours une ASSIGNATION, jamais une complétion → routé vers Sonnet
 - Routage modèle : Haiku (complétions simples) / Sonnet (assignations, émotions, texte long)
+- Check-in du soir guidé : actif dès 20h, 3 questions séquentielles, progression 3 points ✅
+- Portrait narratif du foyer : Haiku maintient `yova_narrative` (3-6 phrases, réécrit après chaque journal) ✅
+- Mémoire longue : `agent_memory_facts` — extraction auto 0-3 faits/journal, déduplication overlap mots ✅
 
 **Onboarding (`/onboarding`)**
 - Chat guidé SSE streaming avec Haiku
@@ -315,16 +318,20 @@ Remplace le formulaire multi-étapes + catalogue statique.
 
 **Profil (`/profile`)**
 - Informations compte (nom, avatar), foyer (nom, code invitation), mode vacances, notifications, déconnexion, légal
+- "Ce que Yova sait" : affichage des faits `agent_memory_facts` avec emoji par type
 - Supprimé : liste membres (→ onglet Foyer), "Ce qu'Yova sait de toi" (formulaires manuels), "Mon objectif" (slider %), "Niveau de charge souhaité", raccourcis
 
 **Foyer (`/family`)**
-- Mode crise (toggle), énergie du foyer, "Ce qu'on traverse" (observations Yova), fiches enfants, autres membres, invitation partenaire
+- Mode crise (toggle manuel), énergie du foyer, "Ce qu'on traverse" (tags dynamiques depuis `agent_memory_facts`), fiches enfants, autres membres, invitation partenaire
+- Détection de dérives : 4 patterns (`cooking_drift`, `balance_drift`, `journal_silence`, `task_overdue_cluster`)
 
-### En cours / Prochains sprints
-- Mémoire narrative : pgvector + `agent_memory_facts` extraction auto depuis conversations
-- Détection de dérives : jobs quotidiens + table `observations`
-- Check-in du soir guidé (vocal STT + TTS)
-- Mode crise automatisation (V2)
+### Prochains sprints (à prioriser avec Jonathan)
+- **TTS Yova** : Yova répond à voix haute (ElevenLabs ou Web Speech TTS) — Mois 3 roadmap
+- **Anticipations parentales** : jobs anniv enfants, vacances scolaires, rdv récurrents — Mois 4-5
+- **Mode crise automatique** : activation auto sur signal dérive sévère (V2) — Mois 5
+- **Beta prep** : pricing/paywall Premium, 30-50 users — Mois 6
+
+> **Process** : chaque sprint = nouvelle session Claude Code. Lire CHANGELOG.md + SPEC_V1_YOVA.md + PROCESS_DEV.md en début de session.
 
 ---
 
