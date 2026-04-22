@@ -19,7 +19,7 @@ import {
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = 'claude-sonnet-4-6';
-const MAX_DURATION_MS = 10_000;
+const MAX_DURATION_MS = 15_000;
 
 const DURATION_MINUTES: Record<string, number> = {
   very_short: 5, short: 15, medium: 30, long: 60, very_long: 120,
