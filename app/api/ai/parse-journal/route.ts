@@ -14,6 +14,11 @@ import {
   findPendingDuplicate,
   interpretDuplicateAnswer,
 } from '@/lib/decomposeProjectCore';
+import {
+  extractStructuredFallback,
+  applyStructuredUpdates,
+  type PhantomRow as StructuredPhantomRow,
+} from '@/lib/structuredMemory';
 
 function serviceClient() {
   return createServiceClient(
@@ -251,6 +256,38 @@ export async function POST(request: NextRequest) {
 
   const householdId = profile.household_id;
 
+  // ─── Sprint 14 : extraction faits structurés (inline, synchrone) ─────
+  // Avant tout routage, on lit directement dans le texte user les patterns
+  // "anniv de X le DD mois", "X rentre en CLASSE", "X allergique à Y" via
+  // regex déterministe et on écrit dans phantom_members. Pas de
+  // fire-and-forget — l'écriture DB est confirmée avant la réponse.
+  let structuredApplied: Array<{
+    phantom_id: string;
+    member_name: string;
+    field: 'birth_date' | 'school_class' | 'allergies';
+    value: string | string[];
+  }> = [];
+  try {
+    const { data: phantomsForStructured } = await admin
+      .from('phantom_members')
+      .select('id, display_name, specifics')
+      .eq('household_id', householdId);
+    const phantomsList: StructuredPhantomRow[] = (phantomsForStructured ?? []) as StructuredPhantomRow[];
+    const updates = extractStructuredFallback(sanitizedText, phantomsList.map((p) => p.display_name));
+    if (updates.length > 0) {
+      structuredApplied = await applyStructuredUpdates({
+        admin: admin as never,
+        householdId,
+        journalId: null,
+        phantoms: phantomsList,
+        updates,
+      });
+      console.log(`[parse-journal] sprint 14 inline : ${structuredApplied.length}/${updates.length} faits structurés écrits`);
+    }
+  } catch (err) {
+    console.error('[parse-journal] structured extraction failed:', err);
+  }
+
   // ─── Sprint 12 : router vers décomposition de projet ─────────────────
   // Deux cas déclencheurs :
   //   A. L'user répond à un pending_question récent (< 10 min) → fusionne et décompose
@@ -346,6 +383,7 @@ export async function POST(request: NextRequest) {
         project_decomposed: null,
         ai_response: result.question,
         mood_tone: null,
+        structured_updates: structuredApplied,
       });
     }
 
@@ -363,6 +401,7 @@ export async function POST(request: NextRequest) {
       },
       ai_response: `J'ai préparé ton projet : ${result.title} · ${result.subtask_count} tâches planifiées.`,
       mood_tone: null,
+      structured_updates: structuredApplied,
     });
   }
 
@@ -1104,6 +1143,7 @@ Réponds UNIQUEMENT avec ce JSON.`;
       refused_scope: false,
       ai_response: parsed.ai_response ?? 'Bien joué. Tout noté.',
       mood_tone: parsed.mood_tone,
+      structured_updates: structuredApplied,
     });
 
   } catch (err) {

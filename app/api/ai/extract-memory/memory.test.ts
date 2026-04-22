@@ -5,7 +5,7 @@ import {
   matchPhantomByName,
   applyStructuredUpdates,
   extractStructuredFallback,
-} from './route';
+} from '../../../../lib/structuredMemory';
 
 type PhantomRow = { id: string; display_name: string; specifics: Record<string, unknown> | null };
 

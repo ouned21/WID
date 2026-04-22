@@ -57,6 +57,7 @@ type ParseResponse = {
   error?: string;
   code?: string;
   refused_scope?: boolean;
+  structured_updates?: StructuredUpdate[];
 };
 
 type HistoryMessage = { role: 'user' | 'assistant'; content: string };
@@ -805,6 +806,9 @@ export default function JournalPage() {
         setMessages((prev) => [
           ...prev,
           { id: uid(), type: 'yova', content: data.ai_response ?? 'Merci pour ce check-in. Bonne nuit !', moodTone: data.mood_tone },
+          ...((data.structured_updates?.length ?? 0) > 0
+            ? [{ id: uid(), type: 'memory_note' as const, updates: data.structured_updates! }]
+            : []),
           ...((data.completions?.length ?? 0) > 0 || (data.auto_created?.length ?? 0) > 0 || data.project_decomposed
             ? [{ id: uid(), type: 'result' as const, data }]
             : []),
@@ -813,6 +817,9 @@ export default function JournalPage() {
         if (profile?.household_id) {
           fetchTasks(profile.household_id);
           const hid = profile.household_id;
+          if ((data.structured_updates?.length ?? 0) > 0) {
+            fetchHousehold(hid);
+          }
           fetch('/api/ai/extract-memory', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -900,6 +907,9 @@ export default function JournalPage() {
       setMessages((prev) => [
         ...prev,
         { id: uid(), type: 'yova', content: data.ai_response, moodTone: data.mood_tone },
+        ...((data.structured_updates?.length ?? 0) > 0
+          ? [{ id: uid(), type: 'memory_note' as const, updates: data.structured_updates! }]
+          : []),
         ...((data.completions?.length ?? 0) > 0 || (data.auto_created?.length ?? 0) > 0 || data.project_created || data.project_decomposed
           ? [{ id: uid(), type: 'result' as const, data }]
           : []),
@@ -911,6 +921,9 @@ export default function JournalPage() {
       if (profile?.household_id) {
         await fetchTasks(profile.household_id);
         const capturedHouseholdId = profile.household_id;
+        if ((data.structured_updates?.length ?? 0) > 0) {
+          fetchHousehold(capturedHouseholdId);
+        }
         fetch('/api/ai/extract-memory', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
