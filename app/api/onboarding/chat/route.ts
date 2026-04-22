@@ -14,6 +14,10 @@
  *   { type: 'error',      message }                  → erreur
  */
 
+// Augmente la limite Vercel à 60s — claude-sonnet peut prendre 20-30s pour générer
+// le JSON complet des tâches (18 tâches + context + children + adults)
+export const maxDuration = 60;
+
 import { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';

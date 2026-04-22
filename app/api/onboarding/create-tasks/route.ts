@@ -5,6 +5,8 @@
  * Si le profil n'a pas encore de household_id, le foyer est créé ici directement.
  */
 
+export const maxDuration = 30; // 30s suffisent pour les inserts DB
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createClient as createServiceClient } from '@supabase/supabase-js';

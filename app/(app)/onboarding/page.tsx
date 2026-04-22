@@ -275,6 +275,8 @@ export default function OnboardingPage() {
   const callApi = useCallback(async (msgs: ApiMessage[]) => {
     setIsThinking(true);
     setError(null);
+    let receivedDone = false;      // tracker : true si event 'done' reçu
+    let enteredGenerating = false; // tracker : true si event 'generating' reçu
     try {
       const res = await fetch('/api/onboarding/chat', {
         method: 'POST',
@@ -317,11 +319,13 @@ export default function OnboardingPage() {
               setIsThinking(false);
               setStep('generating');
               generatingShownAt.current = Date.now();
+              enteredGenerating = true;
               break;
             }
 
             // JSON complet parsé par le serveur → lancer persistTasks
             case 'done': {
+              receivedDone = true;
               const payload: DonePayload = {
                 taskRows:      (evt.taskRows as Record<string, unknown>[]) ?? [],
                 children:      (evt.children as DonePayload['children'])  ?? [],
@@ -368,10 +372,21 @@ export default function OnboardingPage() {
           }
         }
       }
+
+      // Stream fermé sans avoir reçu 'done' alors qu'on est en mode generating
+      // → le serveur a planté ou Vercel a timeout avant de finir le JSON
+      if (enteredGenerating && !receivedDone) {
+        setGenerateError('La génération a été interrompue (délai dépassé). Appuie sur "Réessayer".');
+      }
+
     } catch (err) {
       console.error('[onboarding] callApi error:', err);
-      setError('Erreur réseau. Rechargez la page.');
-      setStep('chat');
+      if (enteredGenerating) {
+        setGenerateError('Erreur réseau pendant la génération. Appuie sur "Réessayer".');
+      } else {
+        setError('Erreur réseau. Rechargez la page.');
+        setStep('chat');
+      }
     } finally {
       setIsThinking(false);
     }
@@ -680,7 +695,21 @@ export default function OnboardingPage() {
     return (
       <GeneratingScreen
         error={generateError}
-        onRetry={donePayload ? () => { setGenerateError(null); void persistTasks(donePayload); } : undefined}
+        onRetry={generateError
+          ? donePayload
+            // Données disponibles → re-persister seulement
+            ? () => { setGenerateError(null); void persistTasks(donePayload); }
+            // Stream interrompu avant done → relancer entière conversation
+            : () => {
+                setGenerateError(null);
+                conversationStarted.current = false;
+                setDisplay([]);
+                setApiMessages([]);
+                setChips([]);
+                startConversation();
+              }
+          : undefined
+        }
       />
     );
   }
