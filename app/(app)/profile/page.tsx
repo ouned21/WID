@@ -488,7 +488,7 @@ export default function ProfilePage() {
               </div>
             </div>
             <p className="text-[11px] text-[#8e8e93] mt-1.5 px-1">
-              👻 Membre sans compte — vous loguez ses tâches à sa place
+              👻 Membre sans compte — vous gérez ses tâches à sa place
             </p>
           </div>
         </>
@@ -667,42 +667,6 @@ export default function ProfilePage() {
             </div>
             <svg width="7" height="12" fill="none" stroke="#c7c7cc" strokeWidth="2" strokeLinecap="round" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" /></svg>
           </Link>
-        </div>
-      </div>
-
-      {/* Objectif de répartition */}
-      <div className="mx-4">
-        <p className="text-[13px] font-semibold text-[#8e8e93] uppercase tracking-wide mb-2 px-1">Mon objectif</p>
-        <div className="rounded-xl bg-white overflow-hidden" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.04)' }}>
-          <div className="px-4 py-3">
-            <p className="text-[15px] text-[#1c1c1e] mb-2">
-              Je vise <strong style={{ color: '#007aff' }}>{targetLocal}%</strong> des tâches du foyer
-            </p>
-            <input
-              type="range"
-              min={10}
-              max={90}
-              step={5}
-              value={targetLocal}
-              onChange={(e) => handleTargetChange(Number(e.target.value))}
-              className="w-full"
-              style={{ accentColor: '#007aff' }}
-            />
-            {(() => {
-              const totalMembers = Math.max(1, members.length + phantomMembers.length);
-              const fairShare = Math.round(100 / totalMembers);
-              return (
-                <div className="flex justify-between text-[11px] text-[#c7c7cc] mt-1">
-                  <span>10%</span>
-                  <span>{fairShare}% (part égale{totalMembers > 1 ? `, foyer à ${totalMembers}` : ''})</span>
-                  <span>90%</span>
-                </div>
-              );
-            })()}
-            <p className="text-[12px] text-[#8e8e93] mt-2">
-              L&apos;app comparera votre répartition réelle à cet objectif et suggérera des échanges pour s&apos;en rapprocher.
-            </p>
-          </div>
         </div>
       </div>
 
