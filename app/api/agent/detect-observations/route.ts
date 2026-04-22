@@ -65,7 +65,8 @@ async function detectCookingDrift(householdId: string): Promise<DetectedObservat
     severity: 'notice',
     payload: {
       days_without_meal: 7,
-      message: 'Pas de repas maison depuis 7 jours.',
+      message: 'Ça fait 7 jours sans cuisine maison — manque de temps ou d\'énergie en ce moment ?',
+      action: 'journal',
     },
   };
 }
@@ -116,7 +117,8 @@ async function detectBalanceDrift(householdId: string): Promise<DetectedObservat
           first_name: firstName,
           percent: pct,
           days: 14,
-          message: `${firstName} porte ${pct}% des tâches depuis 2 semaines.`,
+          message: `${firstName} gère ${pct}% des tâches du foyer depuis 2 semaines — peut-être qu'une main tendue ferait du bien.`,
+          action: 'week',
         },
       };
     }
@@ -151,7 +153,8 @@ async function detectJournalSilence(householdId: string): Promise<DetectedObserv
     severity: 'info',
     payload: {
       days_without_journal: 5,
-      message: 'Aucun compte-rendu depuis 5 jours — tout va bien ?',
+      message: 'Je n\'ai pas eu de nouvelles depuis 5 jours. Tout va bien ?',
+      action: 'journal',
     },
   };
 }
@@ -174,7 +177,10 @@ async function detectTaskOverdueCluster(householdId: string): Promise<DetectedOb
     payload: {
       count: overdueTasks.length,
       task_names: overdueTasks.slice(0, 4).map((t) => t.name),
-      message: `${overdueTasks.length} tâches s'accumulent en retard.`,
+      message: overdueTasks.length >= 10
+        ? `${overdueTasks.length} tâches se sont accumulées — le bon moment pour en faire le tri avec moi.`
+        : `${overdueTasks.length} tâches attendent encore — on s'y met ?`,
+      action: 'today',
     },
   };
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import {
   useFamilyStore,
@@ -91,11 +92,14 @@ const ENERGY_LABELS: Record<string, string> = {
 
 // ── Carte d'observation Yova ───────────────────────────────────────────────
 
-const OBS_CONFIG: Record<string, { icon: string; label: string; bg: string; color: string }> = {
-  cooking_drift:        { icon: '🍳', label: 'Repas',        bg: '#fff8ec', color: '#ff9500' },
-  balance_drift:        { icon: '⚖️', label: 'Répartition',  bg: '#f0f7ff', color: '#007aff' },
-  journal_silence:      { icon: '💬', label: 'Journal',      bg: '#f5f0ff', color: '#af52de' },
-  task_overdue_cluster: { icon: '⏰', label: 'Retards',      bg: '#fff2f2', color: '#ff3b30' },
+const OBS_CONFIG: Record<string, {
+  icon: string; label: string; bg: string; color: string;
+  actionLabel?: string; actionHref?: string;
+}> = {
+  cooking_drift:        { icon: '🍳', label: 'Repas',        bg: '#fff8ec', color: '#ff9500', actionLabel: 'En parler', actionHref: '/journal' },
+  balance_drift:        { icon: '⚖️', label: 'Répartition',  bg: '#f0f7ff', color: '#007aff', actionLabel: 'Voir la semaine', actionHref: '/week' },
+  journal_silence:      { icon: '💬', label: 'Silence',       bg: '#f5f0ff', color: '#af52de', actionLabel: 'Parler à Yova', actionHref: '/journal' },
+  task_overdue_cluster: { icon: '📋', label: 'Tâches',        bg: '#f2f9ff', color: '#007aff', actionLabel: 'Voir aujourd\'hui', actionHref: '/today' },
 };
 
 function ObservationCard({
@@ -110,22 +114,40 @@ function ObservationCard({
 
   return (
     <div
-      className="flex items-start gap-3 px-4 py-3.5 rounded-2xl"
-      style={{ background: cfg.bg, border: `1px solid ${cfg.color}22` }}
+      className="rounded-2xl overflow-hidden"
+      style={{ background: cfg.bg, border: `1px solid ${cfg.color}20` }}
     >
-      <span className="text-[22px] flex-shrink-0 mt-0.5">{cfg.icon}</span>
-      <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-semibold uppercase tracking-wide" style={{ color: cfg.color }}>{cfg.label}</p>
-        <p className="text-[15px] text-[#1c1c1e] mt-0.5 leading-snug">{message}</p>
+      <div className="flex items-start gap-3 px-4 pt-3.5 pb-2.5">
+        <span className="text-[20px] flex-shrink-0 mt-0.5">{cfg.icon}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-wide mb-0.5" style={{ color: cfg.color }}>{cfg.label}</p>
+          <p className="text-[14px] text-[#1c1c1e] leading-snug">{message}</p>
+        </div>
       </div>
-      <button
-        onClick={() => onAcknowledge(observation.id)}
-        className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl mt-0.5 transition-opacity active:opacity-60"
-        style={{ background: cfg.color, color: 'white' }}
-        aria-label="Marquer comme lu"
-      >
-        OK
-      </button>
+      <div className="flex items-center justify-between px-4 pb-3 gap-2">
+        {cfg.actionHref ? (
+          <Link
+            href={cfg.actionHref}
+            className="text-[13px] font-semibold flex items-center gap-1"
+            style={{ color: cfg.color }}
+          >
+            {cfg.actionLabel}
+            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </Link>
+        ) : (
+          <span />
+        )}
+        <button
+          onClick={() => onAcknowledge(observation.id)}
+          className="text-[12px] font-medium px-3 py-1 rounded-full transition-opacity active:opacity-60"
+          style={{ background: `${cfg.color}18`, color: cfg.color }}
+          aria-label="Marquer comme lu"
+        >
+          J&apos;ai vu
+        </button>
+      </div>
     </div>
   );
 }
@@ -354,7 +376,35 @@ export default function FamilyPage() {
         </button>
       </div>
 
-      <h1 className="text-[28px] font-bold text-[#1c1c1e]">Notre foyer</h1>
+      <h1 className="text-[28px] font-bold text-[#1c1c1e]">Foyer</h1>
+
+      {/* ── Ce que Yova a remarqué ⭐ — feature star, en tête ── */}
+      {(obsLoading || observations.length > 0) && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold text-white flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)' }}>Y</div>
+            <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Ce que Yova a remarqué</h2>
+          </div>
+
+          {obsLoading && observations.length === 0 ? (
+            <div className="rounded-2xl bg-white px-4 py-4 flex items-center gap-3" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.08)' }}>
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#e5e5ea] border-t-[#007aff] flex-shrink-0" />
+              <p className="text-[14px] text-[#8e8e93]">Yova analyse votre foyer…</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {observations.map((obs) => (
+                <ObservationCard
+                  key={obs.id}
+                  observation={obs}
+                  onAcknowledge={handleAcknowledge}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ── Mode crise ── */}
       <button
@@ -523,34 +573,6 @@ export default function FamilyPage() {
             <p className="text-[13px] text-[#007aff] opacity-70 mt-0.5">Partager un lien pour qu&apos;il ou elle rejoigne le foyer</p>
           </div>
         </button>
-      )}
-
-      {/* ── Ce que Yova a remarqué ⭐ ── */}
-      {(obsLoading || observations.length > 0) && (
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold text-white flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}>Y</div>
-            <h2 className="text-[17px] font-semibold text-[#1c1c1e]">Ce que Yova a remarqué</h2>
-          </div>
-
-          {obsLoading && observations.length === 0 ? (
-            <div className="rounded-2xl bg-white px-4 py-4 flex items-center gap-3" style={{ boxShadow: '0 0.5px 3px rgba(0,0,0,0.08)' }}>
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#e5e5ea] border-t-[#007aff] flex-shrink-0" />
-              <p className="text-[14px] text-[#8e8e93]">Yova analyse votre foyer…</p>
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {observations.map((obs) => (
-                <ObservationCard
-                  key={obs.id}
-                  observation={obs}
-                  onAcknowledge={handleAcknowledge}
-                />
-              ))}
-            </div>
-          )}
-        </section>
       )}
 
       {error && (
