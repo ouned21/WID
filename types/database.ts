@@ -40,6 +40,8 @@ export type Profile = {
   ai_calls_month_reset: string | null;
   // ── Consentement RGPD ──
   ai_journal_consent_at: string | null; // Date du consentement explicite pour le journal IA
+  // ── Check-in du soir (sprint 15) ──
+  last_checkin_at: string | null; // Dernier message journal envoyé en fenêtre 20h-04h (masque la CTA /today)
   created_at: string;
   updated_at: string;
 };

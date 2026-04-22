@@ -1,7 +1,7 @@
 # Yova V1 — Spec produit
 
 > **Doc de référence épinglé.** Toute feature V1 doit être traçable à cette spec.
-> Dernière mise à jour : 2026-04-22 (sprint 14 — auto-sync faits structurés + anti-doublon projet + nettoyage legacy)
+> Dernière mise à jour : 2026-04-23 (sprint 15 — nettoyage bugs UX critiques pré-Barbara)
 
 ---
 
@@ -285,7 +285,13 @@ Remplace le formulaire multi-étapes + catalogue statique.
 
 ---
 
-## ✅ État actuel du build (2026-04-22 — sprint 14 inclus)
+## ✅ État actuel du build (2026-04-23 — sprint 15 inclus)
+
+### Sprint 15 — Nettoyage bugs UX critiques pré-Barbara (2026-04-23, PR à venir)
+- **(A) Parent de projet jamais completable auto** : `app/api/ai/parse-journal/route.ts` select `parent_project_id` sur `household_tasks`, puis skip toute completion dont `task_id` est référencé comme parent (via helper `utils/projectParent.ts`). Un parent se complète uniquement via 100% sous-tâches done (règle sprint 12 intacte). Plus jamais de "Anniversaire d'Eva FAIT" quand l'user tape *"l'anniv d'Eva c'est le 13 mai"*.
+- **(B) CTA check-in du soir ne réapparaît plus après complétion** : migration `20260423_sprint15_checkin_tracking.sql` (colonne `profiles.last_checkin_at timestamptz`). `parse-journal` met à jour `last_checkin_at = NOW()` si le message tombe dans la fenêtre 20h→04h (heure Paris via `Intl.DateTimeFormat`, robuste aux fuseaux serveur). `/today` masque la CTA via helper `hasCheckinForCurrentWindow(now, last_checkin_at)`. Fenêtre fixe 20h → 04h ; reset 20h le lendemain.
+- **(C) Journal en conversation libre 100%** : suppression du flow check-in imposé (`CHECKIN_QUESTIONS`, `checkinStep`, `checkinAnswers`, `sendCheckin`, progress bar 3 points, branche conditionnelle `isEveningTime` du welcome). Bouton envoyer + Cmd+Enter routent toujours vers `send()`. Accroche Yova adaptée à l'heure locale conservée comme bubble d'ouverture. Décision Jonathan : les 3 questions hardcodées "font formulaire, pas IA/Yova" → refonte conversationnelle contextualisée planifiée en sprint 15bis.
+- Helpers + tests : `utils/checkinWindow.ts` (+ 16 tests), `utils/projectParent.ts` (+ 8 tests). 24/24 nouveaux tests sprint 15 passent.
 
 ### Sprint 14 — Auto-sync faits structurés + /week redesign + anti-doublon projet (2026-04-22h, PR #6 mergée)
 - `lib/structuredMemory.ts` (module partagé) + extraction regex inline **synchrone** dans `parse-journal` → écrit `birth_date` / `school_class` / `specifics.allergies` direct dans `phantom_members` avant retour de la réponse. 3 patterns regex ("anniv de X le DD mois", "X rentre en CLASSE", "X allergique à Y"). Matching prénom exact prioritaire + fallback Levenshtein ≤ 2 (gap ≥ 1 vs 2e candidat). Skip silencieux si confidence < 0.8 ou ambigu. Allergies mergées sans écrasement. Trace audit dans `agent_memory_facts`.
@@ -365,13 +371,7 @@ Suppression de toute la dette V0 incompatible avec la spec :
 
 ### Prochains sprints (à prioriser avec Jonathan)
 
-- **Sprint 15 — Nettoyage bugs UX critiques** ⭐⭐⭐ (issus démo sprint 14 — bloque les tests en conditions réelles) :
-  3 bugs bundlés qui touchent tous le flow `/journal` + CTA check-in :
-  - (A) **Parent de projet jamais completable automatiquement** : le parseur fuzzy-matche *"l'anniversaire d'Eva c'est le 13 mai"* avec le projet parent actif *"Anniversaire d'Eva"* → marque FAIT AUJOURD'HUI à tort. Règle claire : si la task candidate est référencée par au moins 1 enfant (`parent_project_id`), JAMAIS de completion auto. Le parent se complète implicitement quand 100% sous-tâches done (règle sprint 12).
-  - (B) **CTA check-in du soir ne doit plus réapparaître après complétion** : vérifier `last_checkin_at` < 24h avant d'afficher la CTA sur `/today`. Ajouter un champ DB ou utiliser `user_journals` (flag `is_checkin`).
-  - (C) **Bypass conversation libre** : après 20h (ou toujours), le bouton "Nouveau" / "+ Nouvelle conversation" doit permettre une conv libre (pas forcer le check-in). Logique : si check-in du jour déjà fait → bypass automatique, sinon afficher un toggle "Check-in guidé / Conv libre".
-  - **Critère de succès** : 3 démos device réel — (1) parser ne complète plus à tort un projet parent, (2) pas de CTA check-in après avoir complété, (3) je peux démarrer une conv libre sans check-in.
-  - **Durée estimée** : 1-2 jours.
+- **Sprint 15bis — Check-in conversationnel contextualisé** ⭐⭐⭐ (spin-off sprint 15, Piliers 1+3) : remplacer l'accroche d'ouverture statique du journal par **une seule question tailored** générée par Sonnet depuis la mémoire (narrative + facts récents + observations actives + énergie foyer). Exemples attendus : *"Hier tu m'as dit que Léa couvait quelque chose — ça s'est confirmé ?"* / *"Barbara dort < 6h depuis 4 nuits, comment elle tient ?"* / *"Ça fait 10 jours que vous n'avez pas cuisiné, qu'est-ce qui te pèse ?"*. Après cette question d'ouverture, conv 100% libre (pas de séquence 3 questions). Remplace le flow check-in hardcodé supprimé sprint 15. Dépend de : mémoire longue (sprint 6 ✅) + observations (déjà présentes). Durée estimée : 2-3 jours.
 
 - **Sprint 16 — Consolidation de tâches chevauchantes** ⭐⭐ (issu retours sprint 12, Pilier 3 pur) : Yova détecte quand une sous-tâche de projet ("Faire les courses pour le déjeuner") recoupe une tâche récurrente existante ("Faire les courses" mercredi) et propose proactivement : *« Tu as déjà les courses mer. 29, je groupe avec le déjeuner dimanche pour que tu y ailles qu'une fois ? »*. Dépend de : mémoire longue (sprint 6 ✅) + similarité sémantique sur noms de tâches. Mois 3-4 roadmap. Durée : 3-4 j.
 

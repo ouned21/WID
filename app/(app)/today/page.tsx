@@ -23,6 +23,7 @@ import { filterTasks, splitTasksIntoSections } from '@/utils/taskSelectors';
 import { TaskActionsSheet } from '@/components/TaskActionsSheet';
 import { UndoToast } from '@/components/UndoToast';
 import { ProjectGroupCard, groupTasksByProject } from '@/components/ProjectGroupCard';
+import { hasCheckinForCurrentWindow, isInEveningWindow } from '@/utils/checkinWindow';
 import type { TaskListItem, HouseholdMember, AgentMemoryFact } from '@/types/database';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -589,10 +590,13 @@ export default function TodayPage() {
     .slice(0, 5);
 
   const isCrisis = householdProfile?.crisis_mode_active ?? false;
-  const hour = new Date().getHours();
+  const now = new Date();
+  const hour = now.getHours();
   const firstName = profile?.display_name?.split(' ')[0] ?? 'toi';
   const greeting = buildGreeting(firstName, householdProfile?.energy_level, householdProfile?.current_life_events ?? [], isCrisis, hour, memoryFacts);
-  const isEvening = hour >= 20;
+  // Sprint 15 — CTA check-in visible uniquement dans la fenêtre soir (20h-04h Paris)
+  // ET si aucun message journal n'a été envoyé dans cette fenêtre.
+  const showCheckinCta = isInEveningWindow(now) && !hasCheckinForCurrentWindow(now, profile?.last_checkin_at ?? null);
 
   const isLoading = (tasksLoading || familyLoading) && tasks.length === 0;
 
@@ -717,8 +721,8 @@ export default function TodayPage() {
         </svg>
       </Link>
 
-      {/* 5. Check-in du soir (uniquement après 20h) */}
-      {isEvening && <CheckInDuSoir />}
+      {/* 5. Check-in du soir (fenêtre 20h-04h, masqué si déjà fait) */}
+      {showCheckinCta && <CheckInDuSoir />}
 
       {/* Sheet d'actions (⋯ ou long-press) */}
       {actionsTaskId && (() => {
