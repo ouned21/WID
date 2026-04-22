@@ -211,18 +211,6 @@ export default function OnboardingPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callApi]);
 
-  // ── Confirm equipment selection ────────────────────────────────────────────
-  const confirmEquipment = useCallback(() => {
-    const names = equipmentList
-      .filter(e => selectedEquipment.has(e.id))
-      .map(e => e.name);
-    const msg = names.length > 0
-      ? `J'ai : ${names.join(', ')}`
-      : 'Pas d\'équipements particuliers';
-    setShowEquipment(false);
-    void sendMessage(msg);
-  }, [equipmentList, selectedEquipment, sendMessage]);
-
   // ── Voice input ────────────────────────────────────────────────────────────
   const startRecording = useCallback(async () => {
     if (isRecording || isThinking) return;
@@ -281,6 +269,18 @@ export default function OnboardingPage() {
       return updated;
     });
   }, [isThinking, step, callApi]);
+
+  // ── Confirm equipment selection ────────────────────────────────────────────
+  const confirmEquipment = useCallback(() => {
+    const names = equipmentList
+      .filter(e => selectedEquipment.has(e.id))
+      .map(e => e.name);
+    const msg = names.length > 0
+      ? `J'ai : ${names.join(', ')}`
+      : 'Pas d\'équipements particuliers';
+    setShowEquipment(false);
+    void sendMessage(msg);
+  }, [equipmentList, selectedEquipment, sendMessage]);
 
   // ── Persist tasks ──────────────────────────────────────────────────────────
   const persistTasks = async (payload: DonePayload) => {
