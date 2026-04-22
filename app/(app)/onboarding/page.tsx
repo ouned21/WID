@@ -197,9 +197,11 @@ export default function OnboardingPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Si déjà consenti → passe directement au chat
+  // Si déjà consenti au chargement → passe directement au chat (skip consent screen)
+  // On vérifie step === 'consent' pour éviter le double-déclenchement quand
+  // acceptConsent() appelle refreshProfile() juste après startConversation()
   useEffect(() => {
-    if (profile?.ai_journal_consent_at) startConversation();
+    if (profile?.ai_journal_consent_at && step === 'consent') startConversation();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.ai_journal_consent_at]);
 
