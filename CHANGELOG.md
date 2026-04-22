@@ -6,6 +6,25 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-22] — Sprint 2 : Page Aujourd'hui inbox spec V1
+
+### Ajouté
+- Card "Maintenant" : 1 tâche urgente épinglée en haut, pleine largeur, gradient bleu
+- Section "À faire aujourd'hui" : 3-5 items max avec durée estimée et bouton "Report demain"
+- Section "Sur le radar" : collapsible, anticipations des tâches à venir cette semaine
+- CTA "Check-in du soir" : bloc Yova visible uniquement après 20h
+- Rechargement automatique au retour sur l'onglet (visibilitychange)
+
+### Retiré (archivé, non supprimé)
+- "Score & répartition" retiré de la nav Profil (hors spec V1 §Migration)
+- "Statistiques détaillées" retiré des raccourcis Profil (même raison)
+
+### Référence
+- Spec : `docs/SPEC_V1_YOVA.md` §Navigation V1 + §Migration
+- Branch : `feat/sprint-2-today-inbox` → validé Jonathan 2026-04-22
+
+---
+
 ## [2026-04-21j] — Sprint 13 : Tags mémoire dynamiques + nettoyage famille
 
 ### Modifié
