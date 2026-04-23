@@ -31,16 +31,28 @@ describe('detectOverlaps', () => {
     expect(matches[0].similarity).toBeGreaterThanOrEqual(OVERLAP_SIMILARITY_THRESHOLD);
   });
 
-  it('does NOT match outside ±3 days window', () => {
+  it('does NOT match outside ±7 days window', () => {
     const wed = new Date('2026-04-29T17:00:00.000Z').toISOString();
-    const farSunday = new Date('2026-05-04T10:00:00.000Z').toISOString(); // 5 days
+    const tooFar = new Date('2026-05-08T10:00:00.000Z').toISOString(); // 9 days
     const subtasks: SubtaskForOverlap[] = [
-      { index: 0, name: 'Faire les courses pour le déjeuner', next_due_at: farSunday },
+      { index: 0, name: 'Faire les courses pour le déjeuner', next_due_at: tooFar },
     ];
     const candidates: CandidateRecurringTask[] = [
       { id: 'rec-1', name: 'Faire les courses', next_due_at: wed },
     ];
     expect(detectOverlaps(subtasks, candidates)).toHaveLength(0);
+  });
+
+  it('matches at 4 days distance (canonical: weekly courses wed vs subtask sat for sun)', () => {
+    const wed = new Date('2026-04-29T17:00:00.000Z').toISOString();
+    const sat = new Date('2026-04-25T10:00:00.000Z').toISOString(); // 4 days
+    const subtasks: SubtaskForOverlap[] = [
+      { index: 0, name: 'Faire les courses pour le déjeuner', next_due_at: sat },
+    ];
+    const candidates: CandidateRecurringTask[] = [
+      { id: 'rec-1', name: 'Faire les courses', next_due_at: wed },
+    ];
+    expect(detectOverlaps(subtasks, candidates)).toHaveLength(1);
   });
 
   it('does NOT match unrelated names ("réserver restau" vs "faire les courses")', () => {

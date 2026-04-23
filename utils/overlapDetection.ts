@@ -20,7 +20,12 @@ import { projectTitleSimilarity } from './projectDecomposition';
 // 0.5 (anti-doublon projet sprint 14) raterait ce match évident.
 // Au-dessous de 0.33 on commencerait à matcher du bruit.
 export const OVERLAP_SIMILARITY_THRESHOLD = 0.33;
-export const OVERLAP_DATE_WINDOW_DAYS = 3;
+// Fenêtre date élargie à 7 jours (cas canonique : récurrente weekly mer.
+// vs sous-tâche courses sam. pour un déjeuner dim. = 4j d'écart). À ±3j
+// on ratait le cas le plus fréquent. À ±7j on couvre toute la semaine d'une
+// récurrente weekly. Un faux positif = 1 question polie ; un vrai négatif
+// = un doublon silencieux (pire). On préfère poser une question de trop.
+export const OVERLAP_DATE_WINDOW_DAYS = 7;
 
 export type CandidateRecurringTask = {
   id: string;

@@ -483,8 +483,8 @@ export async function decomposeProjectCore(input: DecomposeCoreInput): Promise<D
     .filter((t) => Number.isFinite(t));
   let overlaps: OverlapMatch[] = [];
   if (subtaskDates.length > 0) {
-    const minTs = Math.min(...subtaskDates) - 4 * 86_400_000;
-    const maxTs = Math.max(...subtaskDates) + 4 * 86_400_000;
+    const minTs = Math.min(...subtaskDates) - 8 * 86_400_000;
+    const maxTs = Math.max(...subtaskDates) + 8 * 86_400_000;
     const { data: candidates } = await supabase
       .from('household_tasks')
       .select('id, name, next_due_at, frequency, parent_project_id')
