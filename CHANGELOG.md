@@ -6,6 +6,63 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-27] — Sprint 16 v1 ABANDONNÉ + plan v2 (tool use Haiku)
+
+PR #12 (`feat/sprint-16-overlap-consolidation`) **fermée sans merger**. Branche supprimée du remote. Aucun changement de code n'arrive sur main — ce changelog entry et la mise à jour de SPEC_V1_YOVA.md sont les seuls livrables.
+
+### Pourquoi abandonné
+
+Le sprint 16 v1 implémentait la consolidation de tâches chevauchantes avec un router regex (`interpretOverlapAnswer`) qui matchait les mots-clés ("groupe", "garde les deux", "décale") dans la réponse user, + state via `conversation_turns.extracted_facts.pending_overlap`. Approche héritée des sprints 12 (pending_question) et 14 (pending_project_duplicate).
+
+3 bugs en cascade pendant les tests device Jonathan :
+1. Fenêtre date initiale ±3j trop stricte (cas canonique mer. récurrente vs sam. sous-tâche projet = 4j d'écart raté). Fix : ±7j.
+2. Précondition `conversationHistory.length === 0` qui skipait le router en thread continu (anti-pattern hérité sprint 12). Fix : retirer la condition.
+3. Inserts `conversation_turns` qui n'écrivent pas en preview Vercel (root cause non identifié — soupçon de mismatch d'env Supabase entre preview et la DB que Jonathan inspecte dans Studio). PAS fixé.
+
+Au-delà des symptômes, Jonathan a soulevé la vraie question d'archi :
+
+> *« On peut pas faire en sorte que l'IA puisse gérer ça elle-même, en lui demandant, plutôt que de vouloir avoir une réponse en dur ? »*
+
+Confirmation que les routers regex sont un anti-pattern dans un produit qui se positionne comme agent IA conversationnel. Quand le regex rate (formulation imprévue, état DB cassé, etc.), Sonnet prend le relais et hallucine une confirmation confiante sans qu'aucune action ne soit faite — pire UX que pas de fonctionnalité du tout. Constaté 3 fois en démo : "Parfait, je groupe les courses..." pendant que la récurrente reste intacte sur `/week`.
+
+### Plan v2 — Sprint 16 v2 (tool use Haiku)
+
+Backloggé en SPEC, à reprendre en priorité avant sprint 17 TTS.
+
+Architecture cible : quand l'user répond à la question d'overlap, Haiku reçoit le contexte + 3 tools strictement typés :
+- `group_recurring(existing_task_id, new_date_iso)` → UPDATE récurrente next_due_at + append parent_id à covers_project_ids
+- `keep_both()` → INSERT pending_subtasks tel quel
+- `reschedule_recurring(existing_task_id, new_date_iso)` → UPDATE next_due_at + covers
+
+Haiku choisit + paramètre + le système exécute le tool → action garantie déterministe + message utilisateur naturel généré par Haiku. Plus jamais de "Yova promet sans agir" : l'exécution du tool = l'action garantie.
+
+### Ce qui est conservé pour la v2 (de la PR #12 fermée)
+
+- Migration `20260425_sprint16_overlap_consolidation.sql` (`covers_project_ids uuid[]` + index GIN) — à reposer sur la PR v2
+- Logique pure `detectOverlaps` + `buildOverlapQuestion` (24 tests) — Jaccard 0.33 + fenêtre ±7j calibrés sur cas réels Jonathan
+- Pattern de découpage : parent + sous-tâches non-overlap insérés immédiatement, pending overlap subtasks différés jusqu'à décision user
+- Préco produit validées Jonathan (option B groupe = déplacement à la date du projet, badge `/week` visible, cascade clear sur archive parent, multi-overlap = 1 question groupée, fallback ambigu = keep_both silencieux)
+
+### Ce qui est jeté
+
+- `interpretOverlapAnswer` (router regex)
+- `findPendingOverlap` via conversation_turns (mécanisme de state cassé en preview, à investiguer en début de v2)
+- `extractRescheduleDate` (l'extraction de date sera faite par Haiku via tool param)
+- Le bloc routeur sprint 16 dans `parse-journal/route.ts` (~125 lignes)
+
+### Audit alignement vision (déclenché en début de sprint 16, déjà documenté)
+
+L'audit a identifié 4 dettes/gaps backloggés en SPEC : sprint 17 TTS Yova ⭐⭐, sprint 17bis onboarding → conversation_turns, sprint 17ter nettoyage scoring résiduel, sprint 19bis Premium infra. Tous validés Jonathan. Maintenus dans le backlog SPEC.
+
+### Process
+
+- PR #12 fermée avec commentaire explicatif (commit hash de référence : 9e0dc3a sur la branche supprimée)
+- Branche `feat/sprint-16-overlap-consolidation` supprimée du remote
+- Nouvelle branche `docs/sprint-16-v1-abandoned` ouverte uniquement pour ces docs (PR à merger sans démo car aucun code touché)
+- Sprint 16 v2 démarrera sur nouvelle branche `feat/sprint-16-v2-overlap-tool-use` avec kick-off propre dans nouvelle session
+
+---
+
 ## [2026-04-24] — Sprint 15bis : Check-in conversationnel contextualisé (Piliers 1+3)
 
 ### Ajouté
