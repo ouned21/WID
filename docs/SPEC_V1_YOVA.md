@@ -1,7 +1,7 @@
 # Yova V1 — Spec produit
 
 > **Doc de référence épinglé.** Toute feature V1 doit être traçable à cette spec.
-> Dernière mise à jour : 2026-04-25 (sprint 16 — consolidation de tâches chevauchantes)
+> Dernière mise à jour : 2026-04-27 (sprint 16 v1 abandonné, v2 backloggé en tool use)
 
 ---
 
@@ -287,7 +287,13 @@ Remplace le formulaire multi-étapes + catalogue statique.
 
 ## ✅ État actuel du build (2026-04-25 — sprint 16 inclus)
 
-### Sprint 16 — Consolidation de tâches chevauchantes (2026-04-25, PR #TBD)
+### ~~Sprint 16 v1 — Consolidation de tâches chevauchantes (2026-04-25, PR #12 ABANDONNÉE)~~
+
+**ABANDONNÉ — voir CHANGELOG entrée 2026-04-27.** Architecture regex (router `interpretOverlapAnswer` + state via `conversation_turns.pending_overlap`) jugée anti-pattern par Jonathan en cours de tests. Refacto v2 en tool use Haiku planifié (voir backlog ci-dessous).
+
+Conservé pour v2 : migration `covers_project_ids uuid[]`, `detectOverlaps` + `buildOverlapQuestion`, pattern de découpage parent/non-overlap/pending.
+
+<details><summary>Description originale v1 (référence)</summary>
 - `utils/overlapDetection.ts` (logique pure, 24 tests) — Yova détecte quand une sous-tâche d'un projet décomposé recoupe une tâche récurrente existante (Jaccard ≥ 0.33 sur tokens significatifs, fenêtre ±3 jours). Calibré sur le cas canonique "Faire les courses" mer. ↔ "Faire les courses pour le déjeuner dimanche". Seuil distinct du sprint 14 anti-doublon (0.5) — ici on cherche un **recoupement utile**, pas un clone strict.
 - Migration `20260425_sprint16_overlap_consolidation.sql` : colonne `household_tasks.covers_project_ids uuid[]` (default `'{}'`) + index GIN. Liste des `parent_project_id` qu'une tâche récurrente couvre AUSSI suite à un groupement. Affichée comme badge discret vert "↻ couvre aussi : <projet>" sur `/week`.
 - `lib/decomposeProjectCore.ts` : nouveau retour `kind: 'overlap_question'`. Après validation Sonnet, **avant insert enfants**, si overlaps détectés → insère parent + sous-tâches NON-overlap, stocke contexte complet dans `conversation_turns.extracted_facts.pending_overlap`, retourne question groupée. Helpers `findPendingOverlap` + `clearCoversForProject` (cascade idempotente).
@@ -298,8 +304,7 @@ Remplace le formulaire multi-étapes + catalogue statique.
   - **`ambiguous`** → fallback `keep_both` silencieux ("je garde les deux côtés. Tu peux ajuster sur /week.") — esprit "user qui esquive = on lâche" sprint 15bis
 - Cascade clear `clearCoversForProject` appelée sur tous les chemins d'archivage parent : sprint 14 replace flow (parse-journal), `taskStore.archiveTask` (TaskActionsSheet "Pas pertinent"), `journal/page.tsx` DecomposedProjectCard archive. Cohérence mémoire vivante : si un projet meurt, son contexte "couvre aussi" disparaît automatiquement des récurrentes.
 - `app/(app)/week/page.tsx` : `WeekTaskRow` affiche "↻ couvre aussi : <titre projet>" en vert sobre (11px) sous le nom de tâche quand `covers_project_ids` non vide. Lookup `archivedParentTitles` étendu pour résoudre les titres de projets référencés via covers (pas seulement parent_project_id).
-
-
+</details>
 
 ### Sprint 15bis — Check-in conversationnel contextualisé (2026-04-24, PR #10 mergée)
 - `POST /api/ai/checkin-opener` (Sonnet 4.6, timeout 8s, max_tokens 120) : une seule question tailored, max 25 mots, ton confident. Charge en parallèle profiles + phantoms + `households.yova_narrative` + `agent_memory_facts` (10) + `observations` non-ack (10) + `conversation_turns` (10) + dernier opener < 30h (pour rotation).
@@ -392,6 +397,8 @@ Suppression de toute la dette V0 incompatible avec la spec :
 - Détection de dérives : 4 patterns (`cooking_drift`, `balance_drift`, `journal_silence`, `task_overdue_cluster`)
 
 ### Prochains sprints (à prioriser avec Jonathan)
+
+- **Sprint 16 v2 — Consolidation chevauchantes via tool use** ⭐⭐ (à reprendre en priorité, valeur Pilier 3 toujours non livrée) : refacto de la v1 abandonnée. Architecture : Haiku reçoit la réponse user à la question d'overlap + 3 tools strictement typés (`group_recurring`, `keep_both`, `reschedule_recurring`). Haiku choisit + paramètre + le système exécute → action garantie + message naturel. Conservé v1 : migration `covers_project_ids`, `detectOverlaps`, `buildOverlapQuestion`, pattern de découpage parent/non-overlap/pending. Jeté v1 : router regex `interpretOverlapAnswer`, state via `conversation_turns.pending_overlap` (mécanisme à investiguer en début de v2). Durée : 1.5-2 j.
 
 - **Sprint 17 — TTS Yova** ⭐⭐ (priorité haute, débloque la métrique nord V1) : Yova répond à voix haute (ElevenLabs ou Web Speech TTS) pour le check-in du soir. Aujourd'hui STT (Deepgram) existe mais Yova n'a pas de voix → le check-in est à moitié vocal. La métrique nord V1 = "check-in vocal ≥ 4×/semaine" — sans TTS, on mesure pas ce qu'on prétend. À prioriser avant sprint 18. Mois 3 roadmap. Durée : 2-3 j.
 

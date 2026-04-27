@@ -6,7 +6,30 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
-## [2026-04-25] — Sprint 16 : Consolidation de tâches chevauchantes (Pilier 3 pur)
+## [2026-04-27] — Sprint 16 v1 : ABANDONNÉ (architecture regex obsolète)
+
+PR #12 fermée sans merger. Le sprint 16 v1 implémentait la consolidation de tâches chevauchantes avec un router regex (`interpretOverlapAnswer`) qui matchait les mots-clés ("groupe", "garde les deux", "décale") dans la réponse user. Approche héritée des sprints 12 (pending_question) et 14 (pending_project_duplicate).
+
+### Pourquoi abandonné
+- 3 bugs en cascade pendant les tests Jonathan : (1) fenêtre date ±3j trop stricte, fixé ±7j ; (2) précondition `conversationHistory.length === 0` qui skipait le router, fixé ; (3) inserts `conversation_turns` qui n'écrivent pas en preview Vercel (root cause non identifié, probable mismatch d'env Supabase entre preview et prod).
+- Au-delà du symptôme : Jonathan a soulevé la vraie question architecturale — *« on peut pas faire en sorte que l'IA puisse gérer ça elle-même, en lui demandant, plutôt que de vouloir avoir une réponse en dur ? »*. Confirmation que les routers regex (sprints 12/14/16) sont un anti-pattern : Yova se positionne comme un agent conversationnel IA, pas un chatbot à mots-clés. Quand le regex rate (formulation imprévue, état DB cassé, etc.), Sonnet prend le relais et hallucine une confirmation confiante sans qu'aucune action ne soit faite — pire UX que pas de fonctionnalité du tout.
+
+### Ce qui est conservé pour la v2
+- Migration `20260425_sprint16_overlap_consolidation.sql` (`covers_project_ids uuid[]`) — gardée, structure DB cible inchangée
+- `utils/overlapDetection.ts` `detectOverlaps` + `buildOverlapQuestion` — logique pure de détection conservée (Jaccard 0.33, fenêtre ±7j calibrés sur cas réels)
+- Découpage parent / non-overlap subtasks insérés immédiatement / pending overlap subtasks différés — pattern conservé
+
+### Ce qui est jeté
+- `interpretOverlapAnswer` (router regex)
+- `findPendingOverlap` via conversation_turns (mécanisme de state cassé en preview)
+- Le bloc routeur dans `parse-journal/route.ts` lignes 343-468
+
+### Plan v2 → Sprint 16 v2 — Overlap consolidation via tool use Haiku
+Voir SPEC backlog. Architecture : quand l'user répond à la question d'overlap, Haiku reçoit le contexte + 3 tools strictement typés (`group_recurring`, `keep_both`, `reschedule_recurring`). Haiku choisit + paramètre + le système exécute le tool → action garantie déterministe + message utilisateur naturel généré par Haiku. Plus jamais de "Yova promet sans agir".
+
+---
+
+## ~~[2026-04-25] — Sprint 16 v1 : Consolidation de tâches chevauchantes~~ (RÉTROACTIVEMENT ANNULÉ — voir entrée 2026-04-27 ci-dessus)
 
 ### Ajouté
 - `utils/overlapDetection.ts` — détection pure et testable. `detectOverlaps` : pour chaque sous-tâche d'un projet, cherche la meilleure récurrente active dont `next_due_at` tombe dans ±3 j ET dont le nom passe Jaccard ≥ **0.33** (calibré sur le cas canonique "Faire les courses" vs "Faire les courses pour le déjeuner dimanche" = 1/3 = 0.33 ; 0.5 du sprint 14 anti-doublon raterait ce match évident). `interpretOverlapAnswer` : interprète la réponse user libre en chat (regex, pas d'appel IA) en 4 décisions — `group` / `keep_both` / `reschedule` (avec extraction date FR : "demain", "samedi", "27 mai") / `ambiguous`. `buildOverlapQuestion` : 1 question groupée pour 1..N overlaps (preco multi-overlap = 1 message, pas N questions séquentielles)
