@@ -13,7 +13,10 @@ import {
   findPendingProject,
   findPendingDuplicate,
   interpretDuplicateAnswer,
+  findPendingOverlap,
+  clearCoversForProject,
 } from '@/lib/decomposeProjectCore';
+import { dispatchOverlapWithHaiku } from '@/lib/overlapToolDispatch';
 import {
   extractStructuredFallback,
   applyStructuredUpdates,
@@ -319,6 +322,9 @@ export async function POST(request: NextRequest) {
         .eq('household_id', householdId).eq('id', pendingDup.existing_parent_id);
       await admin.from('household_tasks').update({ is_active: false })
         .eq('household_id', householdId).eq('parent_project_id', pendingDup.existing_parent_id);
+      // Sprint 16 — cascade : retire ce parent_id des covers_project_ids des
+      // récurrentes qui le référençaient (cohérence mémoire vivante).
+      await clearCoversForProject(admin as never, householdId, pendingDup.existing_parent_id);
       skipDuplicateCheck = true;
       dupRoutePrompt = pendingDup.original_prompt;
     } else {
@@ -332,6 +338,60 @@ export async function POST(request: NextRequest) {
         mood_tone: null,
       });
     }
+  }
+
+  // ─── Sprint 16 v2 — pending_overlap (user a répondu à une proposition de groupement) ──
+  // Précédence : si le DERNIER turn agent était un pending_overlap (et pas
+  // un pending_project_duplicate / pending_project), on intercepte pour
+  // appeler Haiku en tool use sur les 3 actions possibles (group_recurring /
+  // keep_both / reschedule_recurring). Plus de regex (sprint 16 v1 abandonné).
+  //
+  // NB v1 fix : on ne conditionne PAS sur conversationHistory.length === 0
+  // (anti-pattern hérité sprint 12/14). La protection contre les vieux
+  // pending vient de la limite 10 min dans findPendingOverlap.
+  const pendingOverlap = !pending && !pendingDup
+    ? await findPendingOverlap(supabase as never, householdId)
+    : null;
+
+  if (pendingOverlap) {
+    const dispatchResult = await dispatchOverlapWithHaiku({
+      pendingOverlap,
+      questionAsked: pendingOverlap.overlaps.length === 1
+        ? `propose de grouper "${pendingOverlap.overlaps[0].existing_task_name}" avec ${pendingOverlap.project_title}`
+        : `propose de grouper ${pendingOverlap.overlaps.length} récurrentes avec ${pendingOverlap.project_title}`,
+      userResponse: sanitizedText,
+      householdId,
+      userId: user.id,
+      supabase: supabase as never,
+      admin: admin as never,
+    });
+
+    await admin.from('user_journals').insert({
+      user_id: user.id, household_id: householdId, raw_text: text, input_method: inputMethod,
+      parsed_completions: [], unmatched_items: [],
+      ai_response: dispatchResult.aiResponse,
+      tokens_input: 0, tokens_output: 0, cost_usd: 0,
+      model_used: 'claude-haiku-4-5-overlap-dispatch',
+      processing_time_ms: dispatchResult.durationMs,
+      mood_tone: null,
+    });
+    const turnInsert = await admin.from('conversation_turns').insert([
+      { household_id: householdId, user_id: user.id, speaker: 'user', content: text, source: 'chat' },
+      { household_id: householdId, user_id: user.id, speaker: 'agent', content: dispatchResult.aiResponse, source: 'chat' },
+    ]);
+    if (turnInsert.error) {
+      // Defensive : visibilité explicite si l'insert échoue (root cause v1 non identifié)
+      console.error('[parse-journal sprint 16 v2] conversation_turns insert failed:', turnInsert.error);
+    }
+
+    return NextResponse.json({
+      completions: [], auto_created: [], unmatched: [],
+      project_created: null, project_decomposed: null,
+      ai_response: dispatchResult.aiResponse,
+      mood_tone: null,
+      structured_updates: structuredApplied,
+      overlap_action: dispatchResult.action,
+    });
   }
 
   const routeToDecompose = pending !== null || pendingDup !== null || detectProjectIntent(sanitizedText);
@@ -363,7 +423,9 @@ export async function POST(request: NextRequest) {
           ? result.question
           : result.kind === 'duplicate'
             ? result.question
-            : (result.user_message ?? result.error),
+            : result.kind === 'overlap_question'
+              ? result.question
+              : (result.user_message ?? result.error),
       tokens_input: 0, tokens_output: 0, cost_usd: 0,
       model_used: 'claude-sonnet-4-6', processing_time_ms: Date.now() - startTime,
       mood_tone: null,
@@ -383,6 +445,30 @@ export async function POST(request: NextRequest) {
         completions: [], auto_created: [], unmatched: [],
         project_created: null,
         project_decomposed: null,
+        ai_response: result.question,
+        mood_tone: null,
+        structured_updates: structuredApplied,
+      });
+    }
+
+    if (result.kind === 'overlap_question') {
+      // Sprint 16 — projet partiellement créé (parent + sous-tâches non-overlap),
+      // question d'overlap posée. Le pending_overlap est stocké dans
+      // conversation_turns par decomposeProjectCore. La réponse user déclenchera
+      // dispatchOverlapWithHaiku au prochain tour.
+      return NextResponse.json({
+        needs_clarification: true,
+        clarification_question: result.question,
+        completions: [], auto_created: [], unmatched: [],
+        project_created: null,
+        project_decomposed: {
+          parent_task_id: result.parent_task_id,
+          title: result.title,
+          description: null,
+          target_date: result.target_date,
+          subtask_count: result.inserted_subtask_count,
+          subtasks: [],
+        },
         ai_response: result.question,
         mood_tone: null,
         structured_updates: structuredApplied,

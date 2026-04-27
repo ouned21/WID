@@ -1,7 +1,7 @@
 # Yova V1 — Spec produit
 
 > **Doc de référence épinglé.** Toute feature V1 doit être traçable à cette spec.
-> Dernière mise à jour : 2026-04-27 (sprint 16 v1 abandonné, v2 backloggé en tool use)
+> Dernière mise à jour : 2026-04-27 (sprint 16 v2 livré — consolidation overlap via tool use Haiku)
 
 ---
 
@@ -285,15 +285,24 @@ Remplace le formulaire multi-étapes + catalogue statique.
 
 ---
 
-## ✅ État actuel du build (2026-04-27 — sprint 15bis inclus, sprint 16 v1 abandonné)
+## ✅ État actuel du build (2026-04-27 — sprint 16 v2 inclus)
 
-### Sprint 16 v1 — Consolidation chevauchantes via router regex (2026-04-25 → 2026-04-27, PR #12 fermée sans merger)
+### Sprint 16 v2 — Consolidation overlap via tool use Haiku (2026-04-27)
+- `lib/overlapToolDispatch.ts` (`dispatchOverlapWithHaiku`) : appel Haiku 4.5 avec 3 tools strictement typés (`group_recurring`, `keep_both`, `reschedule_recurring`). Haiku reçoit la question d'overlap + réponse user libre + liste des recoupements + date du jour ; choisit un tool ; le système exécute l'action en DB de façon déterministe ; renvoie le message naturel généré par Haiku (préféré au message canned si non vide). Timeout 10s, max_tokens 400, `tool_choice: auto`.
+- Fallback `keep_both` silencieux sur tous les chemins d'échec : aucun tool choisi (réponse vraiment ambiguë), timeout / erreur fetch, tool name halluciné, `new_date_iso` non parsable, pas de clé API. Esprit "user esquive = on lâche" (sprint 15bis).
+- Décisions produit (validées Jonathan, kick-off v2) : (1) `reschedule` sans date claire → `keep_both` silencieux, (2) latence 2-5s couverte par `TypingBubble` existant (3 points), (3) ton confirmation factuel + chaleureux + max 25 mots, **pas de référence mémoire** (Yova ne se vante pas), (4) timeout / erreur Haiku → `keep_both` + log serveur (pas de message d'erreur explicite qui casse la confiance), (5) multi-overlap réponse partielle = bloc unique (preco #4 stricte).
+- `app/api/ai/parse-journal/route.ts` — branch `pendingOverlap` réintroduite sans router regex : `findPendingOverlap` lit `conversation_turns.extracted_facts.pending_overlap` (mécanisme partagé sprint 12 + 14, conservé) puis route vers `dispatchOverlapWithHaiku`. Fix v1 conservé : pas de check `conversationHistory.length === 0` (anti-pattern hérité). Cascade `clearCoversForProject` ajoutée sur "replace" du flow pendingDup. Log explicite si insert `conversation_turns` échoue (visibilité root cause v1).
+- `utils/overlapDetection.ts` — purge `interpretOverlapAnswer` + `extractRescheduleDate` (regex morts v2). Conservé `detectOverlaps`, `buildOverlapQuestion`, seuils Jaccard 0.33 / fenêtre ±7j (calibrés cas réels Jonathan, jamais touchés).
+- Cherry-pick depuis branche v1 (code sain, jamais mergé en main mais conservé) : migration `20260425_sprint16_overlap_consolidation.sql` (`covers_project_ids uuid[]` + index GIN), `lib/decomposeProjectCore.ts` (split parent + non-overlap immédiat + pending différé), `app/(app)/week/page.tsx` (badge ↻), `stores/taskStore.ts` + `app/(app)/journal/page.tsx` (cascade clear sur archive parent), `app/api/ai/decompose-project/route.ts` (handle `kind: 'overlap_question'`), `types/database.ts` (`covers_project_ids?: string[]`).
+- Tests : 10/10 `lib/overlapToolDispatch.test.ts` (group / keep_both / reschedule / fallbacks / multi-overlap preco #4 / préférence texte Haiku) + 8/8 `utils/overlapDetection.test.ts` réduit (détection + question, regex purgés).
+- Architecture : tool use bat le router regex parce que quand le regex rate, Sonnet hallucine une confirmation confiante sans qu'aucune action ne soit faite (constaté 3 fois en démo v1). Avec tool use, l'exécution du tool = action garantie déterministe. Plus jamais de "Yova promet sans agir".
 
-**ABANDONNÉ. Voir CHANGELOG entrée 2026-04-27 pour le détail.**
+<details>
+<summary>Sprint 16 v1 — Consolidation chevauchantes via router regex (2026-04-25 → 2026-04-27, PR #12 fermée sans merger) — ABANDONNÉ</summary>
 
-Pourquoi : 3 bugs cascade pendant les tests device Jonathan, et au-delà du symptôme, vraie question d'archi soulevée par Jonathan — *« on peut pas faire en sorte que l'IA puisse gérer ça elle-même, en lui demandant, plutôt que de vouloir avoir une réponse en dur ? »*. Confirmation que les routers regex (sprints 12 / 14 / 16) sont un anti-pattern dans un produit IA conversationnel : quand le regex rate, Sonnet hallucine une confirmation confiante sans qu'aucune action ne soit faite, pire UX que pas de fonctionnalité.
+Implémentation v1 : router regex (`interpretOverlapAnswer` matchait "groupe"/"garde"/"décale") + state via `conversation_turns.pending_overlap`. 3 bugs cascade en démo device Jonathan + question d'archi *« on peut pas faire en sorte que l'IA puisse gérer ça elle-même ? »* → abandon. Voir CHANGELOG entrée 2026-04-27 pour le détail. v2 conserve la valeur produit, jette le router regex, livre via tool use Haiku.
 
-Suite : Sprint 16 v2 backloggé (architecture tool use Haiku, voir backlog ci-dessous). Conservé pour v2 : migration `covers_project_ids uuid[]` (PR #12 ne mergeant pas, la migration sera reposée sur la PR v2), `detectOverlaps` + `buildOverlapQuestion` (logique pure de détection, calibrée Jaccard 0.33 / fenêtre ±7j sur cas réels).
+</details>
 
 
 
@@ -389,9 +398,7 @@ Suppression de toute la dette V0 incompatible avec la spec :
 
 ### Prochains sprints (à prioriser avec Jonathan)
 
-- **Sprint 16 v2 — Consolidation chevauchantes via tool use** ⭐⭐ (refacto v1 abandonnée, valeur Pilier 3 toujours non livrée) : architecture Haiku avec 3 tools strictement typés (`group_recurring`, `keep_both`, `reschedule_recurring`). Haiku reçoit la réponse user à la question d'overlap (formulation libre) + tools, choisit + paramètre + le système exécute → action garantie déterministe + message naturel généré par Haiku. Plus jamais de "Yova promet sans agir". Conservé v1 : migration `covers_project_ids`, `detectOverlaps`, `buildOverlapQuestion`, pattern de découpage parent / non-overlap immédiat / pending overlap différé. Jeté v1 : router regex `interpretOverlapAnswer` + state via `conversation_turns.pending_overlap` (mécanisme à investiguer en début de v2 — soupçon d'inserts silencieusement échoués en preview). Durée : 1.5-2 j.
-
-- **Sprint 17 — TTS Yova** ⭐⭐ (priorité haute, débloque la métrique nord V1) : Yova répond à voix haute (ElevenLabs ou Web Speech TTS) pour le check-in du soir. Aujourd'hui STT (Deepgram) existe mais Yova n'a pas de voix → le check-in est à moitié vocal. La métrique nord V1 = "check-in vocal ≥ 4×/semaine" — sans TTS, on ne mesure pas ce qu'on prétend. À prioriser après sprint 16 v2. Mois 3 roadmap. Durée : 2-3 j.
+- **Sprint 17 — TTS Yova** ⭐⭐ (priorité haute, débloque la métrique nord V1) : Yova répond à voix haute (ElevenLabs ou Web Speech TTS) pour le check-in du soir. Aujourd'hui STT (Deepgram) existe mais Yova n'a pas de voix → le check-in est à moitié vocal. La métrique nord V1 = "check-in vocal ≥ 4×/semaine" — sans TTS, on ne mesure pas ce qu'on prétend. Sprint 16 v2 livré, sprint 17 TTS = next. Mois 3 roadmap. Durée : 2-3 j.
 
 - **Sprint 17bis — Onboarding → conversation_turns** : aujourd'hui le chat onboarding (10-18 questions guidées Haiku) n'écrit AUCUN turn dans `conversation_turns` (vérifié grep, audit sprint 16). Conséquence : un user fraîchement onboardé démarre l'opener sprint 15bis avec `isMemoryEmpty=true` → fallback générique "On apprend à se connaître" alors qu'il vient de passer 10 min en chat. Le portrait foyer construit en onboarding est invisible pour le rituel du soir. Sprint court : insérer chaque échange onboarding dans `conversation_turns` (source: 'onboarding'). Durée : 1-2 j.
 

@@ -6,6 +6,65 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ---
 
+## [2026-04-27b] — Sprint 16 v2 : Consolidation overlap via tool use Haiku (Pilier 3 pur)
+
+### Ajouté
+- `lib/overlapToolDispatch.ts` — `dispatchOverlapWithHaiku()` : appel Haiku 4.5 avec 3 tools strictement typés (`group_recurring`, `keep_both`, `reschedule_recurring`). Haiku choisit le tool, le système exécute en DB de façon déterministe, Haiku génère le message naturel de confirmation. Fallback `keep_both` silencieux sur : aucun tool choisi, timeout, erreur API, tool name halluciné, `new_date_iso` invalide. Timeout 10s, max_tokens 400, `tool_choice: auto` (Haiku peut refuser de choisir).
+- `lib/overlapToolDispatch.test.ts` — 10 tests d'intégration avec mocks Anthropic + Supabase (group / keep_both / reschedule / fallbacks / multi-overlap preco #4 / préfère texte Haiku au canned).
+
+### Modifié
+- `app/api/ai/parse-journal/route.ts` — remplace l'ancien router regex (jamais mergé en main, v1 abandonné) par un appel à `dispatchOverlapWithHaiku` quand `findPendingOverlap` détecte un pending_overlap < 10 min. Plus de `pending && !pendingDup` checks via `conversationHistory.length === 0` (anti-pattern hérité sprint 12/14, fix v1 conservé). Cascade `clearCoversForProject` ajoutée sur la branche "replace" du flow pendingDup. Log explicite si insert `conversation_turns` échoue (visibilité root cause v1 non identifiée).
+- `utils/overlapDetection.ts` — supprimé `interpretOverlapAnswer` + `extractRescheduleDate` (regex morts v2). Conservé `detectOverlaps`, `buildOverlapQuestion`, `OVERLAP_SIMILARITY_THRESHOLD = 0.33`, `OVERLAP_DATE_WINDOW_DAYS = 7` (calibrés sur cas réels Jonathan v1).
+- `utils/overlapDetection.test.ts` — réduit aux tests `detectOverlaps` + `buildOverlapQuestion` (8 tests). Tests interpretOverlapAnswer/extractRescheduleDate purgés.
+
+### Conservé tel quel depuis branche v1 (cherry-pick — code sain, aucune régression à reposer)
+- Migration `20260425_sprint16_overlap_consolidation.sql` (`covers_project_ids uuid[]` + index GIN).
+- `lib/decomposeProjectCore.ts` — pattern découpage parent + sous-tâches non-overlap insérées immédiatement + pending overlap subtasks différés. `findPendingOverlap`, `clearCoversForProject` conservés (lecture state + cascade).
+- `app/(app)/week/page.tsx` — badge `↻ couvre aussi : <projet>` sur les récurrentes qui couvrent un projet (parents référencés via `covers_project_ids` ajoutés à la map des titres).
+- `app/(app)/journal/page.tsx` — `DecomposedProjectCard` archive cascade `covers_project_ids` quand un parent est archivé inline.
+- `stores/taskStore.ts` — `archiveTask` cascade clear sur `covers_project_ids`.
+- `app/api/ai/decompose-project/route.ts` — handle `kind: 'overlap_question'` dans la réponse (champ `pending_overlap`).
+- `types/database.ts` — `HouseholdTask.covers_project_ids?: string[]`.
+
+### Architecture — pourquoi tool use bat le router regex
+Sprint 16 v1 avait un router regex (`interpretOverlapAnswer` matchait "groupe"/"garde"/"décale") qui ratait les formulations imprévues. Quand le regex ratait, Sonnet hallucinait une confirmation confiante sans qu'aucune action ne soit faite — pire UX que pas de fonctionnalité. Jonathan a soulevé : *« on peut pas faire en sorte que l'IA puisse gérer ça elle-même ? »*. v2 = Haiku raisonne, choisit un tool, le système exécute, action garantie déterministe. Plus jamais de "Yova promet sans agir".
+
+### Décisions produit (validées Jonathan, kick-off sprint 16 v2)
+
+- **Reschedule sans date claire** → `keep_both` silencieux (esprit "user esquive = on lâche", sprint 15bis). Haiku instruit dans le system prompt : si l'user dit juste "décale" sans préciser quand, choisir `keep_both`. Validation runtime : si tool `reschedule_recurring` est appelé sans `new_date_iso` parsable → fallback `keep_both` (Haiku triche → on protège).
+- **Latence Haiku 2-5s** → `TypingBubble` existant (3 points animés) suffit. Pattern chat universel, zéro UI à ajouter.
+- **Ton du message de confirmation** → naturel et chaleureux, factuel sur l'action, max 25 mots. Pas de référence mémoire ("comme la semaine dernière…") — Yova ne se vante pas de sa mémoire (règle gravée sprint 15bis : marqueur tailored muet).
+- **Échec total Haiku (timeout / erreur)** → `keep_both` silencieux + log serveur (`console.error`). Pas de message d'erreur explicite "j'ai pas saisi" qui casse la confiance. L'user voit l'effet (sous-tâches créées), peut corriger en langage naturel après.
+- **Multi-overlap réponse partielle** → preco #4 stricte = bloc unique (pas de split par overlap). Si réponse ambiguë globale → fallback `keep_both` global, l'user corrige sur les sous-tâches au tour suivant.
+
+### Conservation des décisions produit v1 (validées Jonathan, sprint 16 v1 — jamais mergées en main mais cherry-pickées dans le code conservé)
+- "Groupe" déplace la récurrente à la date de la sous-tâche projet (preco #1)
+- Badge `/week` "↻ couvre aussi : <projet>" (preco #2)
+- Cascade clear automatique sur archivage parent (preco #3)
+- Multi-overlaps = 1 décision groupée pour tous (preco #4)
+- Pas de 4e choix "skip prochaine occurrence" (preco #5)
+- Réponse vraiment ambiguë = fallback `keep_both` (preco #6)
+
+### State pending_overlap — décision technique
+Conservé `conversation_turns.extracted_facts.pending_overlap` (mécanisme partagé sprint 12 + 14, fonctionne en prod). Le bug "inserts qui n'écrivent pas en preview Vercel" remonté sprint 16 v1 sans root cause identifié = soupçon env-spécifique au worktree de Jonathan (DB Studio ≠ DB preview Vercel via env). Pas de raison de jeter le mécanisme. Visibilité ajoutée : log explicite si insert échoue (`console.error` avec contexte).
+
+### Pourquoi maintenant
+La consolidation est essentielle au Pilier 3 "Proactivité douce" — Yova qui dit *« je groupe avec celle de mercredi pour que tu y ailles qu'une fois ? »* est exactement le ton "3e adulte du foyer". v1 a été abandonné côté router regex, mais la valeur produit reste critique avant beta Barbara. v2 livre la même fonctionnalité, sans le risque "Yova promet sans agir".
+
+### Piliers spec
+- Pilier 3 — Proactivité douce (consolidation proactive avant que l'user voie le doublon)
+- Pilier 1 — Connaissance intime du foyer (Haiku reçoit en contexte les tâches en jeu pour générer un message tailored)
+
+### Pré-merge — validation
+- `npx tsc --noEmit` : OK
+- `npx vitest run` : 10/10 sprint 16 v2 dispatch + 8/8 detection conservés. Suite globale 146/147 (1 fail pré-existant `utils/security.test.ts` sans rapport, noté sprints 14 + 15bis)
+- `npx next build` : `✓ Compiled successfully` + TypeScript OK. Échec "page data collection" local par `.env.local` absent dans le worktree — identique sprint 15, levé en prod Vercel via env injectées
+- Démo device — 5 scénarios canoniques + 3 bonus tool use à valider par Jonathan :
+  - canon : "ok groupe" / "non garde les deux" / "décale au samedi" / décomposition sans overlap / "je sais pas trop, on verra" → fallback silent
+  - bonus : "ok mais décale plutôt à samedi" → reschedule(samedi) / "non, en fait fusionne avec celle de mardi prochain" → reschedule(mardi prochain) / "génial, fais ça" sur multi-overlap → group sur tous
+
+---
+
 ## [2026-04-27] — Sprint 16 v1 ABANDONNÉ + plan v2 (tool use Haiku)
 
 PR #12 (`feat/sprint-16-overlap-consolidation`) **fermée sans merger**. Branche supprimée du remote. Aucun changement de code n'arrive sur main — ce changelog entry et la mise à jour de SPEC_V1_YOVA.md sont les seuls livrables.

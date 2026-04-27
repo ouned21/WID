@@ -1,9 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   detectOverlaps,
-  interpretOverlapAnswer,
   buildOverlapQuestion,
-  extractRescheduleDate,
   OVERLAP_SIMILARITY_THRESHOLD,
   type CandidateRecurringTask,
   type SubtaskForOverlap,
@@ -92,91 +90,9 @@ describe('detectOverlaps', () => {
   });
 });
 
-// ─── interpretOverlapAnswer ────────────────────────────────────────────────
-
-describe('interpretOverlapAnswer', () => {
-  const now = new Date('2026-04-25T10:00:00.000Z'); // a Saturday
-
-  it('detects "ok groupe"', () => {
-    expect(interpretOverlapAnswer('ok groupe', now).kind).toBe('group');
-  });
-
-  it('detects "oui fusionne"', () => {
-    expect(interpretOverlapAnswer('oui fusionne stp', now).kind).toBe('group');
-  });
-
-  it('detects single "ok"', () => {
-    expect(interpretOverlapAnswer('ok', now).kind).toBe('group');
-  });
-
-  it('detects "carrement vas-y"', () => {
-    expect(interpretOverlapAnswer('carrément vas-y', now).kind).toBe('group');
-  });
-
-  it('detects "non garde les deux"', () => {
-    expect(interpretOverlapAnswer('non garde les deux', now).kind).toBe('keep_both');
-  });
-
-  it('detects "les deux"', () => {
-    expect(interpretOverlapAnswer('les deux', now).kind).toBe('keep_both');
-  });
-
-  it('detects "separement"', () => {
-    expect(interpretOverlapAnswer('séparément', now).kind).toBe('keep_both');
-  });
-
-  it('detects "decale au samedi"', () => {
-    const r = interpretOverlapAnswer('décale au samedi', now);
-    expect(r.kind).toBe('reschedule');
-    if (r.kind === 'reschedule') {
-      expect(r.new_date_iso).not.toBeNull();
-      // Saturday after 2026-04-25 (saturday) → next saturday
-      expect(r.new_date_iso!.startsWith('2026-05-02')).toBe(true);
-    }
-  });
-
-  it('detects "plutot demain"', () => {
-    const r = interpretOverlapAnswer('plutôt demain', now);
-    expect(r.kind).toBe('reschedule');
-    if (r.kind === 'reschedule') {
-      expect(r.new_date_iso!.startsWith('2026-04-26')).toBe(true);
-    }
-  });
-
-  it('detects "decale au 27 mai"', () => {
-    const r = interpretOverlapAnswer('décale au 27 mai', now);
-    expect(r.kind).toBe('reschedule');
-    if (r.kind === 'reschedule') {
-      expect(r.new_date_iso!.startsWith('2026-05-27')).toBe(true);
-    }
-  });
-
-  it('returns ambiguous on unrelated text', () => {
-    expect(interpretOverlapAnswer('mouais bof', now).kind).toBe('ambiguous');
-  });
-
-  it('returns ambiguous on empty input', () => {
-    expect(interpretOverlapAnswer('', now).kind).toBe('ambiguous');
-  });
-});
-
-// ─── extractRescheduleDate ──────────────────────────────────────────────────
-
-describe('extractRescheduleDate', () => {
-  const now = new Date('2026-04-25T10:00:00.000Z'); // Saturday
-
-  it('extracts demain', () => {
-    expect(extractRescheduleDate('demain', now)).toMatch(/^2026-04-26/);
-  });
-
-  it('extracts apres-demain', () => {
-    expect(extractRescheduleDate('après-demain', now)).toMatch(/^2026-04-27/);
-  });
-
-  it('returns null if no date found', () => {
-    expect(extractRescheduleDate('plus tard quand je sais pas', now)).toBeNull();
-  });
-});
+// ─── interpretOverlapAnswer / extractRescheduleDate : retirés sprint 16 v2 ──
+// Le router regex est remplacé par Haiku tool use (cf. lib/overlapToolDispatch.ts).
+// Tests dispatch dans lib/overlapToolDispatch.test.ts.
 
 // ─── buildOverlapQuestion ───────────────────────────────────────────────────
 
