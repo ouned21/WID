@@ -1,7 +1,7 @@
 # Yova V1 — Spec produit
 
 > **Doc de référence épinglé.** Toute feature V1 doit être traçable à cette spec.
-> Dernière mise à jour : 2026-04-24 (sprint 15bis — check-in conversationnel contextualisé)
+> Dernière mise à jour : 2026-04-27 (sprint 16 v1 abandonné, v2 backloggé en tool use)
 
 ---
 
@@ -285,7 +285,17 @@ Remplace le formulaire multi-étapes + catalogue statique.
 
 ---
 
-## ✅ État actuel du build (2026-04-24 — sprint 15bis inclus)
+## ✅ État actuel du build (2026-04-27 — sprint 15bis inclus, sprint 16 v1 abandonné)
+
+### Sprint 16 v1 — Consolidation chevauchantes via router regex (2026-04-25 → 2026-04-27, PR #12 fermée sans merger)
+
+**ABANDONNÉ. Voir CHANGELOG entrée 2026-04-27 pour le détail.**
+
+Pourquoi : 3 bugs cascade pendant les tests device Jonathan, et au-delà du symptôme, vraie question d'archi soulevée par Jonathan — *« on peut pas faire en sorte que l'IA puisse gérer ça elle-même, en lui demandant, plutôt que de vouloir avoir une réponse en dur ? »*. Confirmation que les routers regex (sprints 12 / 14 / 16) sont un anti-pattern dans un produit IA conversationnel : quand le regex rate, Sonnet hallucine une confirmation confiante sans qu'aucune action ne soit faite, pire UX que pas de fonctionnalité.
+
+Suite : Sprint 16 v2 backloggé (architecture tool use Haiku, voir backlog ci-dessous). Conservé pour v2 : migration `covers_project_ids uuid[]` (PR #12 ne mergeant pas, la migration sera reposée sur la PR v2), `detectOverlaps` + `buildOverlapQuestion` (logique pure de détection, calibrée Jaccard 0.33 / fenêtre ±7j sur cas réels).
+
+
 
 ### Sprint 15bis — Check-in conversationnel contextualisé (2026-04-24, PR #10 mergée)
 - `POST /api/ai/checkin-opener` (Sonnet 4.6, timeout 8s, max_tokens 120) : une seule question tailored, max 25 mots, ton confident. Charge en parallèle profiles + phantoms + `households.yova_narrative` + `agent_memory_facts` (10) + `observations` non-ack (10) + `conversation_turns` (10) + dernier opener < 30h (pour rotation).
@@ -379,9 +389,15 @@ Suppression de toute la dette V0 incompatible avec la spec :
 
 ### Prochains sprints (à prioriser avec Jonathan)
 
-- **Sprint 16 — Consolidation de tâches chevauchantes** ⭐⭐ (issu retours sprint 12, Pilier 3 pur) : Yova détecte quand une sous-tâche de projet ("Faire les courses pour le déjeuner") recoupe une tâche récurrente existante ("Faire les courses" mercredi) et propose proactivement : *« Tu as déjà les courses mer. 29, je groupe avec le déjeuner dimanche pour que tu y ailles qu'une fois ? »*. Dépend de : mémoire longue (sprint 6 ✅) + similarité sémantique sur noms de tâches. Mois 3-4 roadmap. Durée : 3-4 j.
+- **Sprint 16 v2 — Consolidation chevauchantes via tool use** ⭐⭐ (refacto v1 abandonnée, valeur Pilier 3 toujours non livrée) : architecture Haiku avec 3 tools strictement typés (`group_recurring`, `keep_both`, `reschedule_recurring`). Haiku reçoit la réponse user à la question d'overlap (formulation libre) + tools, choisit + paramètre + le système exécute → action garantie déterministe + message naturel généré par Haiku. Plus jamais de "Yova promet sans agir". Conservé v1 : migration `covers_project_ids`, `detectOverlaps`, `buildOverlapQuestion`, pattern de découpage parent / non-overlap immédiat / pending overlap différé. Jeté v1 : router regex `interpretOverlapAnswer` + state via `conversation_turns.pending_overlap` (mécanisme à investiguer en début de v2 — soupçon d'inserts silencieusement échoués en preview). Durée : 1.5-2 j.
 
-- **Sprint 17 — TTS Yova** : Yova répond à voix haute (ElevenLabs ou Web Speech TTS) pour le check-in du soir. Mois 3 roadmap. Durée : 2-3 j.
+- **Sprint 17 — TTS Yova** ⭐⭐ (priorité haute, débloque la métrique nord V1) : Yova répond à voix haute (ElevenLabs ou Web Speech TTS) pour le check-in du soir. Aujourd'hui STT (Deepgram) existe mais Yova n'a pas de voix → le check-in est à moitié vocal. La métrique nord V1 = "check-in vocal ≥ 4×/semaine" — sans TTS, on ne mesure pas ce qu'on prétend. À prioriser après sprint 16 v2. Mois 3 roadmap. Durée : 2-3 j.
+
+- **Sprint 17bis — Onboarding → conversation_turns** : aujourd'hui le chat onboarding (10-18 questions guidées Haiku) n'écrit AUCUN turn dans `conversation_turns` (vérifié grep, audit sprint 16). Conséquence : un user fraîchement onboardé démarre l'opener sprint 15bis avec `isMemoryEmpty=true` → fallback générique "On apprend à se connaître" alors qu'il vient de passer 10 min en chat. Le portrait foyer construit en onboarding est invisible pour le rituel du soir. Sprint court : insérer chaque échange onboarding dans `conversation_turns` (source: 'onboarding'). Durée : 1-2 j.
+
+- **Sprint 17ter — Nettoyage scoring résiduel** : sprint 11 a retiré l'affichage user-facing du score 4 axes mais on continue d'écrire `mental_load_score`/`user_score` à 5 hardcodés un peu partout (decomposeProjectCore, generate-tasks, parse-journal). Plus dans l'ADN V1 → à supprimer (validé Jonathan audit sprint 16). Migration : colonnes nullable + suppression des inserts hardcodés + nettoyage `taskScoring.ts` si plus appelé. Durée : 1-2 j.
+
+- **Sprint 19bis — Premium infra** ⭐ (validé Jonathan audit sprint 16, à planifier avant Barbara prend un tarif au sérieux) : aujourd'hui `/upgrade` page existe mais aucun gating réel (pas de Stripe, pas de paywall sur `aiRateLimit`, free vs premium = même expérience). À ne pas reporter à la veille du beta. Sprint dédié : Stripe integration + gating quota IA (Free = 1 check-in/semaine + tâches basiques + pas de mémoire longue per spec) + UX `/upgrade` avec CTA fonctionnel. Durée : ~1 semaine.
 
 - **Sprint 18 — Anticipations parentales** : jobs quotidiens détectent anniv enfants < 7 j, vacances scolaires, rdv pédiatre récurrents → observations proactives Pilier 2. Mois 4-5. Durée : ~1 semaine.
 
