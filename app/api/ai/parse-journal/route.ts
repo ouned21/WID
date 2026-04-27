@@ -344,7 +344,15 @@ export async function POST(request: NextRequest) {
   // Précédence : on regarde si le DERNIER turn agent était un pending_overlap
   // (et pas un pending_project_duplicate / pending_project), pour ne pas
   // intercepter à tort une vraie réponse à une question d'un autre type.
-  const pendingOverlap = conversationHistory.length === 0 && !pending && !pendingDup
+  //
+  // NB sprint 16 fix : on ne conditionne PAS sur conversationHistory.length === 0
+  // (anti-pattern hérité sprint 12/14). Une question d'overlap est typiquement
+  // posée APRÈS que l'user ait déjà eu un échange avec Yova (décomposition
+  // projet sprint 12 → puis question overlap sprint 16). Si on ignorait quand
+  // le thread est non-vide, l'user qui répond "ok groupe" ne déclencherait
+  // jamais le router. La protection contre les vieux pending vient de la
+  // limite 10 min dans findPendingOverlap (cf. lib/decomposeProjectCore.ts).
+  const pendingOverlap = !pending && !pendingDup
     ? await findPendingOverlap(supabase as never, householdId)
     : null;
 
