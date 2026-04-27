@@ -100,6 +100,21 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  if (result.kind === 'overlap_question') {
+    return NextResponse.json({
+      ok: true,
+      pending_question: result.question,
+      pending_overlap: {
+        parent_task_id: result.parent_task_id,
+        title: result.title,
+        target_date: result.target_date,
+        inserted_subtask_count: result.inserted_subtask_count,
+        pending_overlap_count: result.pending_overlap_count,
+      },
+      project_decomposed: null,
+    });
+  }
+
   return NextResponse.json({
     ok: true,
     pending_question: null,

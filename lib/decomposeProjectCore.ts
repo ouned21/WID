@@ -17,6 +17,12 @@ import {
   projectTitleSimilarity,
   type DecomposedSubtask,
 } from '@/utils/projectDecomposition';
+import {
+  detectOverlaps,
+  buildOverlapQuestion,
+  type OverlapMatch,
+  type CandidateRecurringTask,
+} from '@/utils/overlapDetection';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = 'claude-sonnet-4-6';
@@ -66,6 +72,15 @@ export type DecomposeCoreOutput =
       question: string;
       existing_title: string;
       existing_date: string | null;
+    }
+  | {
+      kind: 'overlap_question';
+      question: string;
+      parent_task_id: string;
+      title: string;
+      target_date: string | null;
+      inserted_subtask_count: number;       // sous-tâches non-overlap déjà créées
+      pending_overlap_count: number;
     }
   | {
       kind: 'error';
@@ -458,7 +473,47 @@ export async function decomposeProjectCore(input: DecomposeCoreInput): Promise<D
     return { kind: 'error', http_status: 500, error: 'Échec création projet' };
   }
 
-  const childRows = sanitizedSubtasks.map((s) => ({
+  // ── Sprint 16 — Détection de chevauchement avec récurrentes existantes ──
+  // Charge les tâches actives RÉCURRENTES (non-once) du foyer dont next_due_at
+  // tombe dans une fenêtre large autour des sous-tâches générées.
+  // Une tâche `once` n'est jamais une "récurrente qui pourrait couvrir" — on ne
+  // détecte pas les overlaps entre projets (out-of-scope sprint 16).
+  const subtaskDates = sanitizedSubtasks
+    .map((s) => new Date(s.next_due_at).getTime())
+    .filter((t) => Number.isFinite(t));
+  let overlaps: OverlapMatch[] = [];
+  if (subtaskDates.length > 0) {
+    const minTs = Math.min(...subtaskDates) - 8 * 86_400_000;
+    const maxTs = Math.max(...subtaskDates) + 8 * 86_400_000;
+    const { data: candidates } = await supabase
+      .from('household_tasks')
+      .select('id, name, next_due_at, frequency, parent_project_id')
+      .eq('household_id', householdId)
+      .eq('is_active', true)
+      .is('parent_project_id', null)
+      .neq('frequency', 'once')
+      .not('next_due_at', 'is', null)
+      .gte('next_due_at', new Date(minTs).toISOString())
+      .lte('next_due_at', new Date(maxTs).toISOString())
+      .limit(50);
+
+    const candList: CandidateRecurringTask[] = (candidates ?? []).map((c) => ({
+      id: c.id, name: c.name, next_due_at: c.next_due_at,
+    }));
+
+    overlaps = detectOverlaps(
+      sanitizedSubtasks.map((s, i) => ({
+        index: i, name: s.name, next_due_at: s.next_due_at,
+      })),
+      candList,
+    );
+  }
+
+  const overlapIndexSet = new Set(overlaps.map((o) => o.subtask_index));
+  const nonOverlapSubs = sanitizedSubtasks.filter((_, i) => !overlapIndexSet.has(i));
+  const pendingSubs = sanitizedSubtasks.filter((_, i) => overlapIndexSet.has(i));
+
+  const buildChildRow = (s: DecomposedSubtask) => ({
     household_id: householdId,
     name: s.name,
     category_id: fallbackCategoryId,
@@ -476,13 +531,72 @@ export async function decomposeProjectCore(input: DecomposeCoreInput): Promise<D
     created_by: userId,
     next_due_at: s.next_due_at,
     parent_project_id: parentRow.id,
-  }));
+  });
 
-  const { error: childrenErr } = await admin.from('household_tasks').insert(childRows);
-  if (childrenErr) {
-    console.error('[decompose-project-core] children insert error:', childrenErr);
-    await admin.from('household_tasks').delete().eq('id', parentRow.id);
-    return { kind: 'error', http_status: 500, error: 'Échec création sous-tâches' };
+  const childRows = nonOverlapSubs.map(buildChildRow);
+
+  if (childRows.length > 0) {
+    const { error: childrenErr } = await admin.from('household_tasks').insert(childRows);
+    if (childrenErr) {
+      console.error('[decompose-project-core] children insert error:', childrenErr);
+      await admin.from('household_tasks').delete().eq('id', parentRow.id);
+      return { kind: 'error', http_status: 500, error: 'Échec création sous-tâches' };
+    }
+  }
+
+  // ── Sprint 16 — Si overlaps détectés, on stoppe ici et on pose la question ──
+  if (overlaps.length > 0) {
+    const question = buildOverlapQuestion(overlaps);
+    const duration = Date.now() - startTime;
+    await logAiUsage(supabase as never, {
+      userId, householdId, endpoint: 'decompose-project',
+      tokensInput: usage.tokensInput, tokensOutput: usage.tokensOutput,
+      durationMs: duration, status: 'success',
+      metadata: {
+        subtask_count: nonOverlapSubs.length,
+        target_date: validated.project.target_date,
+        parent_task_id: parentRow.id,
+        overlap_count: overlaps.length,
+      },
+    });
+    await admin.from('conversation_turns').insert([
+      { household_id: householdId, user_id: userId, speaker: 'user', content: prompt, source: 'chat' },
+      {
+        household_id: householdId, user_id: userId, speaker: 'agent',
+        content: question, source: 'chat',
+        extracted_facts: {
+          pending_overlap: {
+            parent_id: parentRow.id,
+            project_title: validated.project.title,
+            project_target_date: validated.project.target_date,
+            pending_subtasks: pendingSubs.map((s) => ({
+              name: s.name,
+              duration_estimate: s.duration_estimate,
+              next_due_at: s.next_due_at,
+              assigned_to: s.assigned_to,
+              assigned_phantom_id: s.assigned_phantom_id,
+              notes: s.notes,
+            })),
+            overlaps: overlaps.map((o) => ({
+              existing_task_id: o.existing_task_id,
+              existing_task_name: o.existing_task_name,
+              existing_next_due_at: o.existing_next_due_at,
+              subtask_name: o.subtask_name,
+              subtask_next_due_at: o.subtask_next_due_at,
+            })),
+          },
+        },
+      },
+    ]);
+    return {
+      kind: 'overlap_question',
+      question,
+      parent_task_id: parentRow.id,
+      title: validated.project.title,
+      target_date: validated.project.target_date,
+      inserted_subtask_count: nonOverlapSubs.length,
+      pending_overlap_count: overlaps.length,
+    };
   }
 
   const duration = Date.now() - startTime;
@@ -568,6 +682,78 @@ export function interpretDuplicateAnswer(text: string): 'replace' | 'add' | null
   if (/\b(remplace|remplacer|remplacement|a la place|annule|annuler|supprime)\b/.test(t)) return 'replace';
   if (/\b(ajoute|ajouter|a cote|en plus|les deux|garde|conserve|oui.*ajoute|separe|separement)\b/.test(t)) return 'add';
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 16 — Pending overlap (proposition de groupement)
+// ---------------------------------------------------------------------------
+
+export type PendingOverlapData = {
+  parent_id: string;
+  project_title: string;
+  project_target_date: string | null;
+  pending_subtasks: Array<{
+    name: string;
+    duration_estimate: 'very_short' | 'short' | 'medium' | 'long' | 'very_long';
+    next_due_at: string;
+    assigned_to: string | null;
+    assigned_phantom_id: string | null;
+    notes: string | null;
+  }>;
+  overlaps: Array<{
+    existing_task_id: string;
+    existing_task_name: string;
+    existing_next_due_at: string;
+    subtask_name: string;
+    subtask_next_due_at: string;
+  }>;
+};
+
+/**
+ * Récupère un pending_overlap récent (< 10 min). Renvoie le contexte complet
+ * pour appliquer la décision user (group / keep_both / reschedule).
+ */
+export async function findPendingOverlap(
+  supabase: SupabaseClient,
+  householdId: string,
+): Promise<PendingOverlapData | null> {
+  const { data } = await supabase.from('conversation_turns')
+    .select('extracted_facts, created_at')
+    .eq('household_id', householdId).eq('speaker', 'agent')
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (!data) return null;
+  const ageMs = Date.now() - new Date(data.created_at).getTime();
+  if (ageMs > 10 * 60 * 1000) return null;
+  const facts = data.extracted_facts as Record<string, unknown> | null;
+  const p = facts?.pending_overlap as PendingOverlapData | undefined;
+  if (!p || typeof p.parent_id !== 'string' || !Array.isArray(p.pending_subtasks) || !Array.isArray(p.overlaps)) {
+    return null;
+  }
+  return p;
+}
+
+/**
+ * Sprint 16 — Cleanup cascade : quand un projet parent est archivé, retire
+ * son ID de la liste covers_project_ids de toutes les tâches qui le couvraient.
+ * Appel idempotent. Safe à lancer même si aucune tâche ne le couvre.
+ */
+export async function clearCoversForProject(
+  admin: SupabaseClient,
+  householdId: string,
+  projectId: string,
+): Promise<void> {
+  const { data: covering } = await admin
+    .from('household_tasks')
+    .select('id, covers_project_ids')
+    .eq('household_id', householdId)
+    .contains('covers_project_ids', [projectId]);
+  if (!covering || covering.length === 0) return;
+  for (const t of covering) {
+    const remaining = ((t.covers_project_ids as string[] | null) ?? []).filter((id) => id !== projectId);
+    await admin.from('household_tasks')
+      .update({ covers_project_ids: remaining })
+      .eq('id', t.id);
+  }
 }
 
 export async function findPendingProject(
