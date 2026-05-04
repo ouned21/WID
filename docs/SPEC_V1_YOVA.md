@@ -1,7 +1,7 @@
 # Yova V1 — Spec produit
 
 > **Doc de référence épinglé.** Toute feature V1 doit être traçable à cette spec.
-> Dernière mise à jour : 2026-04-27 (sprint 16 v1 abandonné, v2 backloggé en tool use)
+> Dernière mise à jour : 2026-04-27 (audit externe + critique interne intégrés — section Risques V1 ajoutée)
 
 ---
 
@@ -481,22 +481,31 @@ Elle propose un **projet parent + 3-6 sous-tâches liées** avec `next_due_at` c
 - **Consolidation de tâches chevauchantes** ⭐ : Yova détecte quand une sous-tâche de projet recoupe une tâche récurrente existante et propose proactivement de grouper. Essentiel au Pilier 3 "Proactivité douce". *Identifié lors des tests sprint 12 — le produit est incomplet sans ça.*
 - **Livrable M3** : rituel vocal du soir fonctionnel + un seul tour de parole pour lancer un projet + Yova propose de grouper les tâches qui se chevauchent + ajustement sans quitter le chat
 
+### Mois 3-4 — Jalon validation problème (R6) ⭐
+- **20 entretiens utilisateurs** (pas beta — 30 min, non-engageants) sur couples 30-45 ans, 1-3 enfants, en surcharge
+- Question critique : *"Si je te donnais Yova gratuitement maintenant, tu aurais l'énergie de l'installer cette semaine ?"*
+- **Go/no-go** : si < 50% oui → onboarding refondu radicalement avant la suite mois 4
+- **Livrable** : validation ou pivot du persona / du onboarding
+
 ### Mois 4 — Détection de dérives
 - Job quotidien analyse activité
 - Table `observations` + UI Foyer
 - Notifs douces avec bon ton
 - **Livrable** : Yova commence à étonner
 
-### Mois 5 — Mode crise + anticipations parentales
+### Mois 5 — Mode crise + anticipations + garde-fous beta-ready
 - Toggle Mode crise + UX simplifiée
 - Jobs anticipation (anniv, vacances scolaires, rdv)
-- **Livrable** : produit différenciant, prêt beta
+- **Sprint 17quater (R1)** : garde-fous hallucination — confidence threshold ≥ 0.85 / ≥ 0.95 sensibles, fallback "je crois me souvenir", 20 prompts régression mémoire vide/ambiguë
+- **Sprint 18bis (R2)** : redesign onboarding partenaire asymétrique — 1 driver + 1 visibility partner, parcours partner < 90s, lecture seule par défaut
+- **Sprint 19ter (R4)** : protocole éthique observations — observations alert formulation neutre, redirection professionnel sur keywords critiques (3919, SOS Amitié), validation par psychologue clinicien périnatalité
+- **Livrable** : produit différenciant + garde-fous éthiques + onboarding asymétrique, prêt beta
 
 ### Mois 6 — Beta + polish
-- 30-50 users beta (hors Jonathan+Barbara)
+- 30-50 users beta (hors Jonathan+Barbara) — paywall réel, pas sondage
+- A/B test pricing 14,99 € vs 7,99 € (R3) — décision pricing sur conversion 7j + churn 30j, pas intuition
 - Itération retours
-- Pricing + paywall Premium
-- **Livrable** : launch public fin mois 6
+- **Livrable** : launch public fin mois 6 + pricing validé sur données
 
 ---
 
@@ -539,3 +548,77 @@ Elle propose un **projet parent + 3-6 sous-tâches liées** avec `next_due_at` c
 | **Coaches parentaux humains** | Chers, occasionnels, pas en continu |
 
 Yova = la seule app qui combine *mémoire foyer + détection dérives + proactivité douce + action concrète*.
+
+---
+
+## ⚠️ Risques V1 — garde-fous à intégrer (audit externe 2026-04-27)
+
+Audit IA externe + critique interne. Tous les points listés ici méritent un sprint dédié ou un garde-fou code/process. **Aucun blocant absolu, mais aucun ne peut être ignoré jusqu'à la beta.**
+
+### R1 — Hallucination = confiance binaire (priorité 1, technique)
+Un outil qui rate de temps en temps reste un outil. Un *compagnon* qui rate **une fois** sur un fait sensible (anniversaire enfant, allergie oubliée, prénom écorché) cesse d'être un compagnon. La barre de fiabilité est exponentiellement plus haute qu'une todo-list.
+
+**Garde-fous obligatoires avant beta** :
+- Confidence threshold strict (≥ 0.85 par défaut, ≥ 0.95 pour faits sensibles : allergies, dates anniv, prénoms enfants) avant assertion mémoire en réponse user
+- Fallback formulation : *"je crois me souvenir que…"* / *"corrige-moi si je me trompe…"* plutôt qu'affirmation pleine quand confidence < seuil dur
+- Aucune affirmation de fait jamais entendu — Yova doit savoir dire "je ne sais pas / tu ne m'en as pas parlé"
+- Test de régression dédié : 20 prompts piège vérifiant qu'aucune hallucination n'est produite sur la mémoire vide ou ambiguë
+
+→ **Sprint 17quater** dédié garde-fous hallucination (à insérer avant sprint 20 beta)
+
+### R2 — Asymétrie couple (priorité 1, produit)
+La spec assume Jonathan + Barbara = co-users symétriques. **En pratique 80% des couples auront 1 driver (souvent celui qui porte déjà la charge mentale) et 1 passager**. Le passager voit Yova comme *"encore une appli que ma femme veut me faire utiliser"* → friction d'onboarding partenaire massive. Taux complétion onboarding partenaire estimé < 30% si on garde le modèle symétrique.
+
+**Repenser le pilier "2 users foyer"** :
+- 1 driver primaire (celui qui télécharge, configure, passe en Premium) avec accès complet
+- 1 visibility partner (invité par le driver) avec parcours d'onboarding **minimal** (< 90s, pas de questions de configuration), accès lecture seule par défaut, contribution progressive (peut compléter une tâche, peut ajouter une note de check-in, ne configure rien)
+- Le driver porte la responsabilité de la mémoire, le partner ajoute du signal
+
+→ **Sprint 18bis** redesign onboarding partenaire asymétrique (à planifier mois 5)
+
+### R3 — Pricing 14,99 €/mois non validé (priorité 1, business)
+Bench concurrents directs (Cozi, FamilyWall, OurCal) = 2,50-3 €/mois. Bench compagnons IA / wellbeing (Headspace, Calm, BetterHelp) = 12-90 €/mois. Yova est positionné dans le second bench, mais **0 validation auprès de vrais utilisateurs payants**. Risque : 14,99 € ne convertit pas, plan B 7,99 € à activer rapidement.
+
+**Process beta obligatoire** :
+- Beta avec **paywall réel** (pas sondage déclaratif — les gens disent qu'ils paieraient 15 € puis n'en payent pas 5)
+- A/B test 14,99 € vs 7,99 € sur 50/50 cohorte beta
+- Mesure conversion à 7 j et churn à 30 j sur les 2 prix
+- Décision pricing fin mois 6 sur données, pas intuition
+
+### R4 — Risque éthique détection de dérives (priorité 2, produit + légal)
+Le pilier 2 "Yova voit ce que les parents ne voient plus" est sensible. Si Yova détecte *"Barbara dort < 6h sur 5 nuits"*, elle observe un signe qui peut être de la fatigue logistique, mais aussi un signal de **dépression post-partum / burnout / trouble anxieux**. Un faux pas = perte de confiance + risque viral négatif (*"Yova m'a dit que je dormais mal et m'a proposé une routine — j'étais en plein burn-out post-partum"*).
+
+**Protocole à définir avant beta** :
+- Liste des observations à severity `alert` qui ne déclenchent **jamais** de suggestion d'action mais une formulation neutre (*"j'ai remarqué que tu sembles fatiguée — est-ce que tu veux qu'on en parle ?"*)
+- Liste des keywords user qui déclenchent une **redirection explicite vers un professionnel** (idées suicidaires, violence intrafamiliale, idées de fuite) — Yova dit qu'elle n'est pas qualifiée + propose ressources (3919, SOS Amitié, etc.)
+- Validation du protocole par un psychologue clinicien spécialisé périnatalité avant ouverture beta publique
+
+→ **Sprint 19ter** protocole éthique observations (à planifier mois 5, avant sprint 20)
+
+### R5 — Dépendance Anthropic (priorité 2, technique)
+Sonnet 4.6 + Haiku 4.5 = single point of failure sur l'ADN produit. Si Anthropic change tarifs (×2 sur Sonnet = marge fond) ou retire un modèle (déjà arrivé OpenAI gpt-3.5), Yova doit pivoter en urgence sans rupture user. Aujourd'hui aucune abstraction, prompts taillés Anthropic.
+
+**À planifier post-beta** (V1.1) :
+- Couche d'abstraction model dispatcher (1 endpoint interne `callLLM(role, prompt, tools?)` → choisit le modèle selon coût/perf/role)
+- Plan B identifié : Mistral Large pour extraction structurée (Haiku-equivalent en FR), Claude Sonnet 4 fallback pour conversation
+- Tests de régression sur prompts critiques (extraction faits, opener check-in) qui doivent passer sur ≥ 2 modèles
+
+### R6 — Validation problème (priorité 1, business)
+Persona = vécu Jonathan + Barbara. n=2, biaisé (vous savez comment c'est construit). **Adoption pour parents en mode survie est un paradoxe** : ils n'ont pas la bande passante mentale d'adopter une nouvelle app, alors que c'est exactement ceux qu'on cible.
+
+**Avant mois 4 (avant la moitié de la roadmap qui dépend de la généralisabilité)** :
+- 20 entretiens utilisateurs (pas beta — interviews non-engageantes, 30 min) sur des couples 30-45 ans, 1-3 enfants, en surcharge déclarée
+- Question critique : *"Si je vous donnais Yova gratuitement maintenant, vous auriez l'énergie de l'installer cette semaine ?"* — la friction d'adoption est la vraie question, pas la valeur post-adoption
+- Si < 50% disent oui → repenser onboarding (réduction radicale du temps d'onboarding, mode "découverte" sans config)
+
+→ **Jalon mois 3-4** (à insérer dans roadmap)
+
+### R7 — Concurrence Apple/Google horizon 12-18 mois (priorité 3, business)
+Apple Intelligence + Google Gemini intégrés OS peuvent en théorie répliquer "compagnon foyer". Aujourd'hui ils ne le font pas (couture multi-user iCloud / Google Family pas pensée pour ça). Mais 18 mois = court pour bâtir un moat.
+
+**Stratégie défensive** :
+- Bâtir une **base utilisateurs fidèle** rapidement (mois 6-12) — la marque + la donnée propriétaire mémoire = vrais coûts de switch
+- Investir le **ton et l'empathie** (impossible à copier sans un fondateur empathique avec son user) plus que la fonctionnalité brute
+- Veille trimestrielle sur Apple Intelligence + Google Gemini family features
+
+---
