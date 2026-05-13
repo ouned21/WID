@@ -613,6 +613,21 @@ Persona = vécu Jonathan + Barbara. n=2, biaisé (vous savez comment c'est const
 
 → **Jalon mois 3-4** (à insérer dans roadmap)
 
+### R8 — Migration Supabase Data API grants (priorité 2, technique)
+Email Supabase 2026-04-27 : à partir du **30 octobre 2026**, les tables `public` créées par migrations ne sont plus exposées au Data API (`supabase-js`, REST, GraphQL) sans `GRANT` explicite. Application aux projets existants. Tables actuelles gardent leurs grants (rien à fixer en rétroactif). Toute nouvelle migration sprint 17 → 20 doit suivre le template.
+
+**Garde-fous** :
+- Template migration mis à jour dans PROCESS_DEV.md (voir section "Standards Supabase — migrations")
+- Audit Security Advisor recommandé avant chaque PR de migration
+- Risque maîtrisé tant que template appliqué — pas un blocant beta
+
+### R9 — Vues SECURITY DEFINER bypass RLS (priorité 2, technique — fix prévu PR #15)
+Security Advisor Supabase remonte 2 vues `public.v_ai_top_users` et `public.v_ai_cost_daily` (définies dans `supabase/reset_part3_ai_fonctions_vues.sql`) qui tournent en SECURITY DEFINER par défaut. Conséquence : la vue exécute les permissions du créateur (typiquement `postgres` superuser), bypass la RLS de l'user qui query. Si un user authentifié pouvait appeler ces vues, il verrait les coûts IA de tous les autres users du système.
+
+**Fix appliqué** : migration `20260513_security_invoker_views.sql` (ALTER VIEW … SET security_invoker = true) — incluse dans cette PR.
+
+**Garde-fou pour le futur** : toute nouvelle vue analytics doit être créée `with (security_invoker = true)`. Pattern documenté dans PROCESS_DEV.md.
+
 ### R7 — Concurrence Apple/Google horizon 12-18 mois (priorité 3, business)
 Apple Intelligence + Google Gemini intégrés OS peuvent en théorie répliquer "compagnon foyer". Aujourd'hui ils ne le font pas (couture multi-user iCloud / Google Family pas pensée pour ça). Mais 18 mois = court pour bâtir un moat.
 
