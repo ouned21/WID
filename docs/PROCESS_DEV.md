@@ -129,6 +129,51 @@ Avantage : on peut merger souvent sans casser les users existants.
 
 ---
 
+## 🛢️ Standards Supabase — migrations (post-2026-04-27)
+
+Suite à l'email Supabase du 2026-04-27 : à partir du **30 octobre 2026**, les tables `public` créées par les nouvelles migrations ne seront plus exposées au Data API (`supabase-js`, REST, GraphQL) sans `GRANT` explicite. Application aux projets existants à partir de cette date.
+
+**Toute nouvelle migration créant une table doit suivre ce template** (sinon `supabase-js` retournera erreur `42501`) :
+
+```sql
+-- 1. Table
+create table public.<nom> (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid references public.households(id) on delete cascade,
+  -- ...
+  created_at timestamptz default now()
+);
+
+-- 2. Grants Data API (OBLIGATOIRE après 30 oct 2026)
+grant select on public.<nom> to anon;
+grant select, insert, update, delete on public.<nom> to authenticated;
+grant select, insert, update, delete on public.<nom> to service_role;
+
+-- 3. RLS (toujours)
+alter table public.<nom> enable row level security;
+
+-- 4. Policies (selon le besoin)
+create policy "<nom>_select_household"
+  on public.<nom> for select to authenticated
+  using (household_id in (
+    select household_id from public.profiles where id = auth.uid()
+  ));
+-- (insert/update/delete : adapter selon le cas)
+```
+
+**Pour les vues analytics** : ajouter `with (security_invoker = true)` à toute `CREATE VIEW` (Postgres ≥ 15.7 / 16.3). Sans ça, la vue tourne en SECURITY DEFINER et bypass la RLS de l'user qui query (alerte critique Security Advisor). Voir migration `20260513_security_invoker_views.sql` pour le pattern de fix existant.
+
+```sql
+create view public.<vue_name>
+  with (security_invoker = true)
+as
+select ... from ...;
+```
+
+**Audit existant** : Supabase Dashboard → Security Advisor liste toutes les tables sans grants explicites et les vues SECURITY DEFINER. Vérifier après chaque migration.
+
+---
+
 ## 📝 Documentation vivante
 
 3 docs principaux à maintenir :
